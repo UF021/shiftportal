@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 
-from ..database import get_db
-from ..auth_utils import require_superadmin, hash_password
-from ..config import get_settings
-from .. import models
+from database import get_db
+from auth_utils import require_superadmin, hash_password
+from config import get_settings
+import models
 
 router = APIRouter()
 settings = get_settings()

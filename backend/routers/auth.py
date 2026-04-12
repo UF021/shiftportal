@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
-from ..database import get_db
-from ..schemas import LoginRequest, TokenOut, RegisterRequest, UserProfile
-from ..auth_utils import verify_password, hash_password, create_token, get_current_user
-from .. import models
+from database import get_db
+from schemas import LoginRequest, TokenOut, RegisterRequest, UserProfile
+from auth_utils import verify_password, hash_password, create_token, get_current_user
+import models
 
 router = APIRouter()
 

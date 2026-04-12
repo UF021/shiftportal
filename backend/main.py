@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from .database import engine, Base
-from .routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin
+from database import engine, Base
+from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin
 
 
 @asynccontextmanager

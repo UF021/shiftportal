@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 
-from ..database import get_db
-from ..schemas import OrgCreate, OrgBrandingUpdate, OrgOut, SiteCreate, SiteOut
-from ..auth_utils import (
+from database import get_db
+from schemas import OrgCreate, OrgBrandingUpdate, OrgOut, SiteCreate, SiteOut
+from auth_utils import (
     get_current_user, require_hr, require_superadmin,
     hash_password, org_guard
 )
-from .. import models
+import models
 
 router = APIRouter()
 
