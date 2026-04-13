@@ -10,10 +10,11 @@ export default function LoginPage() {
   const nav         = useNavigate()
   const { slug }    = useParams()
 
-  const [email, setEmail]   = useState('')
-  const [pass, setPass]     = useState('')
-  const [err, setErr]       = useState('')
-  const [busy, setBusy]     = useState(false)
+  const [email, setEmail]     = useState('')
+  const [pass, setPass]       = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [err, setErr]         = useState('')
+  const [busy, setBusy]       = useState(false)
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -67,9 +68,14 @@ export default function LoginPage() {
               borderRadius: 8, overflow: 'hidden', background: '#f8fbf8',
             }}>
               <div style={{ padding: '11px 14px', color: '#8aaa8a', borderRight: '1px solid #d0ddd0' }}>🔑</div>
-              <input type="password" value={pass} onChange={e => setPass(e.target.value)}
+              <input type={showPass ? 'text' : 'password'} value={pass} onChange={e => setPass(e.target.value)}
                 placeholder="Password" required
                 style={{ flex: 1, padding: '11px 14px', border: 'none', background: 'transparent', fontFamily: 'DM Sans,sans-serif', fontSize: 14, color: '#1a2a1a', outline: 'none' }} />
+              <button type="button" onClick={() => setShowPass(v => !v)}
+                style={{ padding: '0 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#8aaa8a', fontSize: 16, lineHeight: 1 }}
+                aria-label={showPass ? 'Hide password' : 'Show password'}>
+                {showPass ? '🙈' : '👁️'}
+              </button>
             </div>
           </div>
 
