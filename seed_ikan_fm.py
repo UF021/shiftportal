@@ -13,11 +13,16 @@ Or via Railway CLI:
 """
 
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
 
-from backend.database import SessionLocal, engine, Base
-from backend import models
-from backend.auth_utils import hash_password
+# When run locally via `railway run`, swap in the publicly-accessible URL
+# so we can reach the Railway Postgres from outside its private network.
+if os.getenv('DATABASE_PUBLIC_URL'):
+    os.environ['DATABASE_URL'] = os.environ['DATABASE_PUBLIC_URL']
+
+from database import SessionLocal, engine, Base
+import models
+from auth_utils import hash_password
 from datetime import datetime, timezone, timedelta
 
 Base.metadata.create_all(bind=engine)

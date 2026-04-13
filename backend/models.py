@@ -203,7 +203,7 @@ class User(Base):
     # Relationships
     organisation    = relationship("Organisation", back_populates="users")
     timelogs        = relationship("Timelog",  back_populates="user", cascade="all, delete")
-    holidays        = relationship("Holiday",  back_populates="user", cascade="all, delete")
+    holidays        = relationship("Holiday",  back_populates="user", cascade="all, delete", foreign_keys="[Holiday.user_id]")
     assigned_site   = relationship("Site", foreign_keys=[assigned_site_id])
 
     @property
