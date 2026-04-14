@@ -35,13 +35,16 @@ export function StaffHolidays() {
   }, [])
 
   function calculate() {
-    const days    = parseFloat(daysInput) || 0
-    const taken   = parseFloat(takenInput) || 0
-    const months  = stats?.months_employed ?? 0
-    const entitlement = round1(days * 4)
-    const accrued     = round1(Math.min((entitlement / 12) * 2.3 * months, entitlement))
-    const remaining   = round1(accrued - taken)
-    setCalcResult({ days, taken, months, entitlement, accrued, remaining })
+    const daysPerWeek    = parseFloat(daysInput) || 0
+    const holidaysTaken  = parseFloat(takenInput) || 0
+    const monthsEmployed = stats?.months_employed || 0
+    const entitlement    = round1(daysPerWeek * 4)
+    const noStartDate    = !monthsEmployed
+    const accrued        = noStartDate
+      ? entitlement
+      : round1(Math.min((entitlement / 12) * 2.3 * monthsEmployed, entitlement))
+    const remaining      = round1(Math.max(0, accrued - holidaysTaken))
+    setCalcResult({ days: daysPerWeek, taken: holidaysTaken, months: monthsEmployed, entitlement, accrued, remaining, noStartDate })
   }
 
   function round1(n) { return Math.round(n * 10) / 10 }
@@ -122,16 +125,21 @@ export function StaffHolidays() {
         {calcResult && (
           <div>
             <div style={{ textAlign:'center', padding:'16px 0 8px' }}>
-              <div style={{ fontSize:44, fontWeight:700, fontFamily:'DM Mono,monospace', color: calcResult.remaining >= 0 ? c : '#c0392b', lineHeight:1 }}>
+              <div style={{ fontSize:44, fontWeight:700, fontStyle:'normal', fontFamily:'DM Mono,monospace', color: c, lineHeight:1 }}>
                 {calcResult.remaining}
               </div>
               <div style={{ fontSize:15, color:'#4a6a4a', marginTop:6 }}>
                 days of holiday remaining
               </div>
             </div>
+            {calcResult.noStartDate && (
+              <div style={{ background:'#fef9e8', border:'1px solid #f0c060', borderRadius:8, padding:'8px 12px', fontSize:12, color:'#7a5000', marginTop:8, textAlign:'center' }}>
+                ⚠ Start date not yet confirmed by HR — showing full annual entitlement
+              </div>
+            )}
             <div style={{ background:'#f0f8f0', border:'1px solid #c8e8c8', borderRadius:10, padding:'12px 16px', fontSize:12, color:'#4a6a4a', lineHeight:1.8, marginTop:10 }}>
-              Based on <strong>{calcResult.days} days/week × 4 weeks = {calcResult.entitlement} days</strong> annual entitlement,
-              accrued <strong>{calcResult.accrued} days</strong> in <strong>{calcResult.months} months</strong> employment
+              Based on <strong>{calcResult.days} days/week × 4 weeks = {calcResult.entitlement} days</strong> annual entitlement
+              {!calcResult.noStartDate && <>, accrued <strong>{calcResult.accrued} days</strong> in <strong>{calcResult.months} months</strong> employment</>}
             </div>
           </div>
         )}
