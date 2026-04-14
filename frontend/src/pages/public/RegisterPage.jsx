@@ -25,24 +25,60 @@ const EMPTY = {
   password:'', confirm_password:'',
 }
 
+function Field({ id, label, type='text', placeholder='', style={}, form, set, ...rest }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</label>
+      <input type={type} value={form[id]} onChange={e => set(id, e.target.value)} placeholder={placeholder}
+        style={{ width:'100%', padding:'11px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', ...style }}
+        {...rest} />
+    </div>
+  )
+}
+
+function Row2({ children }) {
+  return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>{children}</div>
+}
+
 export default function RegisterPage() {
   const brand    = useBrand()
   const { slug } = useParams()
   const nav      = useNavigate()
-  const [step, setStep]   = useState(0)
-  const [form, setForm]   = useState(EMPTY)
-  const [err, setErr]     = useState('')
-  const [busy, setBusy]   = useState(false)
+  const [step, setStep]     = useState(0)
+  const [form, setForm]     = useState(EMPTY)
+  const [siaRaw, setSiaRaw] = useState('')
+  const [err, setErr]       = useState('')
+  const [busy, setBusy]     = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const c = brand.colour || '#6abf3f'
 
+  function handleSiaInput(e) {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 16)
+    setSiaRaw(digits)
+    const formatted = digits.match(/.{1,4}/g)?.join('-') || digits
+    set('sia_licence', formatted)
+  }
+
   function validate() {
     setErr('')
-    if (step === 0 && (!form.first_name || !form.last_name || !form.email || !form.phone || !form.address_line1 || !form.city || !form.postcode))
-      return setErr('Please fill in all required fields.'), false
-    if (step === 1 && (!form.ni_number || !form.sia_licence || !form.sia_expiry))
-      return setErr('Please fill in NI number, SIA licence number and expiry date.'), false
+    if (step === 0) {
+      if (!form.first_name || !form.last_name || !form.email || !form.phone || !form.address_line1 || !form.city || !form.postcode)
+        return setErr('Please fill in all required fields.'), false
+    }
+    if (step === 1) {
+      if (!form.ni_number || !form.sia_licence || !form.sia_expiry)
+        return setErr('Please fill in NI number, SIA licence number and expiry date.'), false
+      if (!/^[A-Z]{2}\d{6}[A-Z]$/i.test(form.ni_number.replace(/\s/g, '')))
+        return setErr('NI Number must be in the format AB123456C (2 letters, 6 digits, 1 letter).'), false
+      if (siaRaw.length !== 16)
+        return setErr('SIA Licence Number must be exactly 16 digits.'), false
+      const expiry = new Date(form.sia_expiry)
+      const minExpiry = new Date()
+      minExpiry.setMonth(minExpiry.getMonth() + 3)
+      if (expiry < minExpiry)
+        return setErr('SIA Licence must be valid for at least 3 months from today.'), false
+    }
     if (step === 2 && (!form.nok_name || !form.nok_phone))
       return setErr('Please provide next of kin name and phone number.'), false
     if (step === 3 && !DECLS.every(([k]) => form[k]))
@@ -69,17 +105,6 @@ export default function RegisterPage() {
       setErr(ex.response?.data?.detail || 'Registration failed. Please try again.')
     } finally { setBusy(false) }
   }
-
-  const I = ({ id, label, type='text', placeholder='', style={}, ...rest }) => (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</label>
-      <input type={type} value={form[id]} onChange={e => set(id, e.target.value)} placeholder={placeholder}
-        style={{ width:'100%', padding:'11px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', ...style }}
-        {...rest} />
-    </div>
-  )
-
-  const Row2 = ({ children }) => <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>{children}</div>
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'40px 16px', background:'#f5f7f5' }}>
@@ -108,22 +133,22 @@ export default function RegisterPage() {
                 {['Mr','Mrs','Ms','Miss','Dr'].map(t=><option key={t}>{t}</option>)}
               </select>
             </div>
-            <I id="first_name" label="First Name *" placeholder="First name(s)" />
+            <Field id="first_name" label="First Name *" placeholder="First name(s)" form={form} set={set} />
           </Row2>
-          <I id="last_name" label="Last Name *" placeholder="Last name" />
+          <Field id="last_name" label="Last Name *" placeholder="Last name" form={form} set={set} />
           <Row2>
-            <I id="date_of_birth" label="Date of Birth" type="date" />
-            <I id="nationality"   label="Nationality"  placeholder="e.g. British" />
+            <Field id="date_of_birth" label="Date of Birth" type="date" form={form} set={set} />
+            <Field id="nationality"   label="Nationality"  placeholder="e.g. British" form={form} set={set} />
           </Row2>
           <Row2>
-            <I id="email" label="Email Address *" type="email" />
-            <I id="phone" label="Phone Number *"  type="tel" placeholder="+44..." />
+            <Field id="email" label="Email Address *" type="email" form={form} set={set} />
+            <Field id="phone" label="Phone Number *"  type="tel" placeholder="+44..." form={form} set={set} />
           </Row2>
-          <I id="address_line1" label="Address Line 1 *" placeholder="House number and street" />
-          <I id="address_line2" label="Address Line 2"   placeholder="Area / district (optional)" />
+          <Field id="address_line1" label="Address Line 1 *" placeholder="House number and street" form={form} set={set} />
+          <Field id="address_line2" label="Address Line 2"   placeholder="Area / district (optional)" form={form} set={set} />
           <Row2>
-            <I id="city"     label="City *" />
-            <I id="postcode" label="Postcode *" placeholder="e.g. B9 4NW" style={{ textTransform:'uppercase' }} />
+            <Field id="city"     label="City *" form={form} set={set} />
+            <Field id="postcode" label="Postcode *" placeholder="e.g. B9 4NW" style={{ textTransform:'uppercase' }} form={form} set={set} />
           </Row2>
         </>}
 
@@ -132,7 +157,7 @@ export default function RegisterPage() {
           <h3 style={{ fontSize:18, fontWeight:700, marginBottom:4, color:'#1a2a1a' }}>Employment Documents</h3>
           <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20 }}>Your SIA licence details, NI number and right to work status.</p>
           <Row2>
-            <I id="ni_number" label="NI Number *" placeholder="e.g. NJ585831D" style={{ textTransform:'uppercase' }} onInput={e=>set('ni_number',e.target.value.toUpperCase())} />
+            <Field id="ni_number" label="NI Number *" placeholder="e.g. AB123456C" style={{ textTransform:'uppercase' }} form={form} set={set} />
             <div style={{ marginBottom:14 }}>
               <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>Right to Work? *</label>
               <select value={form.right_to_work} onChange={e=>set('right_to_work',e.target.value==='true')} style={{ width:'100%', padding:'11px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none' }}>
@@ -140,10 +165,20 @@ export default function RegisterPage() {
               </select>
             </div>
           </Row2>
-          <I id="sia_licence" label="SIA Licence Number *" placeholder="16-digit SIA number" />
-          <I id="sia_expiry"  label="SIA Licence Expiry Date *" type="date" />
+          <div style={{ marginBottom:14 }}>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>SIA Licence Number *</label>
+            <input
+              type="text"
+              value={form.sia_licence}
+              onChange={handleSiaInput}
+              placeholder="xxxx-xxxx-xxxx-xxxx"
+              maxLength={19}
+              style={{ width:'100%', padding:'11px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', letterSpacing:'0.05em' }}
+            />
+          </div>
+          <Field id="sia_expiry" label="SIA Licence Expiry Date *" type="date" form={form} set={set} />
           <div style={{ background:'#e8f5fd', border:'1px solid #b8dcf0', borderRadius:8, padding:'10px 12px', fontSize:12, color:'#1a4a6a', marginTop:4 }}>
-            ℹ️ Photo uploads (SIA badge, photo ID) are collected by HR at your first shift.
+            ℹ️ Please have your SIA badge ready for upload. Your SIA badge photo will be required at this stage.
           </div>
         </>}
 
@@ -151,9 +186,9 @@ export default function RegisterPage() {
         {step === 2 && <>
           <h3 style={{ fontSize:18, fontWeight:700, marginBottom:4, color:'#1a2a1a' }}>Emergency Contact</h3>
           <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20 }}>Your next of kin or emergency contact person.</p>
-          <I id="nok_name"     label="Full Name *" />
-          <I id="nok_relation" label="Relationship to You" placeholder="e.g. Spouse, Parent, Sibling" />
-          <I id="nok_phone"    label="Phone Number *" type="tel" placeholder="+44..." />
+          <Field id="nok_name"     label="Full Name *" form={form} set={set} />
+          <Field id="nok_relation" label="Relationship to You" placeholder="e.g. Spouse, Parent, Sibling" form={form} set={set} />
+          <Field id="nok_phone"    label="Phone Number *" type="tel" placeholder="+44..." form={form} set={set} />
         </>}
 
         {/* Step 4 — Declarations */}
@@ -186,8 +221,8 @@ export default function RegisterPage() {
         {step === 4 && <>
           <h3 style={{ fontSize:18, fontWeight:700, marginBottom:4, color:'#1a2a1a' }}>Create Your Password</h3>
           <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20 }}>You will sign in with your email address and this password.</p>
-          <I id="password"         label="Password * (minimum 8 characters)" type="password" />
-          <I id="confirm_password" label="Confirm Password *"                  type="password" />
+          <Field id="password"         label="Password * (minimum 8 characters)" type="password" form={form} set={set} />
+          <Field id="confirm_password" label="Confirm Password *"                  type="password" form={form} set={set} />
           <div style={{ background:'#e8f5fd', border:'1px solid #b8dcf0', borderRadius:8, padding:'10px 12px', fontSize:12, color:'#1a4a6a', marginTop:4 }}>
             ℹ️ After registering, your account will be reviewed by HR. You will be notified once activated.
           </div>

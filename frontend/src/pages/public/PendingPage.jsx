@@ -12,7 +12,7 @@ export default function PendingPage() {
           {state?.org ? ` at ${state.org}` : ''}.
           <br /><br />
           {state?.email && <>You will be notified at <strong>{state.email}</strong> once your account is activated.<br /><br /></>}
-          If you have not heard back within 2 working days, please contact your HR administrator.
+          If your registration is not activated within 24hrs, please contact hr@ikanfm.co.uk
         </p>
         <Link to="/login">
           <button style={{ marginTop:22, padding:'11px 24px', borderRadius:20, border:'1.5px solid #c0d8c0', background:'#fff', color:'#4e9a28', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:600, cursor:'pointer' }}>
