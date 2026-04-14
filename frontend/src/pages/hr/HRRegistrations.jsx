@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
 import { getPending, activateUser, rejectUser, getMySites } from '../../api/client'
 
-const PAY = ['11.44','12.00','12.21','12.50','13.00','13.50','14.00','14.50','15.00','15.50','16.00','17.00','18.00']
+const PRESET_PAY = ['12.71','12.80','12.90','13.00']
 
 export default function HRRegistrations() {
-  const [regs,     setRegs]  = useState([])
-  const [sites,    setSites] = useState([])
-  const [loading,  setLoad]  = useState(true)
-  const [selected, setSel]   = useState(null)
-  const [act,      setAct]   = useState({ staff_id:'TBC', employment_start_date:'', pay_rate:'12.00', assigned_site_id:'' })
-  const [busy,     setBusy]  = useState(false)
-  const [msg,      setMsg]   = useState('')
+  const [regs,        setRegs]       = useState([])
+  const [sites,       setSites]      = useState([])
+  const [loading,     setLoad]       = useState(true)
+  const [selected,    setSel]        = useState(null)
+  const [act,         setAct]        = useState({ staff_id:'TBC', employment_start_date:'', pay_rate:'', assigned_site_id:'' })
+  const [customPay,   setCustomPay]  = useState('')
+  const [busy,        setBusy]       = useState(false)
+  const [msg,         setMsg]        = useState('')
 
   const load = () => {
     setLoad(true)
@@ -24,9 +25,10 @@ export default function HRRegistrations() {
   async function activate() {
     setBusy(true); setMsg('')
     try {
+      const payValue = act.pay_rate === 'other' ? (customPay ? parseFloat(customPay) : null) : (act.pay_rate ? parseFloat(act.pay_rate) : null)
       await activateUser(selected.id, {
         ...act,
-        pay_rate: act.pay_rate ? parseFloat(act.pay_rate) : null,
+        pay_rate: payValue,
         assigned_site_id: act.assigned_site_id ? parseInt(act.assigned_site_id) : null,
         employment_start_date: act.employment_start_date || null,
       })
@@ -123,8 +125,16 @@ export default function HRRegistrations() {
             <div className="form-row">
               <div className="field"><label>Pay Rate (£/hr)</label>
                 <select value={act.pay_rate} onChange={e=>setAct(a=>({...a,pay_rate:e.target.value}))}>
-                  {PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
-                </select></div>
+                  <option value="">— Select pay rate —</option>
+                  {PRESET_PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
+                  <option value="other">Other</option>
+                </select>
+                {act.pay_rate === 'other' && (
+                  <input type="number" step="0.01" min="0" value={customPay} onChange={e=>setCustomPay(e.target.value)}
+                    placeholder="Enter amount e.g. 14.50"
+                    style={{ marginTop:6, width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none' }} />
+                )}
+              </div>
               <div className="field"><label>Assign to Site</label>
                 <select value={act.assigned_site_id} onChange={e=>setAct(a=>({...a,assigned_site_id:e.target.value}))}>
                   <option value="">— Unassigned —</option>

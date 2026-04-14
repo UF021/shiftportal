@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAllStaff, updateStaff, getMySites } from '../../api/client'
 
-const PAY = ['11.44','12.00','12.21','12.50','13.00','13.50','14.00','14.50','15.00','15.50','16.00','17.00','18.00']
+const PRESET_PAY = ['12.71','12.80','12.90','13.00']
 
 const siaStatus = exp => {
   if (!exp) return 'unknown'
@@ -22,9 +22,10 @@ export default function HRStaff() {
   const [sites,  setSites]  = useState([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
-  const [editing,setEdit]   = useState(null)
-  const [form,   setForm]   = useState({})
-  const [saving, setSave]   = useState(false)
+  const [editing,   setEdit]      = useState(null)
+  const [form,      setForm]      = useState({})
+  const [customPay, setCustomPay] = useState('')
+  const [saving,    setSave]      = useState(false)
 
   const load = () => getAllStaff().then(r=>setStaff(r.data||[])).catch(()=>{})
   useEffect(() => { load(); getMySites().then(r=>setSites(r.data||[])).catch(()=>{}) }, [])
@@ -38,10 +39,13 @@ export default function HRStaff() {
 
   function openEdit(s) {
     setEdit(s)
+    const payStr = s.pay_rate ? String(parseFloat(s.pay_rate).toFixed(2)) : ''
+    const isPreset = PRESET_PAY.includes(payStr)
+    setCustomPay(isPreset || !payStr ? '' : payStr)
     setForm({
       staff_id:              s.staff_id||'TBC',
       employment_start_date: s.employment_start_date||'',
-      pay_rate:              String(s.pay_rate||'12.00'),
+      pay_rate:              !payStr ? '' : isPreset ? payStr : 'other',
       assigned_site_id:      String(s.assigned_site_id||''),
       ni_number:             s.ni_number||'',
       sia_licence:           s.sia_licence||'',
@@ -52,9 +56,10 @@ export default function HRStaff() {
   async function save() {
     setSave(true)
     try {
+      const payValue = form.pay_rate === 'other' ? (customPay ? parseFloat(customPay) : null) : (form.pay_rate ? parseFloat(form.pay_rate) : null)
       await updateStaff(editing.id, {
         ...form,
-        pay_rate:        form.pay_rate        ? parseFloat(form.pay_rate)        : null,
+        pay_rate: payValue,
         assigned_site_id:form.assigned_site_id ? parseInt(form.assigned_site_id)  : null,
         employment_start_date: form.employment_start_date||null,
         sia_expiry:      form.sia_expiry||null,
@@ -120,8 +125,16 @@ export default function HRStaff() {
               <input type="date" value={form.employment_start_date} onChange={e=>setForm(f=>({...f,employment_start_date:e.target.value}))}/></div>
             <div className="field"><label>Pay Rate (£/hr)</label>
               <select value={form.pay_rate} onChange={e=>setForm(f=>({...f,pay_rate:e.target.value}))}>
-                {PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
-              </select></div>
+                <option value="">— Select pay rate —</option>
+                {PRESET_PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
+                <option value="other">Other</option>
+              </select>
+              {form.pay_rate === 'other' && (
+                <input type="number" step="0.01" min="0" value={customPay} onChange={e=>setCustomPay(e.target.value)}
+                  placeholder="Enter amount e.g. 14.50"
+                  style={{ marginTop:6, width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none' }} />
+              )}
+            </div>
             <div className="field"><label>Assigned Site</label>
               <select value={form.assigned_site_id} onChange={e=>setForm(f=>({...f,assigned_site_id:e.target.value}))}>
                 <option value="">— Unassigned —</option>
