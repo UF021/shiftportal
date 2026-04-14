@@ -4,6 +4,22 @@ import { useBrand } from '../../api/BrandContext'
 import OrgLogo from '../../components/OrgLogo'
 import AnalogTimePicker from '../../components/AnalogTimePicker'
 
+function Wrap({ siteInfo, children }) {
+  return (
+    <div style={{ minHeight:'100vh', background:'#f5f7f5', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'20px 14px', paddingBottom:'calc(20px + env(safe-area-inset-bottom))' }}>
+      <div style={{ width:'100%', maxWidth:420 }}>
+        <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
+          <OrgLogo dark={false} />
+        </div>
+        {siteInfo && (
+          <p style={{ textAlign:'center', fontSize:13, color:'#6a8a6a', marginBottom:20 }}>{siteInfo.site_name}</p>
+        )}
+        {children}
+      </div>
+    </div>
+  )
+}
+
 const BASE = import.meta.env.VITE_API_URL || '/api'
 
 function haversine(lat1, lng1, lat2, lng2) {
@@ -144,30 +160,14 @@ export default function ClockPage() {
     finally { setBusy(false) }
   }
 
-  // ── Layout wrapper ────────────────────────────────────────────────────────
-
-  const Wrap = ({ children }) => (
-    <div style={{ minHeight:'100vh', background:'#f5f7f5', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'20px 14px', paddingBottom:'calc(20px + env(safe-area-inset-bottom))' }}>
-      <div style={{ width:'100%', maxWidth:420 }}>
-        <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
-          <OrgLogo dark={false} />
-        </div>
-        {siteInfo && (
-          <p style={{ textAlign:'center', fontSize:13, color:'#6a8a6a', marginBottom:20 }}>{siteInfo.site_name}</p>
-        )}
-        {children}
-      </div>
-    </div>
-  )
-
   // ── Phases ────────────────────────────────────────────────────────────────
 
   if (phase === 'loading') return (
-    <Wrap><div style={{ textAlign:'center', color:'#6a8a6a', padding:40 }}>Loading…</div></Wrap>
+    <Wrap siteInfo={siteInfo}><div style={{ textAlign:'center', color:'#6a8a6a', padding:40 }}>Loading…</div></Wrap>
   )
 
   if (phase === 'error') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:12, padding:24, textAlign:'center', color:'#a02020', fontSize:14 }}>
         ⚠ {err}
       </div>
@@ -175,7 +175,7 @@ export default function ClockPage() {
   )
 
   if (phase === 'login') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fff', borderRadius:16, padding:'32px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)' }}>
         <h2 style={{ fontSize:20, fontWeight:700, color:'#1a2a1a', marginBottom:4 }}>Sign In to Clock</h2>
         <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:22 }}>Sign in with your staff account to continue.</p>
@@ -201,7 +201,7 @@ export default function ClockPage() {
   )
 
   if (phase === 'gps') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fff', borderRadius:16, padding:'36px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
         <div style={{ fontSize:52, marginBottom:16 }}>📍</div>
         <h3 style={{ fontSize:18, fontWeight:700, color:'#1a2a1a', marginBottom:8 }}>Location Required</h3>
@@ -231,7 +231,7 @@ export default function ClockPage() {
   )
 
   if (phase === 'too_far') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fff', borderRadius:16, padding:'32px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
         <div style={{ fontSize:52, marginBottom:16 }}>📍</div>
         <h3 style={{ fontSize:18, fontWeight:700, color:'#a02020', marginBottom:10 }}>Not On Site</h3>
@@ -247,7 +247,7 @@ export default function ClockPage() {
   )
 
   if (phase === 'clock_in') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fff', borderRadius:16, padding:'24px 20px', boxShadow:'0 4px 24px rgba(0,0,0,.08)' }}>
         <h3 style={{ fontSize:18, fontWeight:700, color:'#1a2a1a', marginBottom:4, textAlign:'center' }}>Clock In</h3>
         <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20, textAlign:'center' }}>
@@ -266,7 +266,7 @@ export default function ClockPage() {
   )
 
   if (phase === 'clock_out') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fff', borderRadius:16, padding:'28px 24px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
         <div style={{ fontSize:12, color:'#6a8a6a', marginBottom:4 }}>Clocked in at</div>
         <div style={{ fontSize:26, fontWeight:700, fontFamily:'DM Mono,monospace', color:'#1a2a1a', marginBottom:4 }}>
@@ -287,7 +287,7 @@ export default function ClockPage() {
   )
 
   if (phase === 'clocked_in') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fff', borderRadius:16, padding:'36px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
         <div style={{ fontSize:56, marginBottom:16 }}>{result?.is_late ? '🟡' : '✅'}</div>
         <h3 style={{ fontSize:20, fontWeight:700, color:'#1a2a1a', marginBottom:10 }}>
@@ -306,7 +306,7 @@ export default function ClockPage() {
   )
 
   if (phase === 'clocked_out') return (
-    <Wrap>
+    <Wrap siteInfo={siteInfo}>
       <div style={{ background:'#fff', borderRadius:16, padding:'36px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
         <div style={{ fontSize:56, marginBottom:16 }}>🏁</div>
         <h3 style={{ fontSize:20, fontWeight:700, color:'#1a2a1a', marginBottom:10 }}>Shift Complete</h3>

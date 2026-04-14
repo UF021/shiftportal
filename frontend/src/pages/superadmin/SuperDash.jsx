@@ -5,6 +5,16 @@ import { superDashboard } from '../../api/client'
 const PLAN_COLOUR = { trial:'#f0a030', starter:'#4a9fd4', growth:'#6abf3f', enterprise:'#a855f7', none:'#6a8a6a' }
 const STATUS_COLOUR = { trial:'#f0a030', active:'#6abf3f', past_due:'#e05555', cancelled:'#6a8a6a' }
 
+function Stat({ label, value, col = '#6abf3f', sub }) {
+  return (
+    <div style={{ background:'#0f1923', border:'1px solid rgba(106,191,63,.18)', borderRadius:12, padding:18 }}>
+      <div style={{ fontSize:11, color:'#4a6a4a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</div>
+      <div style={{ fontSize:30, fontWeight:700, fontFamily:'DM Mono,monospace', color:col }}>{value ?? '…'}</div>
+      {sub && <div style={{ fontSize:11, color:'#4a6a4a', marginTop:3 }}>{sub}</div>}
+    </div>
+  )
+}
+
 export default function SuperDash() {
   const nav = useNavigate()
   const [data, setData] = useState(null)
@@ -12,14 +22,6 @@ export default function SuperDash() {
   useEffect(() => {
     superDashboard().then(r => setData(r.data)).catch(() => {})
   }, [])
-
-  const Stat = ({ label, value, col = '#6abf3f', sub }) => (
-    <div style={{ background:'#0f1923', border:'1px solid rgba(106,191,63,.18)', borderRadius:12, padding:18 }}>
-      <div style={{ fontSize:11, color:'#4a6a4a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</div>
-      <div style={{ fontSize:30, fontWeight:700, fontFamily:'DM Mono,monospace', color:col }}>{value ?? '…'}</div>
-      {sub && <div style={{ fontSize:11, color:'#4a6a4a', marginTop:3 }}>{sub}</div>}
-    </div>
-  )
 
   return (
     <>

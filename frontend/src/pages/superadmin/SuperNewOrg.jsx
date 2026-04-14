@@ -2,6 +2,19 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createOrg } from '../../api/client'
 
+function OrgField({ label, type='text', placeholder='', hint, required=false, value, onChange }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#4a6a4a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>
+        {label}{required && <span style={{ color:'#6abf3f' }}> *</span>}
+      </label>
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+        style={{ width:'100%', padding:'11px 14px', borderRadius:8, border:'1px solid rgba(106,191,63,.2)', background:'#0f1923', color:'#e8f0e0', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none' }}/>
+      {hint && <div style={{ fontSize:11, color:'#4a6a4a', marginTop:5 }}>{hint}</div>}
+    </div>
+  )
+}
+
 export default function SuperNewOrg() {
   const nav = useNavigate()
   const [form, setForm] = useState({
@@ -78,18 +91,6 @@ export default function SuperNewOrg() {
     </div>
   )
 
-  const F = ({ id, label, type='text', placeholder='', hint, required=false }) => (
-    <div style={{ marginBottom:16 }}>
-      <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#4a6a4a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>
-        {label}{required && <span style={{ color:'#6abf3f' }}> *</span>}
-      </label>
-      <input type={type} value={form[id]} onChange={e => set(id, id==='name'?e.target.value:id==='slug'?e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''):e.target.value)}
-        placeholder={placeholder}
-        style={{ width:'100%', padding:'11px 14px', borderRadius:8, border:'1px solid rgba(106,191,63,.2)', background:'#0f1923', color:'#e8f0e0', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none' }}/>
-      {hint && <div style={{ fontSize:11, color:'#4a6a4a', marginTop:5 }}>{hint}</div>}
-    </div>
-  )
-
   return (
     <>
       <div style={{ marginBottom:26 }}>
@@ -122,9 +123,9 @@ export default function SuperNewOrg() {
               </div>
               <div style={{ fontSize:11, color:'#4a6a4a', marginTop:5 }}>Staff will register at: /register/{form.slug||'…'}</div>
             </div>
-            <F id="contact_email" label="Contact Email"  type="email" placeholder="hr@company.co.uk" required />
-            <F id="contact_phone" label="Contact Phone"  placeholder="+44..." />
-            <F id="address"       label="Business Address" />
+            <OrgField label="Contact Email"    type="email" placeholder="hr@company.co.uk" required value={form.contact_email} onChange={e => set('contact_email', e.target.value)} />
+            <OrgField label="Contact Phone"    placeholder="+44..." value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} />
+            <OrgField label="Business Address" value={form.address}       onChange={e => set('address', e.target.value)} />
           </div>
         </div>
 
@@ -136,10 +137,10 @@ export default function SuperNewOrg() {
               This person will be the HR administrator for this organisation. They can add sites, activate staff, and view all reports.
             </p>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <F id="hr_first_name" label="First Name" required />
-              <F id="hr_last_name"  label="Last Name"  required />
+              <OrgField label="First Name" required value={form.hr_first_name} onChange={e => set('hr_first_name', e.target.value)} />
+              <OrgField label="Last Name"  required value={form.hr_last_name}  onChange={e => set('hr_last_name', e.target.value)} />
             </div>
-            <F id="hr_password" label="Temporary Password" type="password" hint="At least 8 characters. HR should change this on first login." required />
+            <OrgField label="Temporary Password" type="password" hint="At least 8 characters. HR should change this on first login." required value={form.hr_password} onChange={e => set('hr_password', e.target.value)} />
           </div>
 
           <div style={{ background:'rgba(106,191,63,.06)', border:'1px solid rgba(106,191,63,.2)', borderRadius:10, padding:16, marginBottom:20 }}>

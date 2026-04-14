@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react'
 import { getMyOrg, updateBranding, getMySites, createSite, deleteSite } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
+function BrandField({ label, type='text', hint, value, onChange }) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <input type={type} value={value||''} onChange={onChange} />
+      {hint && <div style={{fontSize:11,color:'var(--text-muted)',marginTop:4}}>{hint}</div>}
+    </div>
+  )
+}
+
 export default function HRSettings() {
   const { colour } = useBrand()
   const c = colour || '#6abf3f'
@@ -37,14 +47,6 @@ export default function HRSettings() {
     try { await deleteSite(id); load() } catch {}
   }
 
-  const F = ({id,label,type='text',hint}) => (
-    <div className="field">
-      <label>{label}</label>
-      <input type={type} value={brand[id]||''} onChange={e=>setBrand(b=>({...b,[id]:e.target.value}))} />
-      {hint && <div style={{fontSize:11,color:'var(--text-muted)',marginTop:4}}>{hint}</div>}
-    </div>
-  )
-
   const regLink = org ? `${window.location.origin}/register/${org.slug}` : '…'
 
   return (
@@ -71,7 +73,7 @@ export default function HRSettings() {
         <div className="card">
           <div className="card-title">🎨 Portal Branding</div>
           <div className="form-row">
-            <F id="brand_name"  label="Organisation Display Name" hint="Shown in the portal header and login page"/>
+            <BrandField label="Organisation Display Name" hint="Shown in the portal header and login page" value={brand.brand_name} onChange={e=>setBrand(b=>({...b,brand_name:e.target.value}))}/>
             <div className="field">
               <label>Brand Colour</label>
               <div style={{display:'flex',gap:10,alignItems:'center'}}>
@@ -81,23 +83,23 @@ export default function HRSettings() {
               <div style={{fontSize:11,color:'var(--text-muted)',marginTop:4}}>Used for buttons, active states, and contract header</div>
             </div>
           </div>
-          <F id="brand_email" label="HR Contact Email" hint="Shown on contract and registration pending page"/>
+          <BrandField label="HR Contact Email" hint="Shown on contract and registration pending page" value={brand.brand_email} onChange={e=>setBrand(b=>({...b,brand_email:e.target.value}))}/>
 
           <div style={{borderTop:'1px solid var(--border)',margin:'20px 0',paddingTop:20}}>
             <div className="card-title">📄 Contract Details</div>
             <div className="form-row">
-              <F id="contract_employer_name"    label="Employer Name on Contract"/>
-              <F id="contract_employer_email"   label="Employer Email on Contract"/>
+              <BrandField label="Employer Name on Contract"  value={brand.contract_employer_name}  onChange={e=>setBrand(b=>({...b,contract_employer_name:e.target.value}))}/>
+              <BrandField label="Employer Email on Contract" value={brand.contract_employer_email} onChange={e=>setBrand(b=>({...b,contract_employer_email:e.target.value}))}/>
             </div>
-            <F id="contract_employer_address"   label="Employer Address on Contract"/>
-            <F id="contract_employer_phone"     label="Employer Phone on Contract"/>
+            <BrandField label="Employer Address on Contract" value={brand.contract_employer_address} onChange={e=>setBrand(b=>({...b,contract_employer_address:e.target.value}))}/>
+            <BrandField label="Employer Phone on Contract"   value={brand.contract_employer_phone}   onChange={e=>setBrand(b=>({...b,contract_employer_phone:e.target.value}))}/>
             <div className="form-row">
-              <F id="contract_signatory_name"   label="Signatory Name" hint="Person who signs contracts"/>
-              <F id="contract_signatory_role"   label="Signatory Role" hint="e.g. Director, CEO"/>
+              <BrandField label="Signatory Name" hint="Person who signs contracts" value={brand.contract_signatory_name} onChange={e=>setBrand(b=>({...b,contract_signatory_name:e.target.value}))}/>
+              <BrandField label="Signatory Role" hint="e.g. Director, CEO"         value={brand.contract_signatory_role} onChange={e=>setBrand(b=>({...b,contract_signatory_role:e.target.value}))}/>
             </div>
             <div className="form-row">
-              <F id="contract_min_pay"  label="Minimum Pay (clause 5)" hint="e.g. National Minimum Wage (NMW)"/>
-              <F id="contract_max_pay"  label="Maximum Pay (clause 5)" hint="e.g. £14"/>
+              <BrandField label="Minimum Pay (clause 5)" hint="e.g. National Minimum Wage (NMW)" value={brand.contract_min_pay} onChange={e=>setBrand(b=>({...b,contract_min_pay:e.target.value}))}/>
+              <BrandField label="Maximum Pay (clause 5)" hint="e.g. £14"                          value={brand.contract_max_pay} onChange={e=>setBrand(b=>({...b,contract_max_pay:e.target.value}))}/>
             </div>
           </div>
 

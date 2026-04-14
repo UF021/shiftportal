@@ -2,6 +2,15 @@ import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
 import { fmtDate } from '../../api/utils'
 
+function PF({ label, value }) {
+  return (
+    <div style={{padding:'12px 0',borderBottom:'1px solid #f0f4f0'}}>
+      <div style={{fontSize:10,fontWeight:700,color:'#8aaa8a',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{label}</div>
+      <div style={{fontSize:14,fontWeight:500,color:value?'#1a2a1a':'#8aaa8a'}}>{value||'—'}</div>
+    </div>
+  )
+}
+
 export default function StaffProfile() {
   const { user }   = useAuth()
   const { colour } = useBrand()
@@ -10,13 +19,6 @@ export default function StaffProfile() {
   const sia  = user?.sia_expiry ? new Date(user.sia_expiry) : null
   const days = sia ? Math.ceil((sia-new Date())/86400000) : null
   const gone = days!==null&&days<0, warn=days!==null&&days<60
-
-  const PF = ({label,value}) => (
-    <div style={{padding:'12px 0',borderBottom:'1px solid #f0f4f0'}}>
-      <div style={{fontSize:10,fontWeight:700,color:'#8aaa8a',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{label}</div>
-      <div style={{fontSize:14,fontWeight:500,color:value?'#1a2a1a':'#8aaa8a'}}>{value||'—'}</div>
-    </div>
-  )
 
   return <div>
     <div style={{fontSize:20,fontWeight:700,color:'#1a2a1a',marginBottom:16}}>My Profile</div>

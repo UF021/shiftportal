@@ -5,6 +5,15 @@ import { fmtDate } from '../../api/utils'
 
 const fmtM = m => m != null ? `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m` : '—'
 
+function F({ label, children }) {
+  return (
+    <div>
+      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:4 }}>{label}</div>
+      {children}
+    </div>
+  )
+}
+
 export function HRTimelogs() {
   const [data,    setData]   = useState(null)
   const [staff,   setStaff]  = useState([])
@@ -38,13 +47,6 @@ export function HRTimelogs() {
     a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' }))
     a.download = `timelogs-${new Date().toISOString().split('T')[0]}.csv`; a.click()
   }
-
-  const F = ({ label, children }) => (
-    <div>
-      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:4 }}>{label}</div>
-      {children}
-    </div>
-  )
 
   // Holiday pay entries: approved holidays with holiday_pay_flagged = true
   const holPayEntries = hols.filter(h => h.holiday_pay_flagged && h.holiday_pay_hours > 0)

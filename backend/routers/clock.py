@@ -44,6 +44,7 @@ class ManualShiftRequest(BaseModel):
     clock_in_time:   str            # 'HH:MM'
     clock_out_time:  str            # 'HH:MM'
     scheduled_start: Optional[str] = None
+    overnight:       bool = False
     entry_notes:     Optional[str] = None
 
 
@@ -471,7 +472,7 @@ def manual_shift(
     clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
 
     # Handle overnight shift
-    if clock_out_dt <= clock_in_dt:
+    if body.overnight or clock_out_dt <= clock_in_dt:
         clock_out_dt += timedelta(days=1)
 
     shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)

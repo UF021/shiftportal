@@ -3,6 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import { getDashboard } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
+function Stat({ label, value, col, sub }) {
+  const { colour } = useBrand()
+  const c = colour || '#6abf3f'
+  return (
+    <div className="card" style={{ padding:18 }}>
+      <div style={{ fontSize:11, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</div>
+      <div style={{ fontSize:30, fontWeight:700, fontFamily:'DM Mono,monospace', color: col||c }}>{value??'…'}</div>
+      {sub && <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:3 }}>{sub}</div>}
+    </div>
+  )
+}
+
 export default function HRDashboard() {
   const nav            = useNavigate()
   const { colour }     = useBrand()
@@ -12,14 +24,6 @@ export default function HRDashboard() {
   useEffect(() => {
     getDashboard().then(r => setSt(r.data)).catch(() => {})
   }, [])
-
-  const Stat = ({ label, value, col, sub }) => (
-    <div className="card" style={{ padding:18 }}>
-      <div style={{ fontSize:11, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</div>
-      <div style={{ fontSize:30, fontWeight:700, fontFamily:'DM Mono,monospace', color: col||c }}>{value??'…'}</div>
-      {sub && <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:3 }}>{sub}</div>}
-    </div>
-  )
 
   return (
     <>
