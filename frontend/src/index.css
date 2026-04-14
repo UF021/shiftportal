@@ -148,6 +148,69 @@ tbody td { padding: 11px 13px; vertical-align: middle; }
   margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border);
 }
 
+/* ── Mobile optimisation ────────────────────────────────────────────────────── */
+
+/* Prevent text inflation on rotation */
+html {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+/* Native-app feel: remove rubber-band on root, kill tap flash */
+body {
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* All tappable elements: fast tap (kills 300 ms delay), no flash */
+button, a, label, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Comfortable touch targets */
+.btn { min-height: 44px; }
+
+/* iOS auto-zoom prevention — browser zooms in when focused font < 16 px.
+   Override only on mobile so desktop sizing stays unchanged. */
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* Hide browser number spinners — we supply our own +/− buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* Bottom-sheet modals on narrow phones */
+@media (max-width: 520px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding: 28px 20px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
+/* Three-column layout collapses to one column on phones */
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .grid-3 { grid-template-columns: 1fr; }
+}
+
+/* ── Staff portal (light theme overrides) ──────────────────────────────────── */
 /* Staff portal (light theme overrides) */
 .sp { background: var(--s-bg); color: var(--s-text); min-height: 100vh; }
 .sp .field label { color: var(--s-muted); }

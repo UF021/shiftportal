@@ -97,7 +97,7 @@ export default function HRManualShift() {
             style={{ ...dropStyle, fontFamily:'DM Mono,sans-serif', boxSizing:'border-box' }} />
         </F>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:20, marginBottom:20 }}>
+        <div className="grid-3" style={{ marginBottom:20 }}>
           {[
             { key:'clock_in_time',   label:'Clock In Time' },
             { key:'clock_out_time',  label:'Clock Out Time' },

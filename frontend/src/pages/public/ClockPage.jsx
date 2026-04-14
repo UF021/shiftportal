@@ -147,7 +147,7 @@ export default function ClockPage() {
   // ── Layout wrapper ────────────────────────────────────────────────────────
 
   const Wrap = ({ children }) => (
-    <div style={{ minHeight:'100vh', background:'#f5f7f5', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px 16px' }}>
+    <div style={{ minHeight:'100vh', background:'#f5f7f5', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'20px 14px', paddingBottom:'calc(20px + env(safe-area-inset-bottom))' }}>
       <div style={{ width:'100%', maxWidth:420 }}>
         <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
           <OrgLogo dark={false} />
@@ -182,13 +182,13 @@ export default function ClockPage() {
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom:12 }}>
             <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Email</label>
-            <input type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} required autoFocus
-              style={{ width:'100%', padding:'11px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', boxSizing:'border-box' }} />
+            <input type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} required autoComplete="email"
+              style={{ width:'100%', padding:'13px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:16, outline:'none', boxSizing:'border-box' }} />
           </div>
           <div style={{ marginBottom:18 }}>
             <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Password</label>
-            <input type="password" value={loginPass} onChange={e=>setLoginPass(e.target.value)} required
-              style={{ width:'100%', padding:'11px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', boxSizing:'border-box' }} />
+            <input type="password" value={loginPass} onChange={e=>setLoginPass(e.target.value)} required autoComplete="current-password"
+              style={{ width:'100%', padding:'13px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:16, outline:'none', boxSizing:'border-box' }} />
           </div>
           {loginErr && <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#a02020', marginBottom:14 }}>⚠ {loginErr}</div>}
           <button type="submit" disabled={loginBusy}

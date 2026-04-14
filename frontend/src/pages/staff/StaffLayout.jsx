@@ -43,7 +43,7 @@ export default function StaffLayout() {
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth:680, margin:'0 auto', padding:'20px 16px 84px' }}>
+      <div style={{ maxWidth:680, margin:'0 auto', padding:'20px 16px calc(84px + env(safe-area-inset-bottom))' }}>
         <Outlet />
       </div>
 
@@ -52,6 +52,7 @@ export default function StaffLayout() {
         background:'#fff', borderTop:'1px solid #dde8dd',
         display:'flex', position:'fixed', bottom:0, left:0, right:0, zIndex:99,
         boxShadow:'0 -2px 12px rgba(0,0,0,.08)',
+        paddingBottom:'env(safe-area-inset-bottom)',
       }}>
         {NAV.map(({ path, icon, label }) => {
           const active = pathname === path || (path !== '/staff' && pathname.startsWith(path))

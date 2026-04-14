@@ -30,14 +30,14 @@ function Field({ id, label, type='text', placeholder='', style={}, form, set, ..
     <div style={{ marginBottom: 14 }}>
       <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</label>
       <input type={type} value={form[id]} onChange={e => set(id, e.target.value)} placeholder={placeholder}
-        style={{ width:'100%', padding:'11px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', ...style }}
+        style={{ width:'100%', padding:'13px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', ...style }}
         {...rest} />
     </div>
   )
 }
 
 function Row2({ children }) {
-  return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>{children}</div>
+  return <div className="form-row" style={{ gap:12 }}>{children}</div>
 }
 
 export default function RegisterPage() {
