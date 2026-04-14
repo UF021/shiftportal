@@ -60,6 +60,11 @@ export const createSite   = d   => api.post('/orgs/me/sites', d)
 export const deleteSite   = id  => api.delete(`/orgs/me/sites/${id}`)
 export const getDashboard  = () => api.get('/orgs/me/dashboard')
 
+// Clock
+export const getMyClockHistory  = ()      => api.get('/clock/my/history')
+export const getAllClockEvents   = ()      => api.get('/clock/all')
+export const getPunctuality      = uid    => api.get(`/clock/punctuality/${uid}`)
+
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')
 export const listOrgs       = ()      => api.get('/orgs/')

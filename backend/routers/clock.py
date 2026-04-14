@@ -93,6 +93,8 @@ def site_info(org_slug: str, site_code: str, db: Session = Depends(get_db)):
         "site_code":   site.code,
         "site_name":   site.name,
         "site_address": site.address,
+        "site_lat":    site.site_lat,
+        "site_lng":    site.site_lng,
         "gps_enabled": site.site_lat is not None and site.site_lng is not None,
     }
 

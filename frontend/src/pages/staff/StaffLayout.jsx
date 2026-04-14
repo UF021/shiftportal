@@ -5,7 +5,6 @@ import OrgLogo from '../../components/OrgLogo'
 
 const NAV = [
   { path:'/staff',          icon:'🏠', label:'Home' },
-  { path:'/staff/timelog',  icon:'⏱',  label:'Timelog' },
   { path:'/staff/contract', icon:'📄', label:'Contract' },
   { path:'/staff/holidays', icon:'🌴', label:'Holidays' },
   { path:'/staff/profile',  icon:'👤', label:'Profile' },

@@ -6,11 +6,11 @@ import { BrandProvider } from './api/BrandContext'
 import LoginPage    from './pages/public/LoginPage'
 import RegisterPage from './pages/public/RegisterPage'
 import PendingPage  from './pages/public/PendingPage'
+import ClockPage    from './pages/public/ClockPage'
 
 // Staff (light theme)
 import StaffLayout    from './pages/staff/StaffLayout'
 import StaffDashboard from './pages/staff/StaffDashboard'
-import StaffTimelog   from './pages/staff/StaffTimelog'
 import StaffContract  from './pages/staff/StaffContract'
 import StaffHolidays  from './pages/staff/StaffHolidays'
 import StaffProfile   from './pages/staff/StaffProfile'
@@ -51,12 +51,15 @@ export default function App() {
 
   return (
     <Routes>
+      {/* ── QR Clock page (public) ── */}
+      <Route path="/clock/:slug/:site_code" element={<BrandedRoute><ClockPage /></BrandedRoute>} />
+
       {/* ── Org-scoped login / register ── */}
       <Route path="/login/:slug"    element={<BrandedRoute><LoginPage /></BrandedRoute>} />
       <Route path="/register/:slug" element={<BrandedRoute><RegisterPage /></BrandedRoute>} />
       <Route path="/pending"        element={<PendingPage />} />
 
-      {/* ── Fallback login (no slug — tries to find from saved session) ── */}
+      {/* ── Fallback login (no slug) ── */}
       <Route path="/login" element={<LoginPage />} />
 
       {/* ── Staff portal ── */}
@@ -64,7 +67,6 @@ export default function App() {
         <Guard role={['staff']}><BrandProvider slug={user?.org_slug}><StaffLayout /></BrandProvider></Guard>
       }>
         <Route index           element={<StaffDashboard />} />
-        <Route path="timelog"  element={<StaffTimelog />} />
         <Route path="contract" element={<StaffContract />} />
         <Route path="holidays" element={<StaffHolidays />} />
         <Route path="profile"  element={<StaffProfile />} />
