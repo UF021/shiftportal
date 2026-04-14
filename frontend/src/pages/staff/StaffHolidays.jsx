@@ -103,7 +103,7 @@ export function StaffHolidays() {
           </label>
           <input type="number" value={daysInput} onChange={e => setDaysInput(e.target.value)}
             min="1" max="7" step="0.5"
-            style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Mono,sans-serif', fontSize:15, outline:'none' }} />
+            style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Mono,sans-serif', fontStyle:'normal', fontSize:15, outline:'none' }} />
           {stats && <div style={{ fontSize:11, color:'#8aaa8a', marginTop:4 }}>Based on your clock-in records (pre-filled, editable)</div>}
         </div>
 
@@ -113,7 +113,7 @@ export function StaffHolidays() {
           </label>
           <input type="number" value={takenInput} onChange={e => setTakenInput(e.target.value)}
             min="0" step="1"
-            style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Mono,sans-serif', fontSize:15, outline:'none' }} />
+            style={{ width:'100%', padding:'12px 14px', borderRadius:10, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Mono,sans-serif', fontStyle:'normal', fontSize:15, outline:'none' }} />
           {stats && <div style={{ fontSize:11, color:'#8aaa8a', marginTop:4 }}>Based on approved holidays in current holiday year (pre-filled, editable)</div>}
         </div>
 

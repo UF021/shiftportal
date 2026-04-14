@@ -88,7 +88,7 @@ export default function StaffDashboard() {
           { val: gone?'EXP':days!=null?`${days}d`:'…', lbl:'SIA days left', col:siaCol },
         ].map(({val,lbl,col}) => (
           <div key={lbl} style={{ background:'rgba(255,255,255,.08)', borderRadius:10, padding:12, border:'1px solid rgba(255,255,255,.1)' }}>
-            <div style={{ fontSize:22, fontWeight:700, fontFamily:'DM Mono,monospace', color:col }}>{val}</div>
+            <div style={{ fontSize:22, fontWeight:700, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:col }}>{val}</div>
             <div style={{ fontSize:10, color:'rgba(255,255,255,.55)', textTransform:'uppercase', letterSpacing:'.05em', marginTop:2 }}>{lbl}</div>
           </div>
         ))}
@@ -111,17 +111,17 @@ export default function StaffDashboard() {
       ) : (
         <div style={{ display:'flex', gap:20, alignItems:'center' }}>
           <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', color:c }}>{onTimeCount}</div>
+            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:c }}>{onTimeCount}</div>
             <div style={{ fontSize:11, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.05em', marginTop:2 }}>On time</div>
           </div>
           <div style={{ width:1, height:40, background:'#e0ead0' }} />
           <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', color:'#c0392b' }}>{lateCount}</div>
+            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#c0392b' }}>{lateCount}</div>
             <div style={{ fontSize:11, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.05em', marginTop:2 }}>Late</div>
           </div>
           <div style={{ width:1, height:40, background:'#e0ead0' }} />
           <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', color:'#4a6a4a' }}>{clockIns.length > 0 ? Math.round(onTimeCount / clockIns.length * 100) : 0}%</div>
+            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#4a6a4a' }}>{clockIns.length > 0 ? Math.round(onTimeCount / clockIns.length * 100) : 0}%</div>
             <div style={{ fontSize:11, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.05em', marginTop:2 }}>On-time rate</div>
           </div>
         </div>
@@ -155,7 +155,7 @@ export default function StaffDashboard() {
             {new Date(e.timestamp).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'})}
           </div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:12, fontFamily:'DM Mono,monospace', color:'#6a8a6a' }}>
+            <div style={{ fontSize:12, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#6a8a6a' }}>
               {e.site_name || '—'}
             </div>
             <div style={{ display:'flex', gap:6, marginTop:2, alignItems:'center' }}>
@@ -166,7 +166,7 @@ export default function StaffDashboard() {
               )}
             </div>
           </div>
-          <div style={{ fontSize:14, fontWeight:700, color:c, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>
+          <div style={{ fontSize:14, fontWeight:700, color:c, fontFamily:'DM Mono,monospace', fontStyle:'normal', whiteSpace:'nowrap' }}>
             {fmtDuration(e.shift_minutes)}
           </div>
         </div>
