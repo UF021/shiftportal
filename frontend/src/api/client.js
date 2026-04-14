@@ -62,8 +62,10 @@ export const getDashboard  = () => api.get('/orgs/me/dashboard')
 
 // Clock
 export const getMyClockHistory  = ()      => api.get('/clock/my/history')
+export const getMyHolidayStats  = ()      => api.get('/clock/my/holiday-stats')
 export const getAllClockEvents   = ()      => api.get('/clock/all')
 export const getPunctuality      = uid    => api.get(`/clock/punctuality/${uid}`)
+export const getShiftAvg         = uid    => api.get(`/clock/shift-avg/${uid}`)
 
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')

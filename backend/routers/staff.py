@@ -34,6 +34,7 @@ def list_staff(
             "pay_rate":              u.pay_rate,
             "employment_start_date": str(u.employment_start_date) if u.employment_start_date else None,
             "assigned_site_id":      u.assigned_site_id,
+            "assigned_sites":        u.assigned_sites,
             "is_active":             u.is_active,
             "registered_at":         u.registered_at.isoformat() if u.registered_at else None,
         }
@@ -60,6 +61,7 @@ def update_staff(
     if req.ni_number             is not None: u.ni_number             = req.ni_number.upper()
     if req.sia_licence           is not None: u.sia_licence           = req.sia_licence
     if req.sia_expiry            is not None: u.sia_expiry            = req.sia_expiry
+    if req.assigned_sites        is not None: u.assigned_sites        = req.assigned_sites or None
 
     db.commit()
     return {"message": "Updated", "id": u.id}

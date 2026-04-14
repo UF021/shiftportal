@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 from database import get_db
 from schemas import HolidayCreate, HolidayOut, HolidaySummary
@@ -62,11 +62,26 @@ def approve(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depend
     h = db.query(models.Holiday).filter(models.Holiday.id == hol_id).first()
     if not h: raise HTTPException(404, "Not found")
     org_guard(hr, h.organisation_id)
-    h.status = models.HolidayStatus.approved
-    h.reviewed_at = datetime.now(timezone.utc)
+
+    # Calculate holiday pay from last 3 months of clock events
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=91)
+    clock_outs = db.query(models.ClockEvent).filter(
+        models.ClockEvent.user_id    == h.user_id,
+        models.ClockEvent.event_type == models.ClockEventType.clock_out,
+        models.ClockEvent.shift_minutes != None,
+        models.ClockEvent.timestamp  >= three_months_ago,
+    ).all()
+    if clock_outs:
+        avg_shift_mins = sum(e.shift_minutes for e in clock_outs) / len(clock_outs)
+        avg_shift_hours = round(avg_shift_mins / 60, 2)
+        h.holiday_pay_hours   = round(h.days * avg_shift_hours, 2)
+        h.holiday_pay_flagged = True
+
+    h.status         = models.HolidayStatus.approved
+    h.reviewed_at    = datetime.now(timezone.utc)
     h.reviewed_by_id = hr.id
     db.commit()
-    return {"message": "Approved"}
+    return {"message": "Approved", "holiday_pay_hours": h.holiday_pay_hours}
 
 
 @router.patch("/{hol_id}/reject")

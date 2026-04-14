@@ -22,10 +22,13 @@ export default function HRStaff() {
   const [sites,  setSites]  = useState([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
-  const [editing,   setEdit]      = useState(null)
-  const [form,      setForm]      = useState({})
-  const [customPay, setCustomPay] = useState('')
-  const [saving,    setSave]      = useState(false)
+  const [editing,        setEdit]        = useState(null)
+  const [form,           setForm]        = useState({})
+  const [customPay,      setCustomPay]   = useState('')
+  const [selSites,       setSelSites]    = useState([])   // array of site names
+  const [otherSiteOn,    setOtherSiteOn] = useState(false)
+  const [otherSiteText,  setOtherSiteText] = useState('')
+  const [saving,         setSave]        = useState(false)
 
   const load = () => getAllStaff().then(r=>setStaff(r.data||[])).catch(()=>{})
   useEffect(() => { load(); getMySites().then(r=>setSites(r.data||[])).catch(()=>{}) }, [])
@@ -42,6 +45,16 @@ export default function HRStaff() {
     const payStr = s.pay_rate ? String(parseFloat(s.pay_rate).toFixed(2)) : ''
     const isPreset = PRESET_PAY.includes(payStr)
     setCustomPay(isPreset || !payStr ? '' : payStr)
+
+    // Parse existing assigned_sites (comma-separated names)
+    const existingNames = s.assigned_sites ? s.assigned_sites.split(',').map(x => x.trim()).filter(Boolean) : []
+    const knownNames = sites.map(x => x.name)
+    const known   = existingNames.filter(n => knownNames.includes(n))
+    const unknown = existingNames.filter(n => !knownNames.includes(n))
+    setSelSites(known)
+    setOtherSiteOn(unknown.length > 0)
+    setOtherSiteText(unknown.join(', '))
+
     setForm({
       staff_id:              s.staff_id||'TBC',
       employment_start_date: s.employment_start_date||'',
@@ -57,15 +70,20 @@ export default function HRStaff() {
     setSave(true)
     try {
       const payValue = form.pay_rate === 'other' ? (customPay ? parseFloat(customPay) : null) : (form.pay_rate ? parseFloat(form.pay_rate) : null)
+      const allSiteNames = [...selSites, ...(otherSiteOn && otherSiteText.trim() ? otherSiteText.split(',').map(x => x.trim()).filter(Boolean) : [])]
+      const assignedSites = allSiteNames.length ? allSiteNames.join(', ') : null
+      // Keep assigned_site_id pointing to first matched site for backward compat
+      const firstSite = sites.find(s => s.name === selSites[0])
       await updateStaff(editing.id, {
         ...form,
-        pay_rate: payValue,
-        assigned_site_id:form.assigned_site_id ? parseInt(form.assigned_site_id)  : null,
-        employment_start_date: form.employment_start_date||null,
-        sia_expiry:      form.sia_expiry||null,
+        pay_rate:             payValue,
+        assigned_site_id:     firstSite ? firstSite.id : (form.assigned_site_id ? parseInt(form.assigned_site_id) : null),
+        assigned_sites:       assignedSites,
+        employment_start_date: form.employment_start_date || null,
+        sia_expiry:           form.sia_expiry || null,
       })
       setEdit(null); load()
-    } catch(ex) { alert(ex.response?.data?.detail||'Save failed') }
+    } catch(ex) { alert(ex.response?.data?.detail || 'Save failed') }
     finally { setSave(false) }
   }
 
@@ -135,11 +153,36 @@ export default function HRStaff() {
                   style={{ marginTop:6, width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none' }} />
               )}
             </div>
-            <div className="field"><label>Assigned Site</label>
-              <select value={form.assigned_site_id} onChange={e=>setForm(f=>({...f,assigned_site_id:e.target.value}))}>
-                <option value="">— Unassigned —</option>
-                {sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-              </select></div>
+            <div className="field"><label>Assigned Sites</label>
+              <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px', maxHeight:200, overflowY:'auto' }}>
+                {sites.map(s => {
+                  const checked = selSites.includes(s.name)
+                  return (
+                    <label key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13 }}>
+                      <input type="checkbox" checked={checked}
+                        onChange={e => setSelSites(prev => e.target.checked ? [...prev, s.name] : prev.filter(n => n !== s.name))}
+                        style={{ accentColor:'var(--green)', width:15, height:15 }} />
+                      {s.name}
+                    </label>
+                  )
+                })}
+                <label style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13, borderTop:'1px solid var(--border)', marginTop:6, paddingTop:8 }}>
+                  <input type="checkbox" checked={otherSiteOn} onChange={e => setOtherSiteOn(e.target.checked)}
+                    style={{ accentColor:'var(--green)', width:15, height:15 }} />
+                  Other
+                </label>
+                {otherSiteOn && (
+                  <input value={otherSiteText} onChange={e => setOtherSiteText(e.target.value)}
+                    placeholder="Enter site name(s), comma-separated"
+                    style={{ marginTop:6, width:'100%', padding:'7px 10px', borderRadius:6, border:'1px solid var(--border)', background:'var(--navy)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', boxSizing:'border-box' }} />
+                )}
+              </div>
+              {selSites.length > 0 || (otherSiteOn && otherSiteText.trim()) ? (
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
+                  Selected: {[...selSites, ...(otherSiteOn && otherSiteText.trim() ? [otherSiteText.trim()] : [])].join(', ')}
+                </div>
+              ) : null}
+            </div>
             <div className="field"><label>NI Number</label>
               <input value={form.ni_number} onChange={e=>setForm(f=>({...f,ni_number:e.target.value.toUpperCase()}))} style={{ textTransform:'uppercase' }}/></div>
             <div className="field"><label>SIA Licence Number</label>

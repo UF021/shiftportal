@@ -171,6 +171,7 @@ class EditUserRequest(BaseModel):
     employment_start_date: Optional[date] = None
     pay_rate:              Optional[float] = None
     assigned_site_id:      Optional[int] = None
+    assigned_sites:        Optional[str] = None
     ni_number:             Optional[str] = None
     sia_licence:           Optional[str] = None
     sia_expiry:            Optional[date] = None
@@ -236,14 +237,16 @@ class HolidayCreate(BaseModel):
 
 
 class HolidayOut(BaseModel):
-    id:           int
-    from_date:    date
-    to_date:      date
-    days:         int
-    note:         Optional[str]
-    status:       str
-    submitted_at: Optional[datetime]
-    reviewed_at:  Optional[datetime]
+    id:                   int
+    from_date:            date
+    to_date:              date
+    days:                 int
+    note:                 Optional[str]
+    status:               str
+    submitted_at:         Optional[datetime]
+    reviewed_at:          Optional[datetime]
+    holiday_pay_hours:    Optional[float] = None
+    holiday_pay_flagged:  Optional[bool]  = False
 
     model_config = {"from_attributes": True}
 

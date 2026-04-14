@@ -1,5 +1,5 @@
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta, date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -295,6 +295,98 @@ def all_events(
         }
         for e in events
     ]
+
+
+# ── My holiday stats ──────────────────────────────────────────────────────────
+
+@router.get("/my/holiday-stats")
+def holiday_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=91)
+    clock_ins = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == current_user.id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            models.ClockEvent.timestamp  >= three_months_ago,
+        )
+        .all()
+    )
+    unique_dates = {e.timestamp.date() for e in clock_ins}
+    avg_days_per_week = round(len(unique_dates) / 13, 1) if unique_dates else 0.0
+
+    # Months employed
+    months_employed = 0
+    if current_user.employment_start_date:
+        today = date.today()
+        start = current_user.employment_start_date
+        months_employed = (today.year - start.year) * 12 + (today.month - start.month)
+        if today.day < start.day:
+            months_employed -= 1
+        months_employed = max(0, months_employed)
+
+    # Holiday year starts April 1
+    today = date.today()
+    april_start = date(today.year, 4, 1) if today >= date(today.year, 4, 1) else date(today.year - 1, 4, 1)
+    approved_hols = (
+        db.query(models.Holiday)
+        .filter(
+            models.Holiday.user_id   == current_user.id,
+            models.Holiday.status    == models.HolidayStatus.approved,
+            models.Holiday.from_date >= april_start,
+        )
+        .all()
+    )
+    holidays_taken = sum(h.days for h in approved_hols)
+
+    annual_entitlement = round(avg_days_per_week * 4, 1)
+    accrued = round((annual_entitlement / 12) * 2.3 * months_employed, 1) if annual_entitlement else 0.0
+    accrued = min(accrued, annual_entitlement)
+    remaining = round(accrued - holidays_taken, 1)
+
+    return {
+        "avg_days_per_week":          avg_days_per_week,
+        "months_employed":            months_employed,
+        "holidays_taken_since_april": holidays_taken,
+        "annual_entitlement":         annual_entitlement,
+        "accrued_to_date":            accrued,
+        "remaining":                  remaining,
+    }
+
+
+# ── HR — shift average for a user (used in approve confirmation) ───────────────
+
+@router.get("/shift-avg/{user_id}")
+def shift_avg(
+    user_id: int,
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target or target.organisation_id != hr.organisation_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff member not found")
+
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=91)
+    clock_outs = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id      == user_id,
+            models.ClockEvent.event_type   == models.ClockEventType.clock_out,
+            models.ClockEvent.shift_minutes != None,
+            models.ClockEvent.timestamp    >= three_months_ago,
+        )
+        .all()
+    )
+    if not clock_outs:
+        return {"avg_shift_hours": None, "shift_count": 0}
+
+    avg_mins = sum(e.shift_minutes for e in clock_outs) / len(clock_outs)
+    return {
+        "avg_shift_hours": round(avg_mins / 60, 2),
+        "shift_count":     len(clock_outs),
+    }
 
 
 # ── HR — punctuality report ───────────────────────────────────────────────────

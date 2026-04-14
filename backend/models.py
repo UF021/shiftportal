@@ -183,6 +183,9 @@ class User(Base):
     sia_expiry      = Column(Date,        nullable=True)
     right_to_work   = Column(Boolean,     default=True)
 
+    # Multi-site assignments (comma-separated site names)
+    assigned_sites  = Column(Text, nullable=True)
+
     # Next of kin
     nok_name        = Column(String(200), nullable=True)
     nok_phone       = Column(String(30),  nullable=True)
@@ -289,6 +292,9 @@ class Holiday(Base):
     days            = Column(Integer, nullable=False)
     note            = Column(Text, nullable=True)
     status          = Column(SAEnum(HolidayStatus), default=HolidayStatus.pending)
+
+    holiday_pay_hours   = Column(Float,   nullable=True)
+    holiday_pay_flagged = Column(Boolean, default=False)
 
     submitted_at    = Column(DateTime(timezone=True), server_default=func.now())
     reviewed_at     = Column(DateTime(timezone=True), nullable=True)
