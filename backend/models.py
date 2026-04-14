@@ -207,8 +207,9 @@ class User(Base):
 
     # Relationships
     organisation    = relationship("Organisation", back_populates="users")
-    timelogs        = relationship("Timelog",  back_populates="user", cascade="all, delete")
-    holidays        = relationship("Holiday",  back_populates="user", cascade="all, delete", foreign_keys="[Holiday.user_id]")
+    timelogs        = relationship("Timelog",      back_populates="user", cascade="all, delete")
+    holidays        = relationship("Holiday",      back_populates="user", cascade="all, delete", foreign_keys="[Holiday.user_id]")
+    clock_events    = relationship("ClockEvent",   back_populates="user", cascade="all, delete", foreign_keys="[ClockEvent.user_id]")
     assigned_site   = relationship("Site", foreign_keys=[assigned_site_id])
 
     @property
@@ -274,7 +275,7 @@ class ClockEvent(Base):
     gps_verified    = Column(Boolean, default=False)
     shift_minutes   = Column(Integer, nullable=True)     # filled on clock-out
 
-    user            = relationship("User", foreign_keys=[user_id])
+    user            = relationship("User", back_populates="clock_events", foreign_keys=[user_id])
     site            = relationship("Site")
 
 
