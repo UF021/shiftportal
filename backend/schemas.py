@@ -42,6 +42,7 @@ class OrgCreate(BaseModel):
 class OrgBrandingUpdate(BaseModel):
     brand_name:               Optional[str] = None
     brand_colour:             Optional[str] = None
+    brand_logo_url:           Optional[str] = None
     brand_email:              Optional[str] = None
     contract_employer_name:   Optional[str] = None
     contract_employer_address:Optional[str] = None
