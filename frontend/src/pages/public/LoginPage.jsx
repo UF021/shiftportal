@@ -42,7 +42,9 @@ export default function LoginPage() {
 
         {/* Brand logo */}
         <div style={{ marginBottom: 28 }}>
-          <OrgLogo dark={false} />
+          <div onClick={() => nav(`/login/${slug||''}`)} style={{ cursor:'pointer', display:'inline-block' }}>
+            <OrgLogo dark={false} />
+          </div>
         </div>
 
         <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1a2a1a', marginBottom: 4 }}>Sign In</h2>

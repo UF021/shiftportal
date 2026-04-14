@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getPending, activateUser, rejectUser, getMySites } from '../../api/client'
+import { fmtDate, fmtDateTime } from '../../api/utils'
 
 const PRESET_PAY = ['12.71','12.80','12.90','13.00']
 
@@ -74,11 +75,11 @@ export default function HRRegistrations() {
                 <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>{r.email} · {r.phone}</div>
                 <div style={{ fontSize:12, marginTop:4 }}>
                   SIA: <span style={{ fontFamily:'DM Mono,monospace' }}>{r.sia_licence||'—'}</span>
-                  {r.sia_expiry && ` · Exp: ${r.sia_expiry}`}
+                  {r.sia_expiry && ` · Exp: ${fmtDate(r.sia_expiry)}`}
                   {' · '}NI: <span style={{ fontFamily:'DM Mono,monospace' }}>{r.ni_number||'—'}</span>
                 </div>
                 <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:2 }}>
-                  Submitted: {r.registered_at ? new Date(r.registered_at).toLocaleDateString('en-GB') : '—'}
+                  Submitted: {fmtDateTime(r.registered_at)}
                 </div>
               </div>
               <div style={{ display:'flex', gap:8, flexShrink:0 }}>
@@ -101,7 +102,7 @@ export default function HRRegistrations() {
               {pf('Full Name',    selected.full_name)}
               {pf('Email',       selected.email)}
               {pf('Phone',       selected.phone)}
-              {pf('Date of Birth',selected.date_of_birth)}
+              {pf('Date of Birth',fmtDate(selected.date_of_birth))}
               {pf('Nationality', selected.nationality)}
               {pf('Right to Work',selected.right_to_work?'Yes':'No')}
             </div>
@@ -109,7 +110,7 @@ export default function HRRegistrations() {
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:2, marginBottom:16 }}>
               {pf('NI Number',   selected.ni_number)}
               {pf('SIA Licence', selected.sia_licence)}
-              {pf('SIA Expiry',  selected.sia_expiry)}
+              {pf('SIA Expiry',  fmtDate(selected.sia_expiry))}
               {pf('Next of Kin', `${selected.nok_name||'—'} (${selected.nok_phone||'—'})`)}
             </div>
 

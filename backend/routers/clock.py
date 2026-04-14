@@ -37,6 +37,16 @@ class ClockOutRequest(BaseModel):
     gps_lng: Optional[float] = None
 
 
+class ManualShiftRequest(BaseModel):
+    user_id:         int
+    site_id:         int
+    date:            date
+    clock_in_time:   str            # 'HH:MM'
+    clock_out_time:  str            # 'HH:MM'
+    scheduled_start: Optional[str] = None
+    entry_notes:     Optional[str] = None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_site(db: Session, org_slug: str, site_code: str) -> tuple:
@@ -428,4 +438,77 @@ def punctuality(
         "on_time_count":    on_time_count,
         "late_count":       late_count,
         "avg_late_minutes": avg_late_minutes,
+    }
+
+
+# ── HR — manual shift entry ───────────────────────────────────────────────────
+
+@router.post("/manual", status_code=201)
+def manual_shift(
+    body: ManualShiftRequest,
+    db:   Session = Depends(get_db),
+    hr:   models.User = Depends(require_hr),
+):
+    """Create a clock_in + clock_out pair manually (HR only). clocked_via_qr=False."""
+    # Verify staff belongs to same org
+    staff = db.query(models.User).filter(models.User.id == body.user_id).first()
+    if not staff or staff.organisation_id != hr.organisation_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff member not found")
+
+    site = db.query(models.Site).filter(
+        models.Site.id              == body.site_id,
+        models.Site.organisation_id == hr.organisation_id,
+        models.Site.is_active       == True,
+    ).first()
+    if not site:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
+
+    # Build datetimes (treat as UTC)
+    in_h,  in_m  = map(int, body.clock_in_time.split(':'))
+    out_h, out_m = map(int, body.clock_out_time.split(':'))
+
+    clock_in_dt  = datetime(body.date.year, body.date.month, body.date.day, in_h,  in_m,  tzinfo=timezone.utc)
+    clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
+
+    # Handle overnight shift
+    if clock_out_dt <= clock_in_dt:
+        clock_out_dt += timedelta(days=1)
+
+    shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+    is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
+
+    in_event = models.ClockEvent(
+        organisation_id = hr.organisation_id,
+        user_id         = body.user_id,
+        site_id         = site.id,
+        event_type      = models.ClockEventType.clock_in,
+        timestamp       = clock_in_dt,
+        scheduled_start = body.scheduled_start,
+        is_late         = is_late,
+        minutes_late    = minutes_late,
+        clocked_via_qr  = False,
+        entry_notes     = body.entry_notes,
+    )
+    out_event = models.ClockEvent(
+        organisation_id = hr.organisation_id,
+        user_id         = body.user_id,
+        site_id         = site.id,
+        event_type      = models.ClockEventType.clock_out,
+        timestamp       = clock_out_dt,
+        shift_minutes   = shift_minutes,
+        clocked_via_qr  = False,
+        entry_notes     = body.entry_notes,
+    )
+    db.add(in_event)
+    db.add(out_event)
+    db.commit()
+
+    return {
+        "message":       "Manual shift created",
+        "in_id":         in_event.id,
+        "out_id":        out_event.id,
+        "shift_minutes": shift_minutes,
+        "shift_hours":   round(shift_minutes / 60, 2),
+        "is_late":       is_late,
+        "minutes_late":  minutes_late,
     }

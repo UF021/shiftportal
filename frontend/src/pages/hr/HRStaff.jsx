@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAllStaff, updateStaff, getMySites } from '../../api/client'
+import { fmtDate } from '../../api/utils'
 
 const PRESET_PAY = ['12.71','12.80','12.90','13.00']
 
@@ -120,9 +121,9 @@ export default function HRStaff() {
                   <td><strong>{s.full_name}</strong><br/><span style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</span></td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.staff_id||'TBC'}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.sia_licence||'—'}</td>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.sia_expiry||'—'}</td>
+                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(s.sia_expiry)}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', color:'var(--green)' }}>{s.pay_rate?`£${s.pay_rate}/hr`:'—'}</td>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.employment_start_date||'—'}</td>
+                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(s.employment_start_date)}</td>
                   <td><Badge st={siaStatus(s.sia_expiry)}/></td>
                   <td><button onClick={()=>openEdit(s)} className="btn btn-outline" style={{ fontSize:11, padding:'5px 10px' }}>Edit</button></td>
                 </tr>

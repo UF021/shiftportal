@@ -1,5 +1,6 @@
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
+import { fmtDate } from '../../api/utils'
 
 const CLAUSES = [
   ['1. Probationary Period', 'Your employment is subject to a six (6) month probationary period. During this period your contract may be terminated with one (1) week\'s notice, however this does not prejudice the right to terminate at any time without notice for reasons of gross misconduct.'],
@@ -132,7 +133,7 @@ export default function StaffContract() {
 
       <div className="s-card">
         <div style={{ fontWeight:700, fontSize:15, color:'#1a2a1a', marginBottom:4 }}>Contract of Employment &amp; Staff Handbook</div>
-        <div style={{ fontSize:12, color:'#6a8a6a', marginBottom:16 }}>{user?.first_name} {user?.last_name} · Commencement: {user?.employment_start_date||'To be confirmed by HR'}</div>
+        <div style={{ fontSize:12, color:'#6a8a6a', marginBottom:16 }}>{user?.first_name} {user?.last_name} · Commencement: {user?.employment_start_date ? fmtDate(user.employment_start_date) : 'To be confirmed by HR'}</div>
 
         <div style={{ background:'#f8fbf8', border:`1.5px solid ${c}44`, borderRadius:12, padding:20, fontSize:13, lineHeight:1.85, maxHeight:520, overflowY:'auto', color:'#2a4a2a' }}>
           <div style={{ textAlign:'center', marginBottom:16 }}>

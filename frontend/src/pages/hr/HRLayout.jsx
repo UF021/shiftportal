@@ -9,6 +9,7 @@ const NAV = [
   { path:'/hr/staff',           icon:'👥', label:'Staff Records' },
   { path:'/hr/timelogs',        icon:'⏱',  label:'Time Report' },
   { path:'/hr/holidays',        icon:'🌴', label:'Holidays' },
+  { path:'/hr/manual',          icon:'✏️', label:'Manual Entry' },
   { path:'/hr/settings',        icon:'⚙️', label:'Settings' },
 ]
 
@@ -27,7 +28,7 @@ export default function HRLayout() {
         padding:'0 24px', height:60, display:'flex', alignItems:'center',
         justifyContent:'space-between', position:'sticky', top:0, zIndex:100,
       }}>
-        <OrgLogo height={36} dark={true} />
+        <div onClick={() => nav('/hr')} style={{ cursor:'pointer' }}><OrgLogo height={36} dark={true} /></div>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <div style={{
             display:'flex', alignItems:'center', gap:7,

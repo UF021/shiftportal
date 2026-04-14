@@ -1,6 +1,7 @@
 // HRTimelogs.jsx
 import { useEffect, useState } from 'react'
 import { getAllLogs, getAllStaff, getAllHols } from '../../api/client'
+import { fmtDate } from '../../api/utils'
 
 const fmtM = m => m != null ? `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m` : '—'
 
@@ -105,7 +106,7 @@ export function HRTimelogs() {
                   return (
                     <tr key={e.id}>
                       <td><strong>{s.full_name || '—'}</strong></td>
-                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{e.date ? new Date(e.date+'T12:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(e.date)}</td>
                       <td style={{ color:'var(--green)', fontFamily:'DM Mono,monospace' }}>{e.start_time}</td>
                       <td style={{ color:'var(--red)', fontFamily:'DM Mono,monospace' }}>{e.end_time}</td>
                       <td style={{ fontSize:12, color:'var(--text-muted)' }}>{e.site_name}</td>
@@ -140,8 +141,8 @@ export function HRTimelogs() {
                   return (
                     <tr key={h.id}>
                       <td><strong>{s.full_name || '—'}</strong></td>
-                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{h.from_date}</td>
-                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{h.to_date}</td>
+                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(h.from_date)}</td>
+                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(h.to_date)}</td>
                       <td style={{ fontWeight:700 }}>{h.days}</td>
                       <td style={{ fontFamily:'DM Mono,monospace', color:'var(--green)' }}>{payRate ? `£${payRate}/hr` : '—'}</td>
                       <td>

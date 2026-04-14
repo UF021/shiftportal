@@ -25,7 +25,7 @@ export default function StaffLayout() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,.3)',
       }}>
-        <OrgLogo height={32} dark={true} />
+        <div onClick={() => nav('/staff')} style={{ cursor:'pointer' }}><OrgLogo height={32} dark={true} /></div>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <div style={{
             background: c + '22', border: `1px solid ${c}55`,

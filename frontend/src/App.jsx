@@ -22,6 +22,7 @@ import HRRegistrations  from './pages/hr/HRRegistrations'
 import HRStaff          from './pages/hr/HRStaff'
 import HRTimelogs       from './pages/hr/HRTimelogs'
 import HRHolidays       from './pages/hr/HRHolidays'
+import HRManualShift    from './pages/hr/HRManualShift'
 import HRSettings       from './pages/hr/HRSettings'
 
 // Superadmin
@@ -81,6 +82,7 @@ export default function App() {
         <Route path="staff"         element={<HRStaff />} />
         <Route path="timelogs"      element={<HRTimelogs />} />
         <Route path="holidays"      element={<HRHolidays />} />
+        <Route path="manual"        element={<HRManualShift />} />
         <Route path="settings"      element={<HRSettings />} />
       </Route>
 

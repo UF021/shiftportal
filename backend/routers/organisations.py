@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
+import httpx
 
 from database import get_db
 from schemas import OrgCreate, OrgBrandingUpdate, OrgOut, SiteCreate, SiteOut
@@ -72,18 +73,40 @@ def list_sites(
     ).order_by(models.Site.group, models.Site.name).all()
 
 
+async def geocode_address(address: str):
+    if not address:
+        return None, None
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                'https://nominatim.openstreetmap.org/search',
+                params={'q': address, 'format': 'json', 'limit': 1},
+                headers={'User-Agent': 'ShiftPortal/1.0'},
+                timeout=5.0,
+            )
+            data = r.json()
+            if data:
+                return float(data[0]['lat']), float(data[0]['lon'])
+    except Exception:
+        pass
+    return None, None
+
+
 @router.post("/me/sites", response_model=SiteOut, status_code=201)
-def create_site(
+async def create_site(
     req: SiteCreate,
     db:  Session = Depends(get_db),
     hr:  models.User = Depends(require_hr),
 ):
+    lat, lng = await geocode_address(req.address)
     site = models.Site(
         organisation_id = hr.organisation_id,
         code            = req.code,
         name            = req.name,
         group           = req.group,
         address         = req.address,
+        site_lat        = lat,
+        site_lng        = lng,
     )
     db.add(site); db.commit(); db.refresh(site)
     return site

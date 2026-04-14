@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAllHols, getAllStaff, approveHol, rejectHol, getShiftAvg } from '../../api/client'
+import { fmtDate, fmtDateTime } from '../../api/utils'
 
 export default function HRHolidays() {
   const [hols,    setHols]    = useState([])
@@ -77,11 +78,11 @@ export default function HRHolidays() {
               {filtered.length ? filtered.map(h => (
                 <tr key={h.id}>
                   <td><strong>{name(h.user_id || h.staff_id)}</strong></td>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{h.from_date}</td>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{h.to_date}</td>
+                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(h.from_date)}</td>
+                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(h.to_date)}</td>
                   <td style={{ fontWeight:700 }}>{h.days}</td>
                   <td style={{ fontSize:12, color:'var(--text-muted)', maxWidth:140 }}>{h.note || '—'}</td>
-                  <td style={{ fontSize:11, color:'var(--text-muted)' }}>{h.submitted_at ? new Date(h.submitted_at).toLocaleDateString('en-GB') : '—'}</td>
+                  <td style={{ fontSize:11, color:'var(--text-muted)' }}>{fmtDateTime(h.submitted_at)}</td>
                   <td>
                     <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
                       <span className={`badge ${h.status==='approved'?'badge-green':h.status==='rejected'?'badge-red':'badge-amber'}`}>

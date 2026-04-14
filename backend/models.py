@@ -274,6 +274,7 @@ class ClockEvent(Base):
     gps_lng         = Column(Float, nullable=True)
     gps_verified    = Column(Boolean, default=False)
     shift_minutes   = Column(Integer, nullable=True)     # filled on clock-out
+    entry_notes     = Column(String(500), nullable=True) # HR manual entry reason
 
     user            = relationship("User", back_populates="clock_events", foreign_keys=[user_id])
     site            = relationship("Site")

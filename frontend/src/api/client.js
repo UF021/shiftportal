@@ -66,6 +66,7 @@ export const getMyHolidayStats  = ()      => api.get('/clock/my/holiday-stats')
 export const getAllClockEvents   = ()      => api.get('/clock/all')
 export const getPunctuality      = uid    => api.get(`/clock/punctuality/${uid}`)
 export const getShiftAvg         = uid    => api.get(`/clock/shift-avg/${uid}`)
+export const createManualShift   = d      => api.post('/clock/manual', d)
 
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')
