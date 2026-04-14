@@ -136,6 +136,8 @@ class Site(Base):
     name            = Column(String(200), nullable=False)   # "Vue Cinema — Harrow"
     group           = Column(String(100), nullable=True)    # "Vue" / "Showcase"
     address         = Column(String(300), nullable=True)
+    site_lat        = Column(Float, nullable=True)
+    site_lng        = Column(Float, nullable=True)
     is_active       = Column(Boolean, default=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -242,6 +244,35 @@ class Timelog(Base):
 
     user            = relationship("User", back_populates="timelogs")
     site_obj        = relationship("Site", back_populates="timelogs")
+
+
+# ── ClockEvent ────────────────────────────────────────────────────────────────
+
+class ClockEventType(str, enum.Enum):
+    clock_in  = "clock_in"
+    clock_out = "clock_out"
+
+
+class ClockEvent(Base):
+    __tablename__ = "clock_events"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(Integer, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False)
+    user_id         = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    site_id         = Column(Integer, ForeignKey("sites.id", ondelete="SET NULL"), nullable=True)
+
+    event_type      = Column(SAEnum(ClockEventType), nullable=False)
+    timestamp       = Column(DateTime(timezone=True), server_default=func.now())
+    scheduled_start = Column(String(5), nullable=True)   # '18:00'
+    is_late         = Column(Boolean, default=False)
+    minutes_late    = Column(Integer, default=0)
+    gps_lat         = Column(Float, nullable=True)
+    gps_lng         = Column(Float, nullable=True)
+    gps_verified    = Column(Boolean, default=False)
+    shift_minutes   = Column(Integer, nullable=True)     # filled on clock-out
+
+    user            = relationship("User", foreign_keys=[user_id])
+    site            = relationship("Site")
 
 
 # ── Holiday ───────────────────────────────────────────────────────────────────
