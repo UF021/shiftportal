@@ -4,7 +4,7 @@ export default function OrgLogo({ height = 44, dark = true }) {
   const brand = useBrand()
 
   if (brand.logo_url) {
-    return <img src={brand.logo_url} alt={brand.name} style={{ height, objectFit: 'contain' }} />
+    return <img src={brand.logo_url} alt={brand.name} style={{ height, objectFit: 'contain', ...(dark ? {} : { background: 'transparent', mixBlendMode: 'multiply' }) }} />
   }
 
   // Text fallback with brand colour
