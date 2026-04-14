@@ -32,6 +32,7 @@ SITE_COORDS = {
     'vc-shepherds':   (51.5041, -0.2184),
     'vc-stratford':   (51.5432, -0.0042),
     'vc-nottingham':  (52.9548, -1.1465),
+    'sc-leicester':   (52.6366, -1.1387),
     'other':          (None, None),
 }
 
