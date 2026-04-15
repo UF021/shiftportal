@@ -83,12 +83,8 @@ def activate(
     if u.is_active:
         raise HTTPException(400, "User is already active")
 
-    # Auto-generate staff ID if HR didn't provide one
-    provided_id = (req.staff_id or "").strip()
-    if provided_id and provided_id.upper() != "TBC":
-        u.staff_id = provided_id.upper()
-    else:
-        u.staff_id = _generate_staff_id(u.first_name, u.last_name, u.organisation_id, db)
+    # Always auto-generate: first letter of first + last name, then 3 random digits (e.g. FA047)
+    u.staff_id = _generate_staff_id(u.first_name, u.last_name, u.organisation_id, db)
 
     u.is_active             = True
     u.employment_start_date = req.employment_start_date

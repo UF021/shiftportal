@@ -9,7 +9,7 @@ export default function HRRegistrations() {
   const [sites,       setSites]      = useState([])
   const [loading,     setLoad]       = useState(true)
   const [selected,    setSel]        = useState(null)
-  const [act,         setAct]        = useState({ staff_id:'TBC', employment_start_date:'', pay_rate:'', assigned_site_id:'' })
+  const [act,         setAct]        = useState({ employment_start_date:'', pay_rate:'', assigned_site_id:'' })
   const [customPay,   setCustomPay]  = useState('')
   const [busy,        setBusy]       = useState(false)
   const [msg,         setMsg]        = useState('')
@@ -27,13 +27,13 @@ export default function HRRegistrations() {
     setBusy(true); setMsg('')
     try {
       const payValue = act.pay_rate === 'other' ? (customPay ? parseFloat(customPay) : null) : (act.pay_rate ? parseFloat(act.pay_rate) : null)
-      await activateUser(selected.id, {
-        ...act,
+      const res = await activateUser(selected.id, {
         pay_rate: payValue,
         assigned_site_id: act.assigned_site_id ? parseInt(act.assigned_site_id) : null,
         employment_start_date: act.employment_start_date || null,
       })
-      setMsg(`✅ ${selected.full_name} has been activated.`)
+      const sid = res.data?.staff_id || ''
+      setMsg(`✅ ${selected.full_name} has been activated. Staff ID: ${sid}`)
       setSel(null); load()
     } catch(ex) { setMsg('❌ ' + (ex.response?.data?.detail||'Activation failed')) }
     finally { setBusy(false) }
@@ -117,9 +117,10 @@ export default function HRRegistrations() {
             <div style={{ fontSize:12, fontWeight:700, color:'var(--green)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:12, paddingBottom:6, borderBottom:'1px solid var(--border)' }}>
               Activation Settings
             </div>
+            <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 14px', marginBottom:12, fontSize:12, color:'var(--text-muted)' }}>
+              🆔 A Staff ID will be auto-generated on activation ({selected?.first_name?.[0]?.toUpperCase()}{selected?.last_name?.[0]?.toUpperCase()}XXX format)
+            </div>
             <div className="form-row">
-              <div className="field"><label>Staff ID</label>
-                <input value={act.staff_id} onChange={e=>setAct(a=>({...a,staff_id:e.target.value}))} placeholder="e.g. IFM-045 or TBC"/></div>
               <div className="field"><label>Employment Start Date</label>
                 <input type="date" value={act.employment_start_date} onChange={e=>setAct(a=>({...a,employment_start_date:e.target.value}))}/></div>
             </div>
