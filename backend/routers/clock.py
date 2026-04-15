@@ -1,4 +1,5 @@
 import math
+import random
 from datetime import datetime, timezone, timedelta, date
 from typing import Optional
 
@@ -16,7 +17,7 @@ router = APIRouter()
 # ── Haversine ─────────────────────────────────────────────────────────────────
 
 def haversine_metres(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    R = 6_371_000  # Earth radius in metres
+    R = 6_371_000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlam = math.radians(lng2 - lng1)
@@ -26,23 +27,27 @@ def haversine_metres(lat1: float, lng1: float, lat2: float, lng2: float) -> floa
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
-class ClockInRequest(BaseModel):
-    scheduled_start: Optional[str] = None   # 'HH:MM'
-    gps_lat: Optional[float] = None
-    gps_lng: Optional[float] = None
+class QRClockInRequest(BaseModel):
+    staff_id:        str
+    full_name:       str
+    scheduled_start: Optional[str]   = None   # 'HH:MM'
+    gps_lat:         Optional[float] = None
+    gps_lng:         Optional[float] = None
 
 
-class ClockOutRequest(BaseModel):
-    gps_lat: Optional[float] = None
-    gps_lng: Optional[float] = None
+class QRClockOutRequest(BaseModel):
+    staff_id:  str
+    full_name: str
+    gps_lat:   Optional[float] = None
+    gps_lng:   Optional[float] = None
 
 
 class ManualShiftRequest(BaseModel):
     user_id:         int
     site_id:         int
     date:            date
-    clock_in_time:   str            # 'HH:MM'
-    clock_out_time:  str            # 'HH:MM'
+    clock_in_time:   str
+    clock_out_time:  str
     scheduled_start: Optional[str] = None
     overnight:       bool = False
     entry_notes:     Optional[str] = None
@@ -64,10 +69,24 @@ def _get_site(db: Session, org_slug: str, site_code: str) -> tuple:
     return org, site
 
 
+def _lookup_staff(db: Session, org_id: int, staff_id: str, full_name: str) -> models.User:
+    """Look up a user by staff_id within an org; validate name and active status."""
+    user = db.query(models.User).filter(
+        models.User.organisation_id == org_id,
+        models.User.staff_id        == staff_id.strip().upper(),
+    ).first()
+    if not user:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Staff ID not recognised")
+    if user.full_name.strip().lower() != full_name.strip().lower():
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Name does not match our records")
+    if not user.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account is not yet activated")
+    return user
+
+
 def _check_gps(site: models.Site, gps_lat: Optional[float], gps_lng: Optional[float]) -> bool:
-    """Returns True if GPS verified (within 50 m of site), False if no site coords."""
     if site.site_lat is None or site.site_lng is None:
-        return False  # site not geo-coded — allow but unverified
+        return False
     if gps_lat is None or gps_lng is None:
         return False
     dist = haversine_metres(gps_lat, gps_lng, site.site_lat, site.site_lng)
@@ -80,7 +99,6 @@ def _check_gps(site: models.Site, gps_lat: Optional[float], gps_lng: Optional[fl
 
 
 def _calc_lateness(scheduled_start: Optional[str], now: datetime) -> tuple[bool, int]:
-    """Returns (is_late, minutes_late) relative to scheduled_start HH:MM."""
     if not scheduled_start:
         return False, 0
     try:
@@ -89,9 +107,42 @@ def _calc_lateness(scheduled_start: Optional[str], now: datetime) -> tuple[bool,
         return False, 0
     scheduled = now.replace(hour=h, minute=m, second=0, microsecond=0)
     diff = int((now - scheduled).total_seconds() / 60)
-    if diff > 0:
-        return True, diff
-    return False, 0
+    return (True, diff) if diff > 0 else (False, 0)
+
+
+def _sia_status(expiry: date | None) -> str:
+    if not expiry:
+        return "unknown"
+    days = (expiry - date.today()).days
+    if days < 0:
+        return "expired"
+    if days < 60:
+        return "expiring"
+    return "valid"
+
+
+def _has_open_clock_in(db: Session, user_id: int) -> bool:
+    last_in = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+        )
+        .order_by(models.ClockEvent.timestamp.desc())
+        .first()
+    )
+    if not last_in:
+        return False
+    last_out = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_out,
+            models.ClockEvent.timestamp  > last_in.timestamp,
+        )
+        .first()
+    )
+    return last_out is None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -119,7 +170,6 @@ def my_history(
     clock_ins  = [e for e in events if e.event_type == models.ClockEventType.clock_in]
     clock_outs = [e for e in events if e.event_type == models.ClockEventType.clock_out]
 
-    # Detect open clock-in: most recent clock_in with no clock_out after it
     open_in = None
     open_in_id = None
     if clock_ins:
@@ -134,7 +184,6 @@ def my_history(
             }
             open_in_id = last_in.id
 
-    # Build completed shift records (most recent first)
     used_out_ids: set[int] = set()
     shifts = []
     for ci in reversed(clock_ins):
@@ -147,7 +196,7 @@ def my_history(
         if co:
             used_out_ids.add(co.id)
         site_name = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
-        is_manual = ci.entry_notes is not None  # manual entries always have entry_notes (even "")
+        is_manual = ci.entry_notes is not None
         shifts.append({
             "id":              ci.id,
             "date":            ci.timestamp.date().isoformat(),
@@ -185,7 +234,6 @@ def holiday_stats(
     unique_dates = {e.timestamp.date() for e in clock_ins}
     avg_days_per_week = round(len(unique_dates) / 13, 1) if unique_dates else 0.0
 
-    # Months employed
     months_employed = 0
     if current_user.employment_start_date:
         today = date.today()
@@ -195,7 +243,6 @@ def holiday_stats(
             months_employed -= 1
         months_employed = max(0, months_employed)
 
-    # Holiday year starts April 1
     today = date.today()
     april_start = date(today.year, 4, 1) if today >= date(today.year, 4, 1) else date(today.year - 1, 4, 1)
     approved_hols = (
@@ -212,7 +259,6 @@ def holiday_stats(
     annual_entitlement = round(avg_days_per_week * 4, 1)
     accrued = round((annual_entitlement / 12) * 2.3 * months_employed, 1) if annual_entitlement else 0.0
     accrued = min(accrued, annual_entitlement)
-    remaining = round(accrued - holidays_taken, 1)
 
     return {
         "avg_days_per_week":          avg_days_per_week,
@@ -220,7 +266,7 @@ def holiday_stats(
         "holidays_taken_since_april": holidays_taken,
         "annual_entitlement":         annual_entitlement,
         "accrued_to_date":            accrued,
-        "remaining":                  remaining,
+        "remaining":                  round(accrued - holidays_taken, 1),
     }
 
 
@@ -228,13 +274,12 @@ def holiday_stats(
 
 @router.get("/all")
 def all_events(
-    db:         Session     = Depends(get_db),
-    hr:         models.User = Depends(require_hr),
-    staff_id:   Optional[int]  = None,
-    from_date:  Optional[date] = None,
-    to_date:    Optional[date] = None,
+    db:        Session     = Depends(get_db),
+    hr:        models.User = Depends(require_hr),
+    staff_id:  Optional[int]  = None,
+    from_date: Optional[date] = None,
+    to_date:   Optional[date] = None,
 ):
-    """Return grouped shift records for the org. Each record = one clock_in paired with its clock_out."""
     from collections import defaultdict
 
     q = db.query(models.ClockEvent).filter(
@@ -250,11 +295,9 @@ def all_events(
         q = q.filter(models.ClockEvent.timestamp <= to_end)
 
     clock_ins = q.order_by(models.ClockEvent.timestamp.desc()).limit(500).all()
-
     if not clock_ins:
         return {"entries": [], "total_mins": 0}
 
-    # Fetch all relevant clock_outs in one query
     user_ids = list({ci.user_id for ci in clock_ins})
     min_ts   = min(ci.timestamp for ci in clock_ins)
 
@@ -276,15 +319,11 @@ def all_events(
 
     entries    = []
     total_mins = 0
-
     for ci in clock_ins:
-        co = next(
-            (o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp),
-            None,
-        )
+        co = next((o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp), None)
         site_name     = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
         shift_minutes = co.shift_minutes if co else None
-        is_manual     = ci.entry_notes is not None  # manual entries always have entry_notes (even "")
+        is_manual     = ci.entry_notes is not None
 
         entries.append({
             "id":              ci.id,
@@ -309,7 +348,7 @@ def all_events(
     return {"entries": entries, "total_mins": total_mins}
 
 
-# ── HR — shift average for a user (used in approve confirmation) ───────────────
+# ── HR — shift average for a user ─────────────────────────────────────────────
 
 @router.get("/shift-avg/{user_id}")
 def shift_avg(
@@ -336,10 +375,7 @@ def shift_avg(
         return {"avg_shift_hours": None, "shift_count": 0}
 
     avg_mins = sum(e.shift_minutes for e in clock_outs) / len(clock_outs)
-    return {
-        "avg_shift_hours": round(avg_mins / 60, 2),
-        "shift_count":     len(clock_outs),
-    }
+    return {"avg_shift_hours": round(avg_mins / 60, 2), "shift_count": len(clock_outs)}
 
 
 # ── HR — punctuality report ───────────────────────────────────────────────────
@@ -350,7 +386,6 @@ def punctuality(
     db: Session = Depends(get_db),
     hr: models.User = Depends(require_hr),
 ):
-    # Verify the target user belongs to the same org
     target = db.query(models.User).filter(models.User.id == user_id).first()
     if not target or target.organisation_id != hr.organisation_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff member not found")
@@ -358,21 +393,17 @@ def punctuality(
     clock_ins = (
         db.query(models.ClockEvent)
         .filter(
-            models.ClockEvent.user_id == user_id,
-            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            models.ClockEvent.user_id         == user_id,
+            models.ClockEvent.event_type      == models.ClockEventType.clock_in,
             models.ClockEvent.scheduled_start != None,
         )
         .all()
     )
-
-    total = len(clock_ins)
-    late_events = [e for e in clock_ins if e.is_late]
-    late_count = len(late_events)
+    total         = len(clock_ins)
+    late_events   = [e for e in clock_ins if e.is_late]
+    late_count    = len(late_events)
     on_time_count = total - late_count
-    avg_late_minutes = (
-        round(sum(e.minutes_late for e in late_events) / late_count, 1)
-        if late_count else 0
-    )
+    avg_late_minutes = round(sum(e.minutes_late for e in late_events) / late_count, 1) if late_count else 0
 
     return {
         "user_id":          user_id,
@@ -392,8 +423,6 @@ def manual_shift(
     db:   Session = Depends(get_db),
     hr:   models.User = Depends(require_hr),
 ):
-    """Create a clock_in + clock_out pair manually (HR only)."""
-    # Verify staff belongs to same org
     staff = db.query(models.User).filter(models.User.id == body.user_id).first()
     if not staff or staff.organisation_id != hr.organisation_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff member not found")
@@ -406,21 +435,15 @@ def manual_shift(
     if not site:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
 
-    # Build datetimes (treat as UTC)
     in_h,  in_m  = map(int, body.clock_in_time.split(':'))
     out_h, out_m = map(int, body.clock_out_time.split(':'))
-
     clock_in_dt  = datetime(body.date.year, body.date.month, body.date.day, in_h,  in_m,  tzinfo=timezone.utc)
     clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
-
-    # Handle overnight shift
     if body.overnight or clock_out_dt <= clock_in_dt:
         clock_out_dt += timedelta(days=1)
 
     shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
     is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
-
-    # Always set entry_notes (even empty string) so is_manual detection works
     notes = body.entry_notes if body.entry_notes is not None else ""
 
     in_event = models.ClockEvent(
@@ -458,61 +481,47 @@ def manual_shift(
     }
 
 
-# ── Public endpoint — site info ───────────────────────────────────────────────
-# MUST be last — parametric routes catch everything above if placed earlier
+# ── Public: site info ─────────────────────────────────────────────────────────
+# MUST be last — these parametric GET/POST routes catch everything above them.
 
 @router.get("/{org_slug}/{site_code}")
 def site_info(org_slug: str, site_code: str, db: Session = Depends(get_db)):
     org, site = _get_site(db, org_slug, site_code)
     return {
-        "org_name":    org.name,
-        "site_code":   site.code,
-        "site_name":   site.name,
-        "site_address": site.address,
-        "site_lat":    site.site_lat,
-        "site_lng":    site.site_lng,
-        "gps_enabled": site.site_lat is not None and site.site_lng is not None,
+        "org_name":      org.name,
+        "site_code":     site.code,
+        "site_name":     site.name,
+        "site_address":  site.address,
+        "site_lat":      site.site_lat,
+        "site_lng":      site.site_lng,
+        "gps_enabled":   site.site_lat is not None and site.site_lng is not None,
+        "has_gps_coords": site.site_lat is not None and site.site_lng is not None,
     }
 
 
-# ── Clock in ──────────────────────────────────────────────────────────────────
+# ── QR Clock in (no JWT — staff_id + name auth) ───────────────────────────────
 
 @router.post("/{org_slug}/{site_code}/in")
 def clock_in(
-    org_slug: str,
+    org_slug:  str,
     site_code: str,
-    body: ClockInRequest,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    body:      QRClockInRequest,
+    db:        Session = Depends(get_db),
 ):
     org, site = _get_site(db, org_slug, site_code)
+    user = _lookup_staff(db, org.id, body.staff_id, body.full_name)
 
-    # User must belong to this org
-    if current_user.organisation_id != org.id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "You do not belong to this organisation")
+    # Prevent double clock-in
+    if _has_open_clock_in(db, user.id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")
 
-    # Prevent double clock-in: check if there is an open clock_in with no subsequent clock_out
-    open_event = db.query(models.ClockEvent).filter(
-        models.ClockEvent.user_id == current_user.id,
-        models.ClockEvent.event_type == models.ClockEventType.clock_in,
-    ).order_by(models.ClockEvent.timestamp.desc()).first()
-
-    if open_event:
-        last_out = db.query(models.ClockEvent).filter(
-            models.ClockEvent.user_id == current_user.id,
-            models.ClockEvent.event_type == models.ClockEventType.clock_out,
-            models.ClockEvent.timestamp > open_event.timestamp,
-        ).first()
-        if not last_out:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "You already have an open clock-in. Please clock out first.")
-
-    now = datetime.now(timezone.utc)
     gps_verified = _check_gps(site, body.gps_lat, body.gps_lng)
+    now = datetime.now(timezone.utc)
     is_late, minutes_late = _calc_lateness(body.scheduled_start, now)
 
     event = models.ClockEvent(
         organisation_id = org.id,
-        user_id         = current_user.id,
+        user_id         = user.id,
         site_id         = site.id,
         event_type      = models.ClockEventType.clock_in,
         timestamp       = now,
@@ -525,60 +534,66 @@ def clock_in(
     )
     db.add(event)
     db.commit()
-    db.refresh(event)
 
     return {
-        "id":             event.id,
-        "event_type":     event.event_type,
-        "timestamp":      event.timestamp.isoformat(),
-        "site_name":      site.name,
-        "scheduled_start": event.scheduled_start,
-        "is_late":        event.is_late,
-        "minutes_late":   event.minutes_late,
-        "gps_verified":   event.gps_verified,
+        "success":         True,
+        "timestamp":       now.isoformat(),
+        "site_name":       site.name,
+        "full_name":       user.full_name,
+        "staff_id":        user.staff_id,
+        "sia_licence":     user.sia_licence,
+        "sia_expiry":      str(user.sia_expiry) if user.sia_expiry else None,
+        "sia_status":      _sia_status(user.sia_expiry),
+        "is_late":         is_late,
+        "minutes_late":    minutes_late,
+        "scheduled_start": body.scheduled_start,
     }
 
 
-# ── Clock out ─────────────────────────────────────────────────────────────────
+# ── QR Clock out (no JWT — staff_id + name auth) ──────────────────────────────
 
 @router.post("/{org_slug}/{site_code}/out")
 def clock_out(
-    org_slug: str,
+    org_slug:  str,
     site_code: str,
-    body: ClockOutRequest,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    body:      QRClockOutRequest,
+    db:        Session = Depends(get_db),
 ):
     org, site = _get_site(db, org_slug, site_code)
+    user = _lookup_staff(db, org.id, body.staff_id, body.full_name)
 
-    if current_user.organisation_id != org.id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "You do not belong to this organisation")
-
-    # Find most recent open clock-in (no clock-out after it)
-    last_in = db.query(models.ClockEvent).filter(
-        models.ClockEvent.user_id == current_user.id,
-        models.ClockEvent.event_type == models.ClockEventType.clock_in,
-    ).order_by(models.ClockEvent.timestamp.desc()).first()
-
+    # Find the most recent open clock_in for this user (any site)
+    last_in = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user.id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+        )
+        .order_by(models.ClockEvent.timestamp.desc())
+        .first()
+    )
     if not last_in:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active clock-in found")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active clock-in found. Please clock in first.")
 
-    last_out = db.query(models.ClockEvent).filter(
-        models.ClockEvent.user_id == current_user.id,
-        models.ClockEvent.event_type == models.ClockEventType.clock_out,
-        models.ClockEvent.timestamp > last_in.timestamp,
-    ).first()
-
+    last_out = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user.id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_out,
+            models.ClockEvent.timestamp  > last_in.timestamp,
+        )
+        .first()
+    )
     if last_out:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active clock-in found. You have already clocked out.")
 
-    now = datetime.now(timezone.utc)
     gps_verified = _check_gps(site, body.gps_lat, body.gps_lng)
+    now = datetime.now(timezone.utc)
     shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
 
     event = models.ClockEvent(
         organisation_id = org.id,
-        user_id         = current_user.id,
+        user_id         = user.id,
         site_id         = site.id,
         event_type      = models.ClockEventType.clock_out,
         timestamp       = now,
@@ -589,15 +604,16 @@ def clock_out(
     )
     db.add(event)
     db.commit()
-    db.refresh(event)
 
     return {
-        "id":           event.id,
-        "event_type":   event.event_type,
-        "timestamp":    event.timestamp.isoformat(),
-        "site_name":    site.name,
+        "success":       True,
+        "timestamp":     now.isoformat(),
+        "site_name":     site.name,
+        "full_name":     user.full_name,
+        "staff_id":      user.staff_id,
+        "sia_licence":   user.sia_licence,
+        "sia_expiry":    str(user.sia_expiry) if user.sia_expiry else None,
+        "sia_status":    _sia_status(user.sia_expiry),
         "shift_minutes": shift_minutes,
-        "shift_hours":  round(shift_minutes / 60, 2),
-        "clocked_in_at": last_in.timestamp.isoformat(),
-        "gps_verified": event.gps_verified,
+        "clock_in_time": last_in.timestamp.strftime("%H:%M"),
     }

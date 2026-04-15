@@ -1,3 +1,4 @@
+import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
@@ -8,6 +9,21 @@ from auth_utils import get_current_user, require_hr, org_guard
 import models
 
 router = APIRouter()
+
+
+def _generate_staff_id(first_name: str, last_name: str, org_id: int, db: Session) -> str:
+    """Generate a unique staff ID: initials + 3-digit random number (e.g. FA047)."""
+    initials = (first_name[:1] + last_name[:1]).upper()
+    for _ in range(200):
+        candidate = f"{initials}{random.randint(0, 999):03d}"
+        exists = db.query(models.User).filter(
+            models.User.organisation_id == org_id,
+            models.User.staff_id        == candidate,
+        ).first()
+        if not exists:
+            return candidate
+    # Extremely unlikely fallback — use 4 digits
+    return f"{initials}{random.randint(1000, 9999)}"
 
 
 @router.get("/pending")
@@ -67,15 +83,21 @@ def activate(
     if u.is_active:
         raise HTTPException(400, "User is already active")
 
-    u.is_active            = True
-    u.staff_id             = req.staff_id or "TBC"
-    u.employment_start_date= req.employment_start_date
-    u.pay_rate             = req.pay_rate
-    u.assigned_site_id     = req.assigned_site_id
-    u.activated_at         = datetime.now(timezone.utc)
+    # Auto-generate staff ID if HR didn't provide one
+    provided_id = (req.staff_id or "").strip()
+    if provided_id and provided_id.upper() != "TBC":
+        u.staff_id = provided_id.upper()
+    else:
+        u.staff_id = _generate_staff_id(u.first_name, u.last_name, u.organisation_id, db)
+
+    u.is_active             = True
+    u.employment_start_date = req.employment_start_date
+    u.pay_rate              = req.pay_rate
+    u.assigned_site_id      = req.assigned_site_id
+    u.activated_at          = datetime.now(timezone.utc)
 
     db.commit()
-    return {"message": f"{u.full_name} activated successfully"}
+    return {"message": f"{u.full_name} activated successfully", "staff_id": u.staff_id}
 
 
 @router.post("/{user_id}/reject")

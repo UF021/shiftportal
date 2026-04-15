@@ -70,9 +70,30 @@ export default function StaffDashboard() {
     {/* Hero */}
     <div style={{ background:`linear-gradient(135deg,#0f1923 0%,#1a3a1a 60%,${c}55 100%)`, borderRadius:16, padding:24, marginBottom:14, color:'#fff', position:'relative', overflow:'hidden' }}>
       <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:c+'22' }} />
-      <div style={{ fontSize:22, fontWeight:700, marginBottom:4 }}>Hello, {user?.first_name} 👋</div>
-      <div style={{ fontSize:13, color:'rgba(255,255,255,.6)' }}>Licensed Security Officer</div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:18 }}>
+      <div style={{ fontSize:22, fontWeight:700, marginBottom:2 }}>Hello, {user?.first_name} 👋</div>
+      <div style={{ fontSize:13, color:'rgba(255,255,255,.6)', marginBottom:18 }}>Licensed Security Officer</div>
+
+      {/* Staff ID — prominent, unmissable */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.1em', color:'rgba(255,255,255,.55)', marginBottom:8 }}>
+          YOUR STAFF ID
+        </div>
+        <div style={{
+          display:'inline-block',
+          background:'rgba(255,255,255,.12)',
+          border:'2px solid rgba(255,255,255,.35)',
+          borderRadius:12, padding:'10px 22px',
+        }}>
+          <div style={{ fontSize:52, fontWeight:900, fontFamily:'DM Mono,monospace', color:'#fff', letterSpacing:'.08em', lineHeight:1 }}>
+            {user?.staff_id || 'TBC'}
+          </div>
+        </div>
+        <div style={{ fontSize:12, color:'rgba(255,255,255,.5)', marginTop:8 }}>
+          Use this ID to clock in at any site
+        </div>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
         {[
           { val: clockData !== null ? `${totalShifts}` : '…', lbl:'Shifts', col:c },
           { val: gone?'EXP':days!=null?`${days}d`:'…', lbl:'SIA days left', col:siaCol },

@@ -224,30 +224,64 @@ export default function HRSettings() {
 
       {/* Registration Links tab */}
       {tab==='links' && (
-        <div className="card">
-          <div className="card-title">🔗 Staff Registration Link</div>
-          <p style={{fontSize:13,color:'var(--text-muted)',marginBottom:16}}>
-            Send this link to new staff members so they can register for the portal. Once they complete the registration, you will see them in the <strong>Registrations</strong> tab for approval.
-          </p>
-          <div style={{background:'var(--navy-light)',border:'1px solid var(--border)',borderRadius:8,padding:'14px 16px',fontFamily:'DM Mono,monospace',fontSize:13,wordBreak:'break-all',color:'var(--green)'}}>
-            {regLink}
-          </div>
-          <button onClick={()=>{ navigator.clipboard.writeText(regLink); setMsg('✅ Link copied to clipboard!') }} className="btn btn-brand" style={{marginTop:14}}>
-            📋 Copy Link
-          </button>
-          {msg && <div className="alert alert-green" style={{marginTop:12}}>{msg}</div>}
-
-          <div style={{borderTop:'1px solid var(--border)',marginTop:20,paddingTop:20}}>
-            <div className="card-title">📱 QR Code</div>
-            <p style={{fontSize:13,color:'var(--text-muted)',marginBottom:14}}>
-              Staff can also scan this QR code on their phone to access the registration page directly.
+        <>
+          {/* Staff registration link */}
+          <div className="card" style={{marginBottom:18}}>
+            <div className="card-title">🔗 Staff Registration Link</div>
+            <p style={{fontSize:13,color:'var(--text-muted)',marginBottom:16}}>
+              Send this link to new staff members so they can register for the portal. Once they complete the registration, you will see them in the <strong>Registrations</strong> tab for approval.
             </p>
-            <div style={{background:'#fff',borderRadius:10,padding:16,display:'inline-block'}}>
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(regLink)}`} alt="Registration QR" style={{display:'block',width:180,height:180}}/>
+            <div style={{background:'var(--navy-light)',border:'1px solid var(--border)',borderRadius:8,padding:'14px 16px',fontFamily:'DM Mono,monospace',fontSize:13,wordBreak:'break-all',color:'var(--green)'}}>
+              {regLink}
             </div>
-            <div style={{fontSize:11,color:'var(--text-muted)',marginTop:10}}>Right-click → Save image to download and print</div>
+            <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap',alignItems:'center'}}>
+              <button onClick={()=>{ navigator.clipboard.writeText(regLink); setMsg('✅ Registration link copied!') }} className="btn btn-brand">
+                📋 Copy Link
+              </button>
+              <div style={{background:'#fff',borderRadius:8,padding:10,display:'inline-block',border:'1px solid var(--border)'}}>
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(regLink)}`} alt="Registration QR" style={{display:'block',width:130,height:130}}/>
+              </div>
+            </div>
+            {msg && <div className="alert alert-green" style={{marginTop:12}}>{msg}</div>}
           </div>
-        </div>
+
+          {/* Site clock-in QR codes */}
+          <div className="card-title" style={{marginBottom:14}}>📱 Site Clock-In QR Codes</div>
+          <p style={{fontSize:13,color:'var(--text-muted)',marginBottom:18}}>
+            Print and display these QR codes at each site. Staff scan them to clock in/out using their Staff ID — no app required.
+          </p>
+          {sites.length === 0 ? (
+            <div style={{fontSize:13,color:'var(--text-muted)'}}>No sites yet. Add sites in the Sites tab first.</div>
+          ) : (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:16}}>
+              {sites.map(site => {
+                const clockUrl = `${window.location.origin}/clock/${org?.slug || 'ikan-fm'}/${site.code}`
+                const qrUrl    = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(clockUrl)}`
+                return (
+                  <div key={site.id} className="card" style={{padding:20,textAlign:'center'}}>
+                    <div style={{fontSize:14,fontWeight:700,marginBottom:4,color:'var(--text)'}}>{site.name}</div>
+                    {site.group && <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:12}}>{site.group}</div>}
+                    <div style={{background:'#fff',borderRadius:10,padding:14,display:'inline-block',border:'1px solid var(--border)',marginBottom:12}}>
+                      <img src={qrUrl} alt={`QR for ${site.name}`} style={{display:'block',width:180,height:180}}/>
+                    </div>
+                    <div style={{fontSize:11,fontFamily:'DM Mono,monospace',color:'var(--text-muted)',wordBreak:'break-all',marginBottom:12}}>
+                      {clockUrl}
+                    </div>
+                    <button
+                      onClick={()=>{ navigator.clipboard.writeText(clockUrl); setMsg(`✅ Link copied for ${site.name}`) }}
+                      className="btn btn-outline"
+                      style={{fontSize:12,padding:'6px 14px',width:'100%'}}
+                    >
+                      📋 Copy Link
+                    </button>
+                    <div style={{fontSize:10,color:'var(--text-muted)',marginTop:8}}>Right-click QR → Save image to download and print</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {msg && <div className="alert alert-green" style={{marginTop:16}}>{msg}</div>}
+        </>
       )}
     </>
   )

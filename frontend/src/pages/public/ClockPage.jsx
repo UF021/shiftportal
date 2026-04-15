@@ -1,322 +1,413 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useBrand } from '../../api/BrandContext'
-import OrgLogo from '../../components/OrgLogo'
-import AnalogTimePicker from '../../components/AnalogTimePicker'
 
-function Wrap({ siteInfo, children }) {
-  return (
-    <div style={{ minHeight:'100vh', background:'#f5f7f5', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'20px 14px', paddingBottom:'calc(20px + env(safe-area-inset-bottom))' }}>
-      <div style={{ width:'100%', maxWidth:420 }}>
-        <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
-          <OrgLogo dark={false} />
-        </div>
-        {siteInfo && (
-          <p style={{ textAlign:'center', fontSize:13, color:'#6a8a6a', marginBottom:20 }}>{siteInfo.site_name}</p>
-        )}
-        {children}
-      </div>
-    </div>
-  )
-}
+const BASE  = import.meta.env.VITE_API_URL || '/api'
+const GREEN = '#6abf3f'
+const DARK  = '#1a3a1a'
 
-const BASE = import.meta.env.VITE_API_URL || '/api'
+// ── Utilities ─────────────────────────────────────────────────────────────────
 
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 6371000
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLng = (lng2 - lng1) * Math.PI / 180
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6_371_000
+  const r = d => d * Math.PI / 180
+  const dLat = r(lat2 - lat1)
+  const dLon = r(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(dLon / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-function fmtDuration(minutes) {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return h > 0 ? `${h}h ${m}m` : `${m}m`
+function siaInfo(expiry) {
+  if (!expiry) return { label: 'No SIA data', icon: '❓', col: '#888' }
+  const days = Math.ceil((new Date(expiry) - new Date()) / 86_400_000)
+  if (days < 0)  return { label: `Expired — ${expiry}`,                  icon: '❌', col: '#e05555' }
+  if (days < 60) return { label: `Expiring soon — ${expiry} (${days}d)`, icon: '⚠️', col: '#d08020' }
+  return               { label: `Valid — expires ${expiry}`,              icon: '✅', col: '#2e7d32' }
 }
 
+function fmtDur(mins) {
+  if (!mins) return '—'
+  return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
+}
+
+// ── Shared layout ─────────────────────────────────────────────────────────────
+
+function Screen({ children }) {
+  return (
+    <div style={{
+      minHeight: '100dvh',
+      background: `linear-gradient(160deg, ${DARK} 0%, #2a5a1a 55%, ${GREEN}cc 100%)`,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '24px 16px',
+      fontFamily: 'DM Sans, system-ui, sans-serif',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function ShieldLogo() {
+  return (
+    <div style={{
+      width: 68, height: 68, borderRadius: '50%',
+      background: 'rgba(255,255,255,.18)', border: '2px solid rgba(255,255,255,.35)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 32, marginBottom: 14, flexShrink: 0,
+    }}>🛡</div>
+  )
+}
+
+const card = {
+  background: '#fff', borderRadius: 18, padding: '26px 22px',
+  width: '100%', maxWidth: 420, boxShadow: '0 12px 40px rgba(0,0,0,.28)',
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function ClockPage() {
-  const { slug, site_code } = useParams()
-  const brand = useBrand()
-  const c = brand?.colour || '#6abf3f'
+  const { slug, site_code: siteCode } = useParams()
 
-  const [phase,          setPhase]         = useState('loading')
-  const [siteInfo,       setSiteInfo]      = useState(null)
-  const [gps,            setGps]           = useState(null)
-  const [scheduledStart, setScheduledStart] = useState('09:00')
-  const [result,         setResult]        = useState(null)
-  const [openClockIn,    setOpenClockIn]   = useState(null)
-  const [elapsed,        setElapsed]       = useState(0)
-  const [loginEmail,     setLoginEmail]    = useState('')
-  const [loginPass,      setLoginPass]     = useState('')
-  const [loginBusy,      setLoginBusy]     = useState(false)
-  const [loginErr,       setLoginErr]      = useState('')
-  const [busy,           setBusy]          = useState(false)
-  const [err,            setErr]           = useState('')
+  const [phase,      setPhase]      = useState('loading')
+  const [siteInfo,   setSiteInfo]   = useState(null)
+  const [gpsCoords,  setGpsCoords]  = useState(null)
+  const [distance,   setDistance]   = useState(null)
+  const [form,       setForm]       = useState({ staffId: '', fullName: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [formError,  setFormError]  = useState('')
+  const [result,     setResult]     = useState(null)
+  const [action,     setAction]     = useState('in')   // 'in' | 'out'
+  const [tick,       setTick]       = useState(new Date())
 
-  // Fetch site info on mount
+  // Live clock
   useEffect(() => {
-    fetch(`${BASE}/clock/${slug}/${site_code}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.detail) { setPhase('error'); setErr(data.detail); return }
-        setSiteInfo(data)
-        setPhase(localStorage.getItem('sp_token') ? 'gps' : 'login')
-      })
-      .catch(() => { setPhase('error'); setErr('Could not load site information.') })
-  }, [slug, site_code])
-
-  // Elapsed timer while clocked in
-  useEffect(() => {
-    if (phase !== 'clock_out' || !openClockIn) return
-    const update = () => setElapsed(Math.floor((Date.now() - new Date(openClockIn.timestamp)) / 60000))
-    update()
-    const id = setInterval(update, 30000)
-    return () => clearInterval(id)
-  }, [phase, openClockIn])
-
-  const checkClockStatus = useCallback(async (tok, lat, lng, info) => {
-    // Client-side GPS check
-    if (info?.site_lat != null && info?.site_lng != null) {
-      const dist = haversine(lat, lng, info.site_lat, info.site_lng)
-      if (dist > 50) { setPhase('too_far'); return }
-    }
-    // Check open clock-in from history
-    try {
-      const r = await fetch(`${BASE}/clock/my/history`, { headers: { Authorization: `Bearer ${tok}` } })
-      if (!r.ok) { setPhase('login'); return }
-      const events = await r.json()
-      const lastIn = [...events].filter(e => e.event_type === 'clock_in').sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
-      if (lastIn) {
-        const hasOut = events.some(e => e.event_type === 'clock_out' && new Date(e.timestamp) > new Date(lastIn.timestamp))
-        if (!hasOut) { setOpenClockIn(lastIn); setPhase('clock_out'); return }
-      }
-      setPhase('clock_in')
-    } catch { setPhase('clock_in') }
+    const t = setInterval(() => setTick(new Date()), 1000)
+    return () => clearInterval(t)
   }, [])
 
-  const requestGps = useCallback(() => {
-    if (!navigator.geolocation) { setPhase('gps_denied'); return }
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords
-        setGps({ lat, lng })
-        const tok = localStorage.getItem('sp_token')
-        await checkClockStatus(tok, lat, lng, siteInfo)
-      },
-      () => setPhase('gps_denied'),
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }, [siteInfo, checkClockStatus])
+  // Load site info, then start GPS
+  useEffect(() => {
+    fetch(`${BASE}/clock/${slug}/${siteCode}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { setSiteInfo(data); startGPS(data) })
+      .catch(() => setPhase('site_error'))
+  }, [])
 
-  async function handleLogin(e) {
-    e.preventDefault()
-    setLoginBusy(true); setLoginErr('')
+  function startGPS(data) {
+    if (!navigator.geolocation) {
+      setPhase(data.gps_enabled ? 'gps_denied' : 'form')
+      return
+    }
+    setPhase('gps_checking')
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        setGpsCoords({ lat, lng })
+        if (data.gps_enabled && data.site_lat && data.site_lng) {
+          const dist = Math.round(haversine(lat, lng, data.site_lat, data.site_lng))
+          setDistance(dist)
+          setPhase(dist > 50 ? 'too_far' : 'form')
+        } else {
+          setPhase('form')
+        }
+      },
+      () => setPhase(data.gps_enabled ? 'gps_denied' : 'form'),
+      { enableHighAccuracy: true, timeout: 15_000 }
+    )
+  }
+
+  async function submit() {
+    if (!form.staffId.trim() || !form.fullName.trim()) {
+      setFormError('Please enter both your full name and staff ID.')
+      return
+    }
+    setSubmitting(true)
+    setFormError('')
     try {
-      const r = await fetch(`${BASE}/auth/login`, {
+      const endpoint = action === 'in' ? 'in' : 'out'
+      const body = {
+        staff_id:  form.staffId.trim().toUpperCase(),
+        full_name: form.fullName.trim(),
+        gps_lat:   gpsCoords?.lat ?? null,
+        gps_lng:   gpsCoords?.lng ?? null,
+        ...(action === 'in' ? { scheduled_start: null } : {}),
+      }
+      const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPass }),
+        body: JSON.stringify(body),
       })
       const data = await r.json()
-      if (!r.ok) { setLoginErr(data.detail || 'Login failed'); return }
-      localStorage.setItem('sp_token', data.access_token)
-      localStorage.setItem('sp_user', JSON.stringify(data))
-      setPhase('gps')
-    } catch { setLoginErr('Login failed. Please try again.') }
-    finally { setLoginBusy(false) }
+
+      if (r.status === 409 && data.detail === 'already_clocked_in') {
+        setAction('out')
+        setFormError('You are already clocked in at this site. Tap CLOCK OUT below to end your shift.')
+      } else if (!r.ok) {
+        setFormError(data.detail || 'An error occurred. Please try again.')
+      } else {
+        setResult({ ...data, submittedAction: action })
+        setPhase('confirm')
+      }
+    } catch {
+      setFormError('Network error — please check your connection and try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  async function handleClockIn() {
-    setBusy(true); setErr('')
-    try {
-      const tok = localStorage.getItem('sp_token')
-      const r = await fetch(`${BASE}/clock/${slug}/${site_code}/in`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
-        body: JSON.stringify({ scheduled_start: scheduledStart, gps_lat: gps?.lat, gps_lng: gps?.lng }),
-      })
-      const data = await r.json()
-      if (!r.ok) { setErr(data.detail || 'Clock in failed'); return }
-      setResult(data); setPhase('clocked_in')
-    } catch { setErr('Clock in failed. Please try again.') }
-    finally { setBusy(false) }
+  function reset() {
+    setForm({ staffId: '', fullName: '' })
+    setFormError('')
+    setAction('in')
+    setResult(null)
+    setPhase('form')
   }
 
-  async function handleClockOut() {
-    setBusy(true); setErr('')
-    try {
-      const tok = localStorage.getItem('sp_token')
-      const r = await fetch(`${BASE}/clock/${slug}/${site_code}/out`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
-        body: JSON.stringify({ gps_lat: gps?.lat, gps_lng: gps?.lng }),
-      })
-      const data = await r.json()
-      if (!r.ok) { setErr(data.detail || 'Clock out failed'); return }
-      setResult(data); setPhase('clocked_out')
-    } catch { setErr('Clock out failed. Please try again.') }
-    finally { setBusy(false) }
-  }
+  const timeStr = tick.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
-  // ── Phases ────────────────────────────────────────────────────────────────
+  // ── LOADING / GPS CHECKING ────────────────────────────────────────────────
 
-  if (phase === 'loading') return (
-    <Wrap siteInfo={siteInfo}><div style={{ textAlign:'center', color:'#6a8a6a', padding:40 }}>Loading…</div></Wrap>
-  )
-
-  if (phase === 'error') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:12, padding:24, textAlign:'center', color:'#a02020', fontSize:14 }}>
-        ⚠ {err}
+  if (phase === 'loading' || phase === 'gps_checking') return (
+    <Screen>
+      <ShieldLogo />
+      <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center' }}>
+        {phase === 'loading' ? 'Loading…' : 'Checking your location…'}
       </div>
-    </Wrap>
+      {siteInfo && (
+        <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 15, marginTop: 8, textAlign: 'center' }}>
+          {siteInfo.site_name}
+        </div>
+      )}
+    </Screen>
   )
 
-  if (phase === 'login') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'32px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)' }}>
-        <h2 style={{ fontSize:20, fontWeight:700, color:'#1a2a1a', marginBottom:4 }}>Sign In to Clock</h2>
-        <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:22 }}>Sign in with your staff account to continue.</p>
-        <form onSubmit={handleLogin}>
-          <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Email</label>
-            <input type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} required autoComplete="email"
-              style={{ width:'100%', padding:'13px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:16, outline:'none', boxSizing:'border-box' }} />
-          </div>
-          <div style={{ marginBottom:18 }}>
-            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Password</label>
-            <input type="password" value={loginPass} onChange={e=>setLoginPass(e.target.value)} required autoComplete="current-password"
-              style={{ width:'100%', padding:'13px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:16, outline:'none', boxSizing:'border-box' }} />
-          </div>
-          {loginErr && <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#a02020', marginBottom:14 }}>⚠ {loginErr}</div>}
-          <button type="submit" disabled={loginBusy}
-            style={{ width:'100%', padding:13, borderRadius:9, border:'none', background:c, color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:15, fontWeight:700, cursor:'pointer', opacity:loginBusy?.7:1 }}>
-            {loginBusy ? 'Signing in…' : 'Sign In'}
-          </button>
-        </form>
+  // ── SITE ERROR ────────────────────────────────────────────────────────────
+
+  if (phase === 'site_error') return (
+    <Screen>
+      <div style={{ fontSize: 56 }}>❌</div>
+      <div style={{ color: '#fff', fontSize: 22, fontWeight: 700, marginTop: 14, textAlign: 'center' }}>
+        Site Not Found
       </div>
-    </Wrap>
+      <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 15, marginTop: 10, textAlign: 'center', maxWidth: 320 }}>
+        This QR code is invalid or the site has been deactivated. Please contact your supervisor.
+      </div>
+    </Screen>
   )
 
-  if (phase === 'gps') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'36px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
-        <div style={{ fontSize:52, marginBottom:16 }}>📍</div>
-        <h3 style={{ fontSize:18, fontWeight:700, color:'#1a2a1a', marginBottom:8 }}>Location Required</h3>
-        <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:26, lineHeight:1.6 }}>We need to confirm you are on site before clocking in.</p>
-        <button onClick={requestGps}
-          style={{ width:'100%', padding:13, borderRadius:9, border:'none', background:c, color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:15, fontWeight:700, cursor:'pointer' }}>
-          Allow Location Access
-        </button>
-      </div>
-    </Wrap>
-  )
+  // ── GPS DENIED ────────────────────────────────────────────────────────────
 
   if (phase === 'gps_denied') return (
-    <div style={{ minHeight:'100vh', background:'#0f0606', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-      <div style={{ textAlign:'center', color:'#fff', maxWidth:340 }}>
-        <div style={{ fontSize:64, marginBottom:20 }}>🚫</div>
-        <h2 style={{ fontSize:22, fontWeight:700, marginBottom:14 }}>Location Required</h2>
-        <p style={{ fontSize:14, color:'rgba(255,255,255,.7)', lineHeight:1.75 }}>
-          You must enable location services to clock in. Please enable GPS in your phone settings and try again.
-        </p>
-        <button onClick={() => setPhase('gps')}
-          style={{ marginTop:28, padding:'12px 32px', borderRadius:9, border:'none', background:c, color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+    <Screen>
+      <div style={{ fontSize: 56, marginBottom: 8 }}>📍</div>
+      <div style={{ ...card, textAlign: 'center' }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#c0392b', marginBottom: 14 }}>
+          Location Services Required
+        </div>
+        <div style={{ fontSize: 16, color: '#333', lineHeight: 1.65 }}>
+          You must enable location services to clock in.
+        </div>
+        <div style={{ fontSize: 14, color: '#555', marginTop: 14, lineHeight: 1.65 }}>
+          Please go to your phone <strong>Settings</strong> → <strong>Privacy</strong> → <strong>Location Services</strong> and enable GPS for your browser, then reload this page.
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          style={{ marginTop: 22, width: '100%', padding: 16, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer' }}
+        >
+          Reload Page
+        </button>
+      </div>
+    </Screen>
+  )
+
+  // ── TOO FAR ────────────────────────────────────────────────────────────────
+
+  if (phase === 'too_far') return (
+    <Screen>
+      <div style={{ fontSize: 56, marginBottom: 8 }}>🚫</div>
+      <div style={{ ...card, textAlign: 'center' }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#c0392b', marginBottom: 14 }}>
+          Not On Site
+        </div>
+        <div style={{ fontSize: 16, color: '#333', lineHeight: 1.65 }}>
+          You are not at <strong>{siteInfo?.site_name}</strong>.
+        </div>
+        <div style={{ fontSize: 14, color: '#555', marginTop: 6 }}>
+          You must be on site to clock in.
+        </div>
+        <div style={{ marginTop: 18, padding: '14px 16px', background: '#fde8e8', borderRadius: 10, fontSize: 16, color: '#a02020', fontWeight: 700 }}>
+          Your current distance: <strong>{distance}m</strong> away
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          style={{ marginTop: 18, width: '100%', padding: 14, borderRadius: 12, border: 'none', background: '#777', color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}
+        >
           Try Again
         </button>
       </div>
-    </div>
+    </Screen>
   )
 
-  if (phase === 'too_far') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'32px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
-        <div style={{ fontSize:52, marginBottom:16 }}>📍</div>
-        <h3 style={{ fontSize:18, fontWeight:700, color:'#a02020', marginBottom:10 }}>Not On Site</h3>
-        <p style={{ fontSize:13, color:'#6a8a6a', lineHeight:1.65 }}>
-          You are not at {siteInfo?.site_name}. Please ensure you are on site before clocking in.
-        </p>
-        <button onClick={requestGps}
-          style={{ marginTop:22, width:'100%', padding:13, borderRadius:9, border:'none', background:c, color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:700, cursor:'pointer' }}>
-          Check Again
+  // ── FORM (Phase 3) ────────────────────────────────────────────────────────
+
+  if (phase === 'form') return (
+    <Screen>
+      <ShieldLogo />
+      <div style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 4 }}>
+        {action === 'in' ? 'Clocking in at' : 'Clocking out at'}
+      </div>
+      <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, textAlign: 'center', marginBottom: 22, lineHeight: 1.2 }}>
+        {siteInfo?.site_name}
+      </div>
+
+      <div style={card}>
+        {/* Full name */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>
+            Full Name
+          </label>
+          <input
+            type="text"
+            inputMode="text"
+            autoComplete="name"
+            placeholder="e.g. John Smith"
+            value={form.fullName}
+            onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+            style={{
+              width: '100%', padding: '15px 14px', fontSize: 17, borderRadius: 10,
+              border: '1.5px solid #ddd', outline: 'none',
+              fontFamily: 'DM Sans, sans-serif', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Staff ID */}
+        <div style={{ marginBottom: 22 }}>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>
+            Staff ID
+          </label>
+          <input
+            type="text"
+            inputMode="text"
+            autoCapitalize="characters"
+            placeholder="e.g. FA001"
+            value={form.staffId}
+            onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
+            style={{
+              width: '100%', padding: '15px 14px', fontSize: 20, borderRadius: 10,
+              border: '1.5px solid #ddd', outline: 'none',
+              fontFamily: 'DM Mono, monospace', letterSpacing: '.1em',
+              textTransform: 'uppercase', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Error */}
+        {formError && (
+          <div style={{
+            background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 10,
+            padding: '12px 14px', fontSize: 14, color: '#a02020',
+            marginBottom: 16, lineHeight: 1.55,
+          }}>
+            {formError}
+          </div>
+        )}
+
+        {/* Submit button */}
+        <button
+          onClick={submit}
+          disabled={submitting}
+          style={{
+            width: '100%', padding: '17px 0', fontSize: 20, fontWeight: 900,
+            letterSpacing: '.08em', borderRadius: 12, border: 'none',
+            background: submitting ? '#aaa' : action === 'out' ? '#c0392b' : GREEN,
+            color: '#fff', cursor: submitting ? 'wait' : 'pointer',
+            transition: 'background .2s',
+          }}
+        >
+          {submitting ? '…' : action === 'in' ? 'CLOCK IN' : 'CLOCK OUT'}
         </button>
       </div>
-    </Wrap>
+
+      <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 13, marginTop: 22, fontFamily: 'DM Mono, monospace' }}>
+        Server time: {timeStr}
+      </div>
+    </Screen>
   )
 
-  if (phase === 'clock_in') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'24px 20px', boxShadow:'0 4px 24px rgba(0,0,0,.08)' }}>
-        <h3 style={{ fontSize:18, fontWeight:700, color:'#1a2a1a', marginBottom:4, textAlign:'center' }}>Clock In</h3>
-        <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20, textAlign:'center' }}>
-          What time was your shift scheduled to start?
-        </p>
-        <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
-          <AnalogTimePicker value={scheduledStart} onChange={setScheduledStart} />
-        </div>
-        {err && <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#a02020', marginBottom:12 }}>⚠ {err}</div>}
-        <button onClick={handleClockIn} disabled={busy}
-          style={{ width:'100%', padding:15, borderRadius:9, border:'none', background:c, color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:17, fontWeight:700, cursor:'pointer', opacity:busy?.7:1, letterSpacing:'.04em' }}>
-          {busy ? 'Clocking in…' : '✓  CLOCK IN'}
-        </button>
-      </div>
-    </Wrap>
-  )
+  // ── CONFIRMATION (Phase 4) ────────────────────────────────────────────────
 
-  if (phase === 'clock_out') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'28px 24px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
-        <div style={{ fontSize:12, color:'#6a8a6a', marginBottom:4 }}>Clocked in at</div>
-        <div style={{ fontSize:26, fontWeight:700, fontFamily:'DM Mono,monospace', color:'#1a2a1a', marginBottom:4 }}>
-          {openClockIn ? new Date(openClockIn.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—'}
-        </div>
-        <div style={{ fontSize:13, color:'#6a8a6a', marginBottom:18 }}>{siteInfo?.site_name}</div>
-        <div style={{ background:'#f0f8f0', border:'1px solid #c8e8c8', borderRadius:12, padding:'16px 24px', marginBottom:22 }}>
-          <div style={{ fontSize:12, color:'#6a8a6a', marginBottom:6, textTransform:'uppercase', letterSpacing:'.05em' }}>Shift duration so far</div>
-          <div style={{ fontSize:36, fontWeight:700, fontFamily:'DM Mono,monospace', color:c }}>{fmtDuration(elapsed)}</div>
-        </div>
-        {err && <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#a02020', marginBottom:12 }}>⚠ {err}</div>}
-        <button onClick={handleClockOut} disabled={busy}
-          style={{ width:'100%', padding:15, borderRadius:9, border:'none', background:'#c0392b', color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:17, fontWeight:700, cursor:'pointer', opacity:busy?.7:1, letterSpacing:'.04em' }}>
-          {busy ? 'Clocking out…' : '✕  CLOCK OUT'}
-        </button>
-      </div>
-    </Wrap>
-  )
+  if (phase === 'confirm' && result) {
+    const isIn = result.submittedAction === 'in'
+    const sia  = siaInfo(result.sia_expiry)
+    const ts   = result.timestamp ? new Date(result.timestamp) : new Date()
+    const fmtTs = ts.toLocaleString('en-GB', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    })
 
-  if (phase === 'clocked_in') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'36px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
-        <div style={{ fontSize:56, marginBottom:16 }}>{result?.is_late ? '🟡' : '✅'}</div>
-        <h3 style={{ fontSize:20, fontWeight:700, color:'#1a2a1a', marginBottom:10 }}>
-          {result?.is_late ? 'Clocked In — Late' : 'Clocked In — On Time'}
-        </h3>
-        <div style={{ fontSize:38, fontWeight:700, fontFamily:'DM Mono,monospace', color:c, marginBottom:14 }}>
-          {result?.timestamp ? new Date(result.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—'}
-        </div>
-        <p style={{ fontSize:14, color:'#4a6a4a', lineHeight:1.7 }}>
-          {result?.is_late
-            ? `You are ${result.minutes_late} minute${result.minutes_late !== 1 ? 's' : ''} late.`
-            : 'On time. Have a great shift!'}
-        </p>
-      </div>
-    </Wrap>
-  )
+    const rows = [
+      ['👤 Name',      result.full_name],
+      ['🪪 Staff ID',  result.staff_id],
+      ['📍 Location',  result.site_name],
+      ['🕐 Time',      fmtTs],
+      ...(result.sia_licence ? [['🛡 SIA Licence', result.sia_licence]] : []),
+    ]
 
-  if (phase === 'clocked_out') return (
-    <Wrap siteInfo={siteInfo}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'36px 28px', boxShadow:'0 4px 24px rgba(0,0,0,.08)', textAlign:'center' }}>
-        <div style={{ fontSize:56, marginBottom:16 }}>🏁</div>
-        <h3 style={{ fontSize:20, fontWeight:700, color:'#1a2a1a', marginBottom:10 }}>Shift Complete</h3>
-        <div style={{ fontSize:38, fontWeight:700, fontFamily:'DM Mono,monospace', color:c, marginBottom:14 }}>
-          {result?.shift_minutes != null ? fmtDuration(result.shift_minutes) : '—'}
+    return (
+      <Screen>
+        <div style={{ fontSize: 76, marginBottom: 10, lineHeight: 1 }}>{isIn ? '✅' : '🔔'}</div>
+        <div style={{ color: '#fff', fontSize: 30, fontWeight: 900, letterSpacing: '.05em', marginBottom: 22, textAlign: 'center' }}>
+          {isIn ? 'CLOCKED IN' : 'CLOCKED OUT'}
         </div>
-        <p style={{ fontSize:14, color:'#4a6a4a' }}>Well done! See you next shift.</p>
-      </div>
-    </Wrap>
-  )
+
+        <div style={{ ...card, maxWidth: 440 }}>
+          {rows.map(([label, val]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #f0f0f0', gap: 12 }}>
+              <span style={{ fontSize: 14, color: '#666', fontWeight: 600, flexShrink: 0 }}>{label}</span>
+              <span style={{ fontSize: 14, color: '#1a2a1a', fontWeight: 700, textAlign: 'right', wordBreak: 'break-all' }}>{val}</span>
+            </div>
+          ))}
+
+          {/* SIA status */}
+          {result.sia_expiry && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f0f0f0', gap: 12 }}>
+              <span style={{ fontSize: 14, color: '#666', fontWeight: 600 }}>✨ SIA Status</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: sia.col }}>{sia.icon} {sia.label}</span>
+            </div>
+          )}
+
+          {/* Punctuality or shift duration */}
+          {isIn ? (
+            <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: 700, background: result.is_late ? '#fde8e8' : '#e8f8e0', color: result.is_late ? '#a02020' : '#1a6a1a' }}>
+              {result.scheduled_start != null
+                ? result.is_late
+                  ? `⚠️ Late by ${result.minutes_late} minute${result.minutes_late !== 1 ? 's' : ''}`
+                  : '✅ On Time'
+                : '✅ Clock-in recorded'}
+            </div>
+          ) : (
+            <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: 700, background: '#e8f0ff', color: '#1a3a8a' }}>
+              🕐 Shift duration: {fmtDur(result.shift_minutes)}
+              {result.clock_in_time && (
+                <div style={{ fontWeight: 400, fontSize: 13, marginTop: 4 }}>Clocked in at {result.clock_in_time}</div>
+              )}
+            </div>
+          )}
+
+          {/* Screenshot reminder */}
+          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#fffbe8', border: '1px solid #e8d060', fontSize: 13, color: '#7a6000', textAlign: 'center', lineHeight: 1.55 }}>
+            📸 Please <strong>screenshot this confirmation</strong> for your records
+          </div>
+
+          <button
+            onClick={reset}
+            style={{ marginTop: 18, width: '100%', padding: '15px 0', fontSize: 17, fontWeight: 700, borderRadius: 12, border: `2px solid ${GREEN}`, background: '#fff', color: GREEN, cursor: 'pointer' }}
+          >
+            Done
+          </button>
+        </div>
+      </Screen>
+    )
+  }
 
   return null
 }
