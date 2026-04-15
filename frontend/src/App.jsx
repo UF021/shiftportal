@@ -61,7 +61,7 @@ export default function App() {
       <Route path="/pending"        element={<PendingPage />} />
 
       {/* ── Fallback login (no slug) ── */}
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<BrandProvider slug="ikan-fm"><LoginPage /></BrandProvider>} />
 
       {/* ── Staff portal ── */}
       <Route path="/staff" element={

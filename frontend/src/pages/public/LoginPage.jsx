@@ -8,7 +8,8 @@ export default function LoginPage() {
   const { signIn }  = useAuth()
   const brand       = useBrand()
   const nav         = useNavigate()
-  const { slug }    = useParams()
+  const { slug }          = useParams()
+  const effectiveSlug     = slug || 'ikan-fm'
 
   const [email, setEmail]     = useState('')
   const [pass, setPass]       = useState('')
@@ -42,7 +43,7 @@ export default function LoginPage() {
 
         {/* Brand logo */}
         <div style={{ marginBottom: 28 }}>
-          <div onClick={() => nav(`/login/${slug||''}`)} style={{ cursor:'pointer', display:'inline-block' }}>
+          <div onClick={() => nav(`/login/${effectiveSlug}`)} style={{ cursor:'pointer', display:'inline-block' }}>
             <OrgLogo dark={false} />
           </div>
         </div>
@@ -95,7 +96,7 @@ export default function LoginPage() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to={slug ? `/register/${slug}` : '/register'} style={{ fontSize: 13, color: c, fontWeight: 600 }}>
+            <Link to={`/register/${effectiveSlug}`} style={{ fontSize: 13, color: c, fontWeight: 600 }}>
               CREATE NEW ACCOUNT to register.
             </Link>
             <button type="submit" disabled={busy} style={{
