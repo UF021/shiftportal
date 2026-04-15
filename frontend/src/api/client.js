@@ -64,9 +64,9 @@ export const updateOrgDoc  = (key, data)     => api.put(`/orgs/me/documents/${ke
 export const uploadOrgDoc  = (key, b64)      => api.post(`/orgs/me/documents/${key}/upload`, { pdf_base64: b64 })
 
 // Clock
-export const getMyClockHistory  = ()      => api.get('/clock/my/history')
-export const getMyHolidayStats  = ()      => api.get('/clock/my/holiday-stats')
-export const getAllClockEvents   = ()      => api.get('/clock/all')
+export const getMyClockHistory  = (params) => api.get('/clock/my/history', { params })
+export const getMyHolidayStats  = ()       => api.get('/clock/my/holiday-stats')
+export const getAllClockEvents   = (params) => api.get('/clock/all', { params })
 export const getPunctuality      = uid    => api.get(`/clock/punctuality/${uid}`)
 export const getShiftAvg         = uid    => api.get(`/clock/shift-avg/${uid}`)
 export const createManualShift   = d      => api.post('/clock/manual', d)

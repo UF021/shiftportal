@@ -1,6 +1,6 @@
 // HRTimelogs.jsx
 import { useEffect, useState } from 'react'
-import { getAllLogs, getAllStaff, getAllHols } from '../../api/client'
+import { getAllClockEvents, getAllStaff, getAllHols } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
 const fmtM = m => m != null ? `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m` : '—'
@@ -32,15 +32,24 @@ export function HRTimelogs() {
     if (fil.staff_id)  p.staff_id  = fil.staff_id
     if (fil.from_date) p.from_date = fil.from_date
     if (fil.to_date)   p.to_date   = fil.to_date
-    getAllLogs(p).then(r => setData(r.data)).catch(() => setData({ entries:[], total_mins:0 }))
+    getAllClockEvents(p).then(r => setData(r.data)).catch(() => setData({ entries:[], total_mins:0 }))
   }
 
   function exportCSV() {
     if (!data?.entries?.length) return
-    const rows = [['Employee','Date','Start','End','Site','Hours','Overnight']]
+    const rows = [['Employee','Date','Start','End','Site','Hours','Source','Late?','Notes']]
     data.entries.forEach(e => {
-      const s = staff.find(x => x.id === e.user_id) || {}
-      rows.push([s.full_name||'—', e.date, e.start_time, e.end_time, e.site_name, fmtM(e.total_mins), e.overnight?'Yes':'No'])
+      rows.push([
+        e.user_name || '—',
+        e.date,
+        e.start_time,
+        e.end_time || '—',
+        e.site_name || '—',
+        fmtM(e.shift_minutes),
+        e.is_manual ? 'Manual' : 'QR',
+        e.scheduled_start ? (e.is_late ? `Late ${e.minutes_late}m` : 'On time') : '—',
+        e.entry_notes || '',
+      ])
     })
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
     const a = document.createElement('a')
@@ -55,7 +64,7 @@ export function HRTimelogs() {
     <>
       <div style={{ marginBottom:26 }}>
         <h2 style={{ fontSize:23, fontWeight:700, marginBottom:4 }}>Time Report</h2>
-        <p style={{ fontSize:14, color:'var(--text-muted)' }}>All staff time logs — overnight shifts calculated correctly</p>
+        <p style={{ fontSize:14, color:'var(--text-muted)' }}>All staff shifts — manual entries and QR clock-ins</p>
       </div>
 
       {/* Mode tabs */}
@@ -101,23 +110,49 @@ export function HRTimelogs() {
         <div className="card" style={{ padding:0 }}>
           <div className="tw">
             <table>
-              <thead><tr><th>Employee</th><th>Date</th><th>Start</th><th>End</th><th>Site</th><th>Hours</th><th>Overnight</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Date</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Site</th>
+                  <th>Hours</th>
+                  <th>Source</th>
+                  <th>Punctuality</th>
+                </tr>
+              </thead>
               <tbody>
-                {data?.entries?.length ? data.entries.map(e => {
-                  const s = staff.find(x => x.id === e.user_id) || {}
-                  return (
-                    <tr key={e.id}>
-                      <td><strong>{s.full_name || '—'}</strong></td>
-                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(e.date)}</td>
-                      <td style={{ color:'var(--green)', fontFamily:'DM Mono,monospace' }}>{e.start_time}</td>
-                      <td style={{ color:'var(--red)', fontFamily:'DM Mono,monospace' }}>{e.end_time}</td>
-                      <td style={{ fontSize:12, color:'var(--text-muted)' }}>{e.site_name}</td>
-                      <td style={{ fontFamily:'DM Mono,monospace', fontWeight:700, color:'var(--green)' }}>{fmtM(e.total_mins)}</td>
-                      <td>{e.overnight ? <span className="badge badge-blue">🌙 Yes</span> : '—'}</td>
-                    </tr>
-                  )
-                }) : (
-                  <tr><td colSpan={7} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>
+                {data?.entries?.length ? data.entries.map(e => (
+                  <tr key={e.id}>
+                    <td>
+                      <strong>{e.user_name || '—'}</strong>
+                      {e.entry_notes && (
+                        <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>📝 {e.entry_notes}</div>
+                      )}
+                    </td>
+                    <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(e.date)}</td>
+                    <td style={{ color:'var(--green)', fontFamily:'DM Mono,monospace' }}>{e.start_time}</td>
+                    <td style={{ color:'var(--red)', fontFamily:'DM Mono,monospace' }}>{e.end_time || '—'}</td>
+                    <td style={{ fontSize:12, color:'var(--text-muted)' }}>{e.site_name || '—'}</td>
+                    <td style={{ fontFamily:'DM Mono,monospace', fontWeight:700, color:'var(--green)' }}>{fmtM(e.shift_minutes)}</td>
+                    <td>
+                      {e.is_manual
+                        ? <span className="badge badge-blue">✏️ Manual</span>
+                        : <span className="badge badge-green">📱 QR</span>
+                      }
+                    </td>
+                    <td>
+                      {e.scheduled_start
+                        ? e.is_late
+                          ? <span className="badge badge-red">Late {e.minutes_late}m</span>
+                          : <span className="badge badge-green">On time</span>
+                        : <span style={{ color:'var(--text-muted)', fontSize:12 }}>—</span>
+                      }
+                    </td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={8} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>
                     {data ? 'No records for selected filters' : 'Select filters and click Search'}
                   </td></tr>
                 )}

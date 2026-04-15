@@ -252,60 +252,146 @@ def my_history(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Return completed shifts (grouped clock_in+clock_out) plus any open clock-in."""
     events = (
         db.query(models.ClockEvent)
         .filter(models.ClockEvent.user_id == current_user.id)
-        .order_by(models.ClockEvent.timestamp.desc())
+        .order_by(models.ClockEvent.timestamp.asc())
         .all()
     )
-    return [
-        {
-            "id":             e.id,
-            "event_type":     e.event_type,
-            "timestamp":      e.timestamp.isoformat(),
-            "site_name":      e.site.name if e.site else None,
-            "scheduled_start": e.scheduled_start,
-            "is_late":        e.is_late,
-            "minutes_late":   e.minutes_late,
-            "shift_minutes":  e.shift_minutes,
-            "shift_hours":    round(e.shift_minutes / 60, 2) if e.shift_minutes else None,
-            "gps_verified":   e.gps_verified,
-        }
-        for e in events
-    ]
+
+    clock_ins  = [e for e in events if e.event_type == models.ClockEventType.clock_in]
+    clock_outs = [e for e in events if e.event_type == models.ClockEventType.clock_out]
+
+    # Detect open clock-in: most recent clock_in with no clock_out after it
+    open_in = None
+    open_in_id = None
+    if clock_ins:
+        last_in = clock_ins[-1]
+        if not any(o.timestamp > last_in.timestamp for o in clock_outs):
+            s = last_in.site
+            open_in = {
+                "id":              last_in.id,
+                "timestamp":       last_in.timestamp.isoformat(),
+                "site_name":       s.name if s else None,
+                "scheduled_start": last_in.scheduled_start,
+            }
+            open_in_id = last_in.id
+
+    # Build completed shift records (most recent first)
+    used_out_ids: set[int] = set()
+    shifts = []
+    for ci in reversed(clock_ins):
+        if ci.id == open_in_id:
+            continue
+        co = next(
+            (o for o in clock_outs if o.timestamp > ci.timestamp and o.id not in used_out_ids),
+            None,
+        )
+        if co:
+            used_out_ids.add(co.id)
+        site_name = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
+        is_manual = ci.entry_notes is not None  # manual entries always have entry_notes (even "")
+        shifts.append({
+            "id":              ci.id,
+            "date":            ci.timestamp.date().isoformat(),
+            "start_time":      ci.timestamp.strftime("%H:%M"),
+            "end_time":        co.timestamp.strftime("%H:%M") if co else None,
+            "site_name":       site_name,
+            "shift_minutes":   co.shift_minutes if co else None,
+            "is_late":         ci.is_late,
+            "minutes_late":    ci.minutes_late,
+            "scheduled_start": ci.scheduled_start,
+            "is_manual":       is_manual,
+            "gps_verified":    ci.gps_verified,
+        })
+
+    return {"open_in": open_in, "shifts": shifts}
 
 
-# ── HR — all events ───────────────────────────────────────────────────────────
+# ── HR — all events (grouped shifts) ─────────────────────────────────────────
 
 @router.get("/all")
 def all_events(
-    db: Session = Depends(get_db),
-    hr: models.User = Depends(require_hr),
+    db:         Session     = Depends(get_db),
+    hr:         models.User = Depends(require_hr),
+    staff_id:   Optional[int]  = None,
+    from_date:  Optional[date] = None,
+    to_date:    Optional[date] = None,
 ):
-    events = (
+    """Return grouped shift records for the org. Each record = one clock_in paired with its clock_out."""
+    from collections import defaultdict
+
+    q = db.query(models.ClockEvent).filter(
+        models.ClockEvent.organisation_id == hr.organisation_id,
+        models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+    )
+    if staff_id:
+        q = q.filter(models.ClockEvent.user_id == staff_id)
+    if from_date:
+        q = q.filter(models.ClockEvent.timestamp >= datetime(from_date.year, from_date.month, from_date.day, tzinfo=timezone.utc))
+    if to_date:
+        to_end = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        q = q.filter(models.ClockEvent.timestamp <= to_end)
+
+    clock_ins = q.order_by(models.ClockEvent.timestamp.desc()).limit(500).all()
+
+    if not clock_ins:
+        return {"entries": [], "total_mins": 0}
+
+    # Fetch all relevant clock_outs in one query
+    user_ids = list({ci.user_id for ci in clock_ins})
+    min_ts   = min(ci.timestamp for ci in clock_ins)
+
+    clock_outs_raw = (
         db.query(models.ClockEvent)
-        .filter(models.ClockEvent.organisation_id == hr.organisation_id)
-        .order_by(models.ClockEvent.timestamp.desc())
-        .limit(500)
+        .filter(
+            models.ClockEvent.organisation_id == hr.organisation_id,
+            models.ClockEvent.event_type      == models.ClockEventType.clock_out,
+            models.ClockEvent.user_id.in_(user_ids),
+            models.ClockEvent.timestamp       >= min_ts,
+        )
+        .order_by(models.ClockEvent.timestamp.asc())
         .all()
     )
-    return [
-        {
-            "id":             e.id,
-            "user_id":        e.user_id,
-            "user_name":      e.user.full_name if e.user else None,
-            "event_type":     e.event_type,
-            "timestamp":      e.timestamp.isoformat(),
-            "site_name":      e.site.name if e.site else None,
-            "scheduled_start": e.scheduled_start,
-            "is_late":        e.is_late,
-            "minutes_late":   e.minutes_late,
-            "shift_minutes":  e.shift_minutes,
-            "shift_hours":    round(e.shift_minutes / 60, 2) if e.shift_minutes else None,
-            "gps_verified":   e.gps_verified,
-        }
-        for e in events
-    ]
+
+    outs_by_user: dict[int, list] = defaultdict(list)
+    for co in clock_outs_raw:
+        outs_by_user[co.user_id].append(co)
+
+    entries    = []
+    total_mins = 0
+
+    for ci in clock_ins:
+        co = next(
+            (o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp),
+            None,
+        )
+        site_name     = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
+        shift_minutes = co.shift_minutes if co else None
+        is_manual     = ci.entry_notes is not None  # manual entries always have entry_notes (even "")
+
+        entries.append({
+            "id":              ci.id,
+            "user_id":         ci.user_id,
+            "user_name":       ci.user.full_name if ci.user else None,
+            "date":            ci.timestamp.date().isoformat(),
+            "start_time":      ci.timestamp.strftime("%H:%M"),
+            "end_time":        co.timestamp.strftime("%H:%M") if co else None,
+            "site_name":       site_name,
+            "shift_minutes":   shift_minutes,
+            "shift_hours":     round(shift_minutes / 60, 2) if shift_minutes else None,
+            "is_late":         ci.is_late,
+            "minutes_late":    ci.minutes_late,
+            "scheduled_start": ci.scheduled_start,
+            "is_manual":       is_manual,
+            "entry_notes":     ci.entry_notes or None,
+            "gps_verified":    ci.gps_verified,
+        })
+        if shift_minutes:
+            total_mins += shift_minutes
+
+    return {"entries": entries, "total_mins": total_mins}
 
 
 # ── My holiday stats ──────────────────────────────────────────────────────────
@@ -478,6 +564,9 @@ def manual_shift(
     shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
     is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
 
+    # Always set entry_notes (even empty string) so is_manual detection works
+    notes = body.entry_notes if body.entry_notes is not None else ""
+
     in_event = models.ClockEvent(
         organisation_id = hr.organisation_id,
         user_id         = body.user_id,
@@ -487,7 +576,7 @@ def manual_shift(
         scheduled_start = body.scheduled_start,
         is_late         = is_late,
         minutes_late    = minutes_late,
-        entry_notes     = body.entry_notes,
+        entry_notes     = notes,
     )
     out_event = models.ClockEvent(
         organisation_id = hr.organisation_id,
@@ -496,7 +585,7 @@ def manual_shift(
         event_type      = models.ClockEventType.clock_out,
         timestamp       = clock_out_dt,
         shift_minutes   = shift_minutes,
-        entry_notes     = body.entry_notes,
+        entry_notes     = notes,
     )
     db.add(in_event)
     db.add(out_event)

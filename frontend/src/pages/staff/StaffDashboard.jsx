@@ -14,36 +14,26 @@ export default function StaffDashboard() {
   const { colour } = useBrand()
   const c          = colour || '#6abf3f'
 
-  const [clockEvents, setClockEvents] = useState(null)
+  const [clockData, setClockData] = useState(null)  // { open_in, shifts }
 
   useEffect(() => {
     getMyClockHistory()
-      .then(r => setClockEvents(r.data))
-      .catch(() => setClockEvents([]))
+      .then(r => setClockData(r.data))
+      .catch(() => setClockData({ open_in: null, shifts: [] }))
   }, [])
 
-  // Derive state from clock events
-  const isClocked = (() => {
-    if (!clockEvents?.length) return false
-    const lastIn = [...clockEvents].filter(e => e.event_type === 'clock_in').sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
-    if (!lastIn) return false
-    return !clockEvents.some(e => e.event_type === 'clock_out' && new Date(e.timestamp) > new Date(lastIn.timestamp))
-  })()
+  const openClockIn  = clockData?.open_in  || null
+  const shifts       = clockData?.shifts   || []
+  const isClocked    = !!openClockIn
 
-  const openClockIn = isClocked
-    ? [...(clockEvents || [])].filter(e => e.event_type === 'clock_in').sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
-    : null
+  // Punctuality: shifts with a scheduled_start
+  const scheduledShifts = shifts.filter(s => s.scheduled_start)
+  const onTimeCount     = scheduledShifts.filter(s => !s.is_late).length
+  const lateCount       = scheduledShifts.filter(s => s.is_late).length
+  const totalShifts     = shifts.length
 
-  const clockIns     = (clockEvents || []).filter(e => e.event_type === 'clock_in' && e.scheduled_start)
-  const onTimeCount  = clockIns.filter(e => !e.is_late).length
-  const lateCount    = clockIns.filter(e => e.is_late).length
-  const totalShifts  = (clockEvents || []).filter(e => e.event_type === 'clock_out').length
-
-  // Recent completed shifts: pair clock_out with its clock_in
-  const recentShifts = (clockEvents || [])
-    .filter(e => e.event_type === 'clock_out' && e.shift_minutes != null)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .slice(0, 5)
+  // Recent 5 completed shifts (already sorted most-recent-first by backend)
+  const recentShifts = shifts.slice(0, 5)
 
   const sia    = user?.sia_expiry ? new Date(user.sia_expiry) : null
   const days   = sia ? Math.ceil((sia - new Date()) / 86400000) : null
@@ -65,7 +55,7 @@ export default function StaffDashboard() {
           Today's Status
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, color: isClocked ? '#fff' : '#1a2a1a' }}>
-          {clockEvents === null ? '…'
+          {clockData === null ? '…'
             : isClocked
               ? `Clocked in · ${new Date(openClockIn.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
               : 'Not clocked in'}
@@ -84,7 +74,7 @@ export default function StaffDashboard() {
       <div style={{ fontSize:13, color:'rgba(255,255,255,.6)' }}>Licensed Security Officer</div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:18 }}>
         {[
-          { val: clockEvents !== null ? `${totalShifts}` : '…', lbl:'Shifts', col:c },
+          { val: clockData !== null ? `${totalShifts}` : '…', lbl:'Shifts', col:c },
           { val: gone?'EXP':days!=null?`${days}d`:'…', lbl:'SIA days left', col:siaCol },
         ].map(({val,lbl,col}) => (
           <div key={lbl} style={{ background:'rgba(255,255,255,.08)', borderRadius:10, padding:12, border:'1px solid rgba(255,255,255,.1)' }}>
@@ -104,9 +94,9 @@ export default function StaffDashboard() {
     {/* Punctuality */}
     <div className="s-card">
       <div className="s-card-title">🎯 Punctuality</div>
-      {clockEvents === null ? (
+      {clockData === null ? (
         <p style={{ color:'#8aaa8a', fontSize:13 }}>Loading…</p>
-      ) : clockIns.length === 0 ? (
+      ) : scheduledShifts.length === 0 ? (
         <p style={{ color:'#8aaa8a', fontSize:13 }}>No recorded shifts yet.</p>
       ) : (
         <div style={{ display:'flex', gap:20, alignItems:'center' }}>
@@ -121,7 +111,7 @@ export default function StaffDashboard() {
           </div>
           <div style={{ width:1, height:40, background:'#e0ead0' }} />
           <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#4a6a4a' }}>{clockIns.length > 0 ? Math.round(onTimeCount / clockIns.length * 100) : 0}%</div>
+            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#4a6a4a' }}>{scheduledShifts.length > 0 ? Math.round(onTimeCount / scheduledShifts.length * 100) : 0}%</div>
             <div style={{ fontSize:11, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.05em', marginTop:2 }}>On-time rate</div>
           </div>
         </div>
@@ -145,29 +135,29 @@ export default function StaffDashboard() {
     {/* Recent Shifts */}
     <div className="s-card">
       <div className="s-card-title">🕐 Recent Shifts</div>
-      {clockEvents === null ? (
+      {clockData === null ? (
         <p style={{ color:'#8aaa8a', fontSize:13 }}>Loading…</p>
       ) : recentShifts.length === 0 ? (
         <p style={{ color:'#8aaa8a', fontSize:13 }}>No completed shifts yet.</p>
-      ) : recentShifts.map(e => (
-        <div key={e.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid #f0f4f0' }}>
+      ) : recentShifts.map(s => (
+        <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid #f0f4f0' }}>
           <div style={{ width:88, fontSize:12, fontWeight:700, color:'#1a2a1a', flexShrink:0 }}>
-            {new Date(e.timestamp).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'})}
+            {new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'})}
           </div>
           <div style={{ flex:1 }}>
             <div style={{ fontSize:12, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#6a8a6a' }}>
-              {e.site_name || '—'}
+              {s.site_name || '—'}
             </div>
             <div style={{ display:'flex', gap:6, marginTop:2, alignItems:'center' }}>
-              {e.is_late != null && (
-                <span style={{ fontSize:10, fontWeight:700, color: e.is_late ? '#c0392b' : c, background: e.is_late ? '#fde8e8' : '#e8f8e0', padding:'1px 6px', borderRadius:4 }}>
-                  {e.is_late ? `Late ${e.minutes_late}m` : 'On time'}
+              {s.scheduled_start != null && (
+                <span style={{ fontSize:10, fontWeight:700, color: s.is_late ? '#c0392b' : c, background: s.is_late ? '#fde8e8' : '#e8f8e0', padding:'1px 6px', borderRadius:4 }}>
+                  {s.is_late ? `Late ${s.minutes_late}m` : 'On time'}
                 </span>
               )}
             </div>
           </div>
           <div style={{ fontSize:14, fontWeight:700, color:c, fontFamily:'DM Mono,monospace', fontStyle:'normal', whiteSpace:'nowrap' }}>
-            {fmtDuration(e.shift_minutes)}
+            {fmtDuration(s.shift_minutes)}
           </div>
         </div>
       ))}
