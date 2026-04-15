@@ -124,7 +124,7 @@ export function HRTimelogs() {
               </thead>
               <tbody>
                 {data?.entries?.length ? data.entries.map(e => (
-                  <tr key={e.id}>
+                  <tr key={e.id} style={e.shift_minutes > 720 ? { background:'rgba(181,71,8,.06)' } : {}}>
                     <td>
                       <strong>{e.user_name || '—'}</strong>
                       {e.entry_notes && (
@@ -135,7 +135,18 @@ export function HRTimelogs() {
                     <td style={{ color:'var(--green)', fontFamily:'DM Mono,monospace' }}>{e.start_time}</td>
                     <td style={{ color:'var(--red)', fontFamily:'DM Mono,monospace' }}>{e.end_time || '—'}</td>
                     <td style={{ fontSize:12, color:'var(--text-muted)' }}>{e.site_name || '—'}</td>
-                    <td style={{ fontFamily:'DM Mono,monospace', fontWeight:700, color:'var(--green)' }}>{fmtM(e.shift_minutes)}</td>
+                    <td>
+                      <span style={{ fontFamily:'DM Mono,monospace', fontWeight:700, color: e.shift_minutes > 720 ? '#b54708' : 'var(--green)' }}>
+                        {fmtM(e.shift_minutes)}
+                      </span>
+                      {e.shift_minutes > 720 && (
+                        <span title="Shift exceeds 12 hours" style={{
+                          marginLeft:6, fontSize:10, fontWeight:700,
+                          color:'#b54708', background:'#fef3e2',
+                          padding:'1px 6px', borderRadius:4,
+                        }}>⚠ 12h+</span>
+                      )}
+                    </td>
                     <td>
                       {e.is_manual
                         ? <span className="badge badge-blue">✏️ Manual</span>

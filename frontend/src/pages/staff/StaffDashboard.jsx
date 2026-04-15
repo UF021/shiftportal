@@ -32,6 +32,14 @@ export default function StaffDashboard() {
   const shifts       = clockData?.shifts   || []
   const isClocked    = !!openClockIn
 
+  // Missed sign-out: open clock-in from a previous calendar day
+  const missedSignOut = (() => {
+    if (!openClockIn) return false
+    const inDate  = new Date(openClockIn.timestamp).toDateString()
+    const today   = new Date().toDateString()
+    return inDate !== today
+  })()
+
   // Punctuality: shifts with a scheduled_start
   const scheduledShifts = shifts.filter(s => s.scheduled_start)
   const onTimeCount     = scheduledShifts.filter(s => !s.is_late).length
@@ -48,6 +56,28 @@ export default function StaffDashboard() {
   const siaCol = gone ? '#e05555' : warn ? '#f0a030' : c
 
   return <>
+    {/* Missed sign-out notice */}
+    {missedSignOut && (
+      <div style={{
+        background:'#fde8e8', border:'2px solid #e05555', borderRadius:12,
+        padding:'14px 16px', marginBottom:14,
+        display:'flex', alignItems:'flex-start', gap:12,
+      }}>
+        <span style={{ fontSize:22, flexShrink:0 }}>🔴</span>
+        <div>
+          <div style={{ fontWeight:700, fontSize:14, color:'#a02020', marginBottom:3 }}>
+            You did not sign out from your last shift
+          </div>
+          <div style={{ fontSize:13, color:'#c05050', lineHeight:1.5 }}>
+            Your clock-in from{' '}
+            <strong>{new Date(openClockIn.timestamp).toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long' })}</strong>
+            {openClockIn.site_name ? ` at ${openClockIn.site_name}` : ''} was never closed.
+            Please contact your line manager or HR to have your timesheet corrected.
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* Urgent message banner */}
     {urgentMessages.length > 0 && (
       <div
@@ -208,7 +238,7 @@ export default function StaffDashboard() {
             </div>
           </div>
           {/* Badges row */}
-          <div style={{ display:'flex', gap:5, marginTop:5, marginLeft:92 }}>
+          <div style={{ display:'flex', gap:5, marginTop:5, marginLeft:92, flexWrap:'wrap' }}>
             {s.scheduled_start != null && (
               <span style={{ fontSize:10, fontWeight:700, color: s.is_late ? '#c0392b' : '#2e7d32', background: s.is_late ? '#fde8e8' : '#e8f8e0', padding:'2px 7px', borderRadius:4 }}>
                 {s.is_late ? `Late ${s.minutes_late}m` : 'On time'}
@@ -217,6 +247,11 @@ export default function StaffDashboard() {
             {s.is_manual && (
               <span style={{ fontSize:10, fontWeight:700, color:'#1565c0', background:'#e3f2fd', padding:'2px 7px', borderRadius:4 }}>
                 ✏️ Manual
+              </span>
+            )}
+            {s.shift_minutes > 720 && (
+              <span style={{ fontSize:10, fontWeight:700, color:'#b54708', background:'#fef3e2', padding:'2px 7px', borderRadius:4 }}>
+                ⚠ Over 12h
               </span>
             )}
           </div>
