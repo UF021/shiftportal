@@ -20,7 +20,7 @@ Super-admin users have organisation_id = NULL and can see everything.
 import enum
 from sqlalchemy import (
     Column, Integer, String, Boolean, Date, DateTime,
-    Float, Text, ForeignKey, Enum as SAEnum, JSON
+    Float, Text, ForeignKey, Enum as SAEnum, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -278,6 +278,22 @@ class ClockEvent(Base):
 
     user            = relationship("User", back_populates="clock_events", foreign_keys=[user_id])
     site            = relationship("Site")
+
+
+# ── OrgDocument ───────────────────────────────────────────────────────────────
+
+class OrgDocument(Base):
+    __tablename__ = 'org_documents'
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False)
+    doc_key         = Column(String(100), nullable=False)   # e.g. 'pay_calendar'
+    doc_name        = Column(String(200), nullable=False)   # Display name
+    doc_url         = Column(String(1000), nullable=True)   # Google Drive / Dropbox link
+    updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_by      = Column(Integer, ForeignKey('users.id'), nullable=True)
+
+    __table_args__  = (UniqueConstraint('organisation_id', 'doc_key'),)
 
 
 # ── Holiday ───────────────────────────────────────────────────────────────────

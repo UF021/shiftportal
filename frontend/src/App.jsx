@@ -12,6 +12,7 @@ import ClockPage    from './pages/public/ClockPage'
 import StaffLayout    from './pages/staff/StaffLayout'
 import StaffDashboard from './pages/staff/StaffDashboard'
 import StaffContract  from './pages/staff/StaffContract'
+import StaffDocuments from './pages/staff/StaffDocuments'
 import StaffHolidays  from './pages/staff/StaffHolidays'
 import StaffProfile   from './pages/staff/StaffProfile'
 
@@ -67,10 +68,11 @@ export default function App() {
       <Route path="/staff" element={
         <Guard role={['staff']}><BrandProvider slug={user?.org_slug}><StaffLayout /></BrandProvider></Guard>
       }>
-        <Route index           element={<StaffDashboard />} />
-        <Route path="contract" element={<StaffContract />} />
-        <Route path="holidays" element={<StaffHolidays />} />
-        <Route path="profile"  element={<StaffProfile />} />
+        <Route index             element={<StaffDashboard />} />
+        <Route path="contract"  element={<StaffContract />} />
+        <Route path="documents" element={<StaffDocuments />} />
+        <Route path="holidays"  element={<StaffHolidays />} />
+        <Route path="profile"   element={<StaffProfile />} />
       </Route>
 
       {/* ── HR portal ── */}

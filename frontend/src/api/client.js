@@ -59,6 +59,8 @@ export const getMySites   = ()  => api.get('/orgs/me/sites')
 export const createSite   = d   => api.post('/orgs/me/sites', d)
 export const deleteSite   = id  => api.delete(`/orgs/me/sites/${id}`)
 export const getDashboard  = () => api.get('/orgs/me/dashboard')
+export const getOrgDocs    = ()           => api.get('/orgs/me/documents')
+export const updateOrgDoc  = (key, data)  => api.put(`/orgs/me/documents/${key}`, data)
 
 // Clock
 export const getMyClockHistory  = ()      => api.get('/clock/my/history')

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 import httpx
 
 from database import get_db
@@ -9,7 +10,14 @@ from auth_utils import (
     get_current_user, require_hr, require_superadmin,
     hash_password, org_guard
 )
+from pydantic import BaseModel
 import models
+
+DEFAULT_DOCS = [
+    ('pay_calendar',   'Pay Calendar 2025/26'),
+    ('staff_handbook', 'Staff Operating Guidelines & Health and Safety'),
+    ('martyn_law',     "Martyn's Law, Body Worn Camera & Use of Force Policy"),
+]
 
 router = APIRouter()
 
@@ -193,6 +201,69 @@ def dashboard(
             for u in alerts
         ],
     }
+
+
+# ── Documents (staff + HR read, HR write) ────────────────────────────────────
+
+class DocumentUpdate(BaseModel):
+    doc_name: str
+    doc_url:  Optional[str] = None
+
+
+def _ensure_default_docs(org_id: int, db: Session):
+    """Seed the three default document stubs if they don't exist yet."""
+    for key, name in DEFAULT_DOCS:
+        exists = db.query(models.OrgDocument).filter(
+            models.OrgDocument.organisation_id == org_id,
+            models.OrgDocument.doc_key         == key,
+        ).first()
+        if not exists:
+            db.add(models.OrgDocument(organisation_id=org_id, doc_key=key, doc_name=name))
+    db.commit()
+
+
+@router.get("/me/documents")
+def get_documents(
+    db:           Session       = Depends(get_db),
+    current_user: models.User   = Depends(get_current_user),
+):
+    org_id = current_user.organisation_id
+    if not org_id:
+        raise HTTPException(403, "No organisation")
+    _ensure_default_docs(org_id, db)
+    docs = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == org_id,
+    ).order_by(models.OrgDocument.id).all()
+    return [
+        {
+            "doc_key":    d.doc_key,
+            "doc_name":   d.doc_name,
+            "doc_url":    d.doc_url,
+            "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+        }
+        for d in docs
+    ]
+
+
+@router.put("/me/documents/{doc_key}")
+def update_document(
+    doc_key: str,
+    body:    DocumentUpdate,
+    db:      Session      = Depends(get_db),
+    hr:      models.User  = Depends(require_hr),
+):
+    doc = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == hr.organisation_id,
+        models.OrgDocument.doc_key         == doc_key,
+    ).first()
+    if not doc:
+        doc = models.OrgDocument(organisation_id=hr.organisation_id, doc_key=doc_key)
+        db.add(doc)
+    doc.doc_name   = body.doc_name
+    doc.doc_url    = body.doc_url
+    doc.updated_by = hr.id
+    db.commit()
+    return {"message": "Document updated"}
 
 
 # ── Superadmin: create org ────────────────────────────────────────────────────

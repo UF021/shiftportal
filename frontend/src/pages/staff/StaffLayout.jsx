@@ -4,10 +4,11 @@ import { useBrand } from '../../api/BrandContext'
 import OrgLogo from '../../components/OrgLogo'
 
 const NAV = [
-  { path:'/staff',          icon:'🏠', label:'Home' },
-  { path:'/staff/contract', icon:'📄', label:'Contract' },
-  { path:'/staff/holidays', icon:'🌴', label:'Holidays' },
-  { path:'/staff/profile',  icon:'👤', label:'Profile' },
+  { path:'/staff',           icon:'🏠', label:'Home' },
+  { path:'/staff/contract',  icon:'📄', label:'Contract' },
+  { path:'/staff/documents', icon:'📋', label:'Docs' },
+  { path:'/staff/holidays',  icon:'🌴', label:'Holidays' },
+  { path:'/staff/profile',   icon:'👤', label:'Profile' },
 ]
 
 export default function StaffLayout() {
