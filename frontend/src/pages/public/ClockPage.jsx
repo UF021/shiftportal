@@ -388,7 +388,7 @@ export default function ClockPage() {
             type="text"
             inputMode="text"
             autoCapitalize="characters"
-            placeholder="e.g. FA001"
+            placeholder="e.g. ZZ123"
             value={form.staffId}
             onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
             style={{

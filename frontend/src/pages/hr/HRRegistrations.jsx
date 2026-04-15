@@ -118,7 +118,7 @@ export default function HRRegistrations() {
               Activation Settings
             </div>
             <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 14px', marginBottom:12, fontSize:12, color:'var(--text-muted)' }}>
-              🆔 A Staff ID will be auto-generated on activation ({selected?.first_name?.[0]?.toUpperCase()}{selected?.last_name?.[0]?.toUpperCase()}XXX format)
+              🆔 A Staff ID will be auto-generated on activation (e.g. ZZ123 — initials + 3 digits)
             </div>
             <div className="form-row">
               <div className="field"><label>Employment Start Date</label>

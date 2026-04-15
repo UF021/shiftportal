@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 def _generate_staff_id(first_name: str, last_name: str, org_id: int, db: Session) -> str:
-    """Generate a unique staff ID: initials + 3-digit random number (e.g. FA047)."""
+    """Generate a unique staff ID: initials + 3-digit random number (e.g. ZZ123)."""
     initials = (first_name[:1] + last_name[:1]).upper()
     for _ in range(200):
         candidate = f"{initials}{random.randint(0, 999):03d}"
@@ -83,7 +83,7 @@ def activate(
     if u.is_active:
         raise HTTPException(400, "User is already active")
 
-    # Always auto-generate: first letter of first + last name, then 3 random digits (e.g. FA047)
+    # Always auto-generate: first letter of first + last name, then 3 random digits (e.g. ZZ123)
     u.staff_id = _generate_staff_id(u.first_name, u.last_name, u.organisation_id, db)
 
     u.is_active             = True
