@@ -1,8 +1,9 @@
 // StaffDashboard.jsx
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
-import { getMyClockHistory } from '../../api/client'
+import { getMyClockHistory, getMyMessages } from '../../api/client'
 
 function fmtDuration(mins) {
   if (mins == null) return '—'
@@ -12,14 +13,19 @@ function fmtDuration(mins) {
 export default function StaffDashboard() {
   const { user }   = useAuth()
   const { colour } = useBrand()
+  const nav        = useNavigate()
   const c          = colour || '#6abf3f'
 
-  const [clockData, setClockData] = useState(null)  // { open_in, shifts }
+  const [clockData,      setClockData]      = useState(null)
+  const [urgentMessages, setUrgentMessages] = useState([])
 
   useEffect(() => {
     getMyClockHistory()
       .then(r => setClockData(r.data))
       .catch(() => setClockData({ open_in: null, shifts: [] }))
+    getMyMessages()
+      .then(r => setUrgentMessages((r.data || []).filter(m => !m.is_read && m.priority === 'urgent')))
+      .catch(() => {})
   }, [])
 
   const openClockIn  = clockData?.open_in  || null
@@ -42,6 +48,26 @@ export default function StaffDashboard() {
   const siaCol = gone ? '#e05555' : warn ? '#f0a030' : c
 
   return <>
+    {/* Urgent message banner */}
+    {urgentMessages.length > 0 && (
+      <div
+        onClick={() => nav('/staff/messages')}
+        style={{
+          background:'#fde8e8', border:'1.5px solid #e05555', borderRadius:12,
+          padding:'12px 16px', marginBottom:14, cursor:'pointer',
+          display:'flex', alignItems:'center', gap:10,
+        }}
+      >
+        <span style={{ fontSize:18 }}>🚨</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:700, fontSize:13, color:'#a02020' }}>
+            You have {urgentMessages.length} urgent message{urgentMessages.length > 1 ? 's' : ''}.
+          </div>
+          <div style={{ fontSize:12, color:'#c05050' }}>Tap to view →</div>
+        </div>
+      </div>
+    )}
+
     {/* Today's Status */}
     <div style={{
       background: isClocked ? `linear-gradient(135deg,#0a2a0a,#1a4a1a)` : '#fff',

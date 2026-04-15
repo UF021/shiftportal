@@ -15,6 +15,7 @@ import StaffContract  from './pages/staff/StaffContract'
 import StaffDocuments from './pages/staff/StaffDocuments'
 import StaffHolidays  from './pages/staff/StaffHolidays'
 import StaffProfile   from './pages/staff/StaffProfile'
+import StaffMessages  from './pages/staff/StaffMessages'
 
 // HR (dark theme)
 import HRLayout         from './pages/hr/HRLayout'
@@ -25,6 +26,9 @@ import HRTimelogs       from './pages/hr/HRTimelogs'
 import HRHolidays       from './pages/hr/HRHolidays'
 import HRManualShift    from './pages/hr/HRManualShift'
 import HRSettings       from './pages/hr/HRSettings'
+import HRQRCodes        from './pages/hr/HRQRCodes'
+import HRClockFailures  from './pages/hr/HRClockFailures'
+import HRMessages       from './pages/hr/HRMessages'
 
 // Superadmin
 import SuperLayout  from './pages/superadmin/SuperLayout'
@@ -72,6 +76,7 @@ export default function App() {
         <Route path="contract"  element={<StaffContract />} />
         <Route path="documents" element={<StaffDocuments />} />
         <Route path="holidays"  element={<StaffHolidays />} />
+        <Route path="messages"  element={<StaffMessages />} />
         <Route path="profile"   element={<StaffProfile />} />
       </Route>
 
@@ -85,6 +90,9 @@ export default function App() {
         <Route path="timelogs"      element={<HRTimelogs />} />
         <Route path="holidays"      element={<HRHolidays />} />
         <Route path="manual"        element={<HRManualShift />} />
+        <Route path="qrcodes"       element={<HRQRCodes />} />
+        <Route path="failures"      element={<HRClockFailures />} />
+        <Route path="messages"      element={<HRMessages />} />
         <Route path="settings"      element={<HRSettings />} />
       </Route>
 

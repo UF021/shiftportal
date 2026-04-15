@@ -71,6 +71,16 @@ export const getPunctuality      = uid    => api.get(`/clock/punctuality/${uid}`
 export const getShiftAvg         = uid    => api.get(`/clock/shift-avg/${uid}`)
 export const createManualShift   = d      => api.post('/clock/manual', d)
 
+// Clock failures
+export const getClockFailures   = ()      => api.get('/clock/failures')
+export const reinstateUser      = (uid)   => api.post(`/clock/failures/${uid}/reinstate`)
+
+// Messages
+export const getMyMessages      = ()      => api.get('/messages/my')
+export const markMessageRead    = (id)    => api.patch(`/messages/${id}/read`)
+export const sendMessage        = (data)  => api.post('/messages/', data)
+export const getAllMessages      = ()      => api.get('/messages/all')
+
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')
 export const listOrgs       = ()      => api.get('/orgs/')

@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timezone, timedelta, date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -119,6 +119,25 @@ def _sia_status(expiry: date | None) -> str:
     if days < 60:
         return "expiring"
     return "valid"
+
+
+def _record_failure(
+    db: Session, org_id: int, user_id, staff_id_entered: str, site_id,
+    reason: str, lat, lng, distance, ip: str | None = None,
+):
+    f = models.ClockFailure(
+        organisation_id  = org_id,
+        user_id          = user_id,
+        staff_id_entered = (staff_id_entered or "").strip().upper(),
+        site_id          = site_id,
+        failure_reason   = reason,
+        gps_lat          = lat,
+        gps_lng          = lng,
+        distance_metres  = distance,
+        ip_address       = ip,
+    )
+    db.add(f)
+    db.flush()   # write immediately so count queries see it
 
 
 def _has_open_clock_in(db: Session, user_id: int) -> bool:
@@ -481,6 +500,59 @@ def manual_shift(
     }
 
 
+# ── HR — clock failure log ────────────────────────────────────────────────────
+
+@router.get("/failures")
+def list_failures(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    rows = (
+        db.query(models.ClockFailure)
+        .filter(models.ClockFailure.organisation_id == hr.organisation_id)
+        .order_by(models.ClockFailure.attempted_at.desc())
+        .limit(500)
+        .all()
+    )
+    return [
+        {
+            "id":              r.id,
+            "user_id":         r.user_id,
+            "user_name":       r.user.full_name if r.user else None,
+            "staff_id":        r.staff_id_entered,
+            "site_id":         r.site_id,
+            "site_name":       r.site.name if r.site else None,
+            "failure_reason":  r.failure_reason,
+            "distance_metres": r.distance_metres,
+            "gps_lat":         r.gps_lat,
+            "gps_lng":         r.gps_lng,
+            "attempted_at":    r.attempted_at.isoformat() if r.attempted_at else None,
+            "ip_address":      r.ip_address,
+            "user_is_active":  r.user.is_active if r.user else None,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/failures/{user_id}/reinstate")
+def reinstate_user(
+    user_id: int,
+    db:      Session     = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u or u.organisation_id != hr.organisation_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff member not found")
+    u.is_active = True
+    # Clear GPS failure records for this user so the counter resets
+    db.query(models.ClockFailure).filter(
+        models.ClockFailure.user_id         == user_id,
+        models.ClockFailure.failure_reason  == 'gps_mismatch',
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"{u.full_name} reinstated successfully"}
+
+
 # ── Public: site info ─────────────────────────────────────────────────────────
 # MUST be last — these parametric GET/POST routes catch everything above them.
 
@@ -512,16 +584,62 @@ def clock_in(
     org_slug:  str,
     site_code: str,
     body:      QRClockInRequest,
+    request:   Request,
     db:        Session = Depends(get_db),
 ):
     org, site = _get_site(db, org_slug, site_code)
-    user = _lookup_staff(db, org.id, body.staff_id, body.full_name)
+    ip = request.client.host if request.client else None
 
-    # Prevent double clock-in
+    # ── Staff ID lookup (with failure recording) ──────────────────────────────
+    user = db.query(models.User).filter(
+        models.User.organisation_id == org.id,
+        models.User.staff_id        == body.staff_id.strip().upper(),
+    ).first()
+    if not user:
+        _record_failure(db, org.id, None, body.staff_id, site.id, 'id_not_found', body.gps_lat, body.gps_lng, None, ip)
+        db.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Staff ID not recognised")
+
+    if user.full_name.strip().lower() != body.full_name.strip().lower():
+        _record_failure(db, org.id, user.id, body.staff_id, site.id, 'name_mismatch', body.gps_lat, body.gps_lng, None, ip)
+        db.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Name does not match our records")
+
+    if not user.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been suspended after 3 failed location attempts. Please contact your supervisor.")
+
+    # ── Prevent double clock-in ───────────────────────────────────────────────
     if _has_open_clock_in(db, user.id):
         raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")
 
-    gps_verified = _check_gps(site, body.gps_lat, body.gps_lng)
+    # ── GPS check with failure tracking ──────────────────────────────────────
+    gps_verified = False
+    if site.site_lat is not None and site.site_lng is not None:
+        if body.gps_lat is None or body.gps_lng is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "GPS coordinates required for this site")
+        dist = haversine_metres(body.gps_lat, body.gps_lng, site.site_lat, site.site_lng)
+        if dist > 50:
+            _record_failure(db, org.id, user.id, body.staff_id, site.id, 'gps_mismatch', body.gps_lat, body.gps_lng, dist, ip)
+
+            since = datetime.now(timezone.utc) - timedelta(hours=24)
+            failure_count = db.query(models.ClockFailure).filter(
+                models.ClockFailure.user_id        == user.id,
+                models.ClockFailure.site_id        == site.id,
+                models.ClockFailure.failure_reason == 'gps_mismatch',
+                models.ClockFailure.attempted_at   >= since,
+            ).count()
+
+            if failure_count >= 3:
+                user.is_active = False
+                _record_failure(db, org.id, user.id, body.staff_id, site.id, 'account_blocked', body.gps_lat, body.gps_lng, dist, ip)
+                db.commit()
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been suspended after 3 failed location attempts. Please contact your supervisor.")
+
+            db.commit()
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"GPS location too far from site ({int(dist)} m away, max 50 m)")
+
+        gps_verified = True
+
     now = datetime.now(timezone.utc)
     is_late, minutes_late = _calc_lateness(body.scheduled_start, now)
 

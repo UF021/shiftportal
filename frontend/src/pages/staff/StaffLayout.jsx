@@ -1,22 +1,32 @@
+import { useEffect, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
+import { getMyMessages } from '../../api/client'
 import OrgLogo from '../../components/OrgLogo'
 
-const NAV = [
+const BASE_NAV = [
   { path:'/staff',           icon:'🏠', label:'Home' },
   { path:'/staff/contract',  icon:'📄', label:'Contract' },
   { path:'/staff/documents', icon:'📋', label:'Docs' },
   { path:'/staff/holidays',  icon:'🌴', label:'Holidays' },
+  { path:'/staff/messages',  icon:'💬', label:'Messages' },
   { path:'/staff/profile',   icon:'👤', label:'Profile' },
 ]
 
 export default function StaffLayout() {
-  const { user, signOut } = useAuth()
-  const { colour }        = useBrand()
-  const nav = useNavigate()
-  const { pathname } = useLocation()
-  const c = colour || '#6abf3f'
+  const { user, signOut }      = useAuth()
+  const { colour }             = useBrand()
+  const nav                    = useNavigate()
+  const { pathname }           = useLocation()
+  const c                      = colour || '#6abf3f'
+  const [unread, setUnread]    = useState(0)
+
+  useEffect(() => {
+    getMyMessages()
+      .then(r => setUnread((r.data || []).filter(m => !m.is_read).length))
+      .catch(() => {})
+  }, [pathname])
 
   return (
     <div className="sp">
@@ -55,17 +65,30 @@ export default function StaffLayout() {
         boxShadow:'0 -2px 12px rgba(0,0,0,.08)',
         paddingBottom:'env(safe-area-inset-bottom)',
       }}>
-        {NAV.map(({ path, icon, label }) => {
-          const active = pathname === path || (path !== '/staff' && pathname.startsWith(path))
+        {BASE_NAV.map(({ path, icon, label }) => {
+          const active     = pathname === path || (path !== '/staff' && pathname.startsWith(path))
+          const isMsgs     = path === '/staff/messages'
+          const badgeCount = isMsgs ? unread : 0
           return (
             <button key={path} onClick={() => nav(path)} style={{
               flex:1, display:'flex', flexDirection:'column', alignItems:'center',
               padding:'8px 4px 10px', cursor:'pointer', border:'none',
               background:'transparent', fontFamily:'DM Sans,sans-serif',
               color: active ? c : '#6a8a6a',
-              transition:'color .15s',
+              transition:'color .15s', position:'relative',
             }}>
-              <span style={{ fontSize:22, marginBottom:3, transform:active?'scale(1.1)':'none', transition:'transform .15s' }}>{icon}</span>
+              <span style={{ fontSize:22, marginBottom:3, transform:active?'scale(1.1)':'none', transition:'transform .15s', position:'relative' }}>
+                {icon}
+                {badgeCount > 0 && (
+                  <span style={{
+                    position:'absolute', top:-4, right:-6,
+                    background:'#e53935', color:'#fff',
+                    fontSize:9, fontWeight:700, borderRadius:8,
+                    padding:'1px 4px', lineHeight:'14px',
+                    minWidth:14, textAlign:'center',
+                  }}>{badgeCount}</span>
+                )}
+              </span>
               <span style={{ fontSize:10, fontWeight:700, letterSpacing:'.03em', textTransform:'uppercase' }}>{label}</span>
               {active && <div style={{ width:20, height:2, background:c, borderRadius:1, marginTop:3 }} />}
             </button>

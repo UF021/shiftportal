@@ -10,6 +10,9 @@ const NAV = [
   { path:'/hr/timelogs',        icon:'⏱',  label:'Time Report' },
   { path:'/hr/holidays',        icon:'🌴', label:'Holidays' },
   { path:'/hr/manual',          icon:'✏️', label:'Manual Entry' },
+  { path:'/hr/qrcodes',         icon:'📱', label:'QR Codes' },
+  { path:'/hr/failures',        icon:'⚠️', label:'Clock Alerts' },
+  { path:'/hr/messages',        icon:'💬', label:'Messages' },
   { path:'/hr/settings',        icon:'⚙️', label:'Settings' },
 ]
 

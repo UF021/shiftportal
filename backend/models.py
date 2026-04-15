@@ -321,3 +321,43 @@ class Holiday(Base):
 
     user            = relationship("User", back_populates="holidays", foreign_keys=[user_id])
     reviewer        = relationship("User", foreign_keys=[reviewed_by_id])
+
+
+# ── ClockFailure ───────────────────────────────────────────────────────────────
+
+class ClockFailure(Base):
+    __tablename__ = 'clock_failures'
+
+    id               = Column(Integer, primary_key=True)
+    organisation_id  = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'))
+    user_id          = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
+    staff_id_entered = Column(String(20), nullable=True)
+    site_id          = Column(Integer, ForeignKey('sites.id', ondelete='SET NULL'), nullable=True)
+    failure_reason   = Column(String(200))   # 'gps_mismatch' | 'id_not_found' | 'name_mismatch' | 'account_blocked'
+    gps_lat          = Column(Float, nullable=True)
+    gps_lng          = Column(Float, nullable=True)
+    distance_metres  = Column(Float, nullable=True)
+    attempted_at     = Column(DateTime(timezone=True), server_default=func.now())
+    ip_address       = Column(String(50), nullable=True)
+
+    user             = relationship("User", foreign_keys=[user_id])
+    site             = relationship("Site", foreign_keys=[site_id])
+
+
+# ── Message ───────────────────────────────────────────────────────────────────
+
+class Message(Base):
+    __tablename__ = 'messages'
+
+    id              = Column(Integer, primary_key=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'))
+    sent_by         = Column(Integer, ForeignKey('users.id'))
+    recipient_id    = Column(Integer, ForeignKey('users.id'), nullable=True)   # None = broadcast to all staff
+    title           = Column(String(200), nullable=False)
+    body            = Column(Text, nullable=False)
+    priority        = Column(String(20), default='normal')   # 'normal' | 'urgent' | 'info'
+    sent_at         = Column(DateTime(timezone=True), server_default=func.now())
+    read_by         = Column(Text, default='[]')             # JSON array of user_ids
+
+    sender          = relationship("User", foreign_keys=[sent_by])
+    recipient       = relationship("User", foreign_keys=[recipient_id])
