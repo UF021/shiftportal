@@ -140,24 +140,38 @@ export default function StaffDashboard() {
       ) : recentShifts.length === 0 ? (
         <p style={{ color:'#8aaa8a', fontSize:13 }}>No completed shifts yet.</p>
       ) : recentShifts.map(s => (
-        <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid #f0f4f0' }}>
-          <div style={{ width:88, fontSize:12, fontWeight:700, color:'#1a2a1a', flexShrink:0 }}>
-            {new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'})}
-          </div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:12, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#6a8a6a' }}>
-              {s.site_name || '—'}
+        <div key={s.id} style={{ padding:'10px 0', borderBottom:'1px solid #f0f4f0' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            {/* Date */}
+            <div style={{ width:82, fontSize:12, fontWeight:700, color:'#1a2a1a', flexShrink:0 }}>
+              {new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'})}
             </div>
-            <div style={{ display:'flex', gap:6, marginTop:2, alignItems:'center' }}>
-              {s.scheduled_start != null && (
-                <span style={{ fontSize:10, fontWeight:700, color: s.is_late ? '#c0392b' : c, background: s.is_late ? '#fde8e8' : '#e8f8e0', padding:'1px 6px', borderRadius:4 }}>
-                  {s.is_late ? `Late ${s.minutes_late}m` : 'On time'}
-                </span>
-              )}
+            {/* Site + times */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:12, color:'#1a2a1a', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                {s.site_name || '—'}
+              </div>
+              <div style={{ fontSize:11, fontFamily:'DM Mono,monospace', color:'#6a8a6a', marginTop:1 }}>
+                {s.start_time}{s.end_time ? ` → ${s.end_time}` : ''}
+              </div>
+            </div>
+            {/* Duration */}
+            <div style={{ fontSize:13, fontWeight:700, color:c, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>
+              {fmtDuration(s.shift_minutes)}
             </div>
           </div>
-          <div style={{ fontSize:14, fontWeight:700, color:c, fontFamily:'DM Mono,monospace', fontStyle:'normal', whiteSpace:'nowrap' }}>
-            {fmtDuration(s.shift_minutes)}
+          {/* Badges row */}
+          <div style={{ display:'flex', gap:5, marginTop:5, marginLeft:92 }}>
+            {s.scheduled_start != null && (
+              <span style={{ fontSize:10, fontWeight:700, color: s.is_late ? '#c0392b' : '#2e7d32', background: s.is_late ? '#fde8e8' : '#e8f8e0', padding:'2px 7px', borderRadius:4 }}>
+                {s.is_late ? `Late ${s.minutes_late}m` : 'On time'}
+              </span>
+            )}
+            {s.is_manual && (
+              <span style={{ fontSize:10, fontWeight:700, color:'#1565c0', background:'#e3f2fd', padding:'2px 7px', borderRadius:4 }}>
+                ✏️ Manual
+              </span>
+            )}
           </div>
         </div>
       ))}
