@@ -99,15 +99,62 @@ export default function HRMessages() {
           )}
           <form onSubmit={handleSend} style={{ display:'flex', flexDirection:'column', gap:14 }}>
             <div>
+              <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:4 }}>Recipient</label>
+              <select value={form.recipient_id} onChange={e => setForm(f => ({ ...f, recipient_id: e.target.value }))} style={ipt}>
+                <option value="">All Staff (Broadcast)</option>
+                {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </select>
+            </div>
+            <div>
               <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:4 }}>Title</label>
               <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 placeholder="Message title" style={ipt} />
             </div>
             <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:4 }}>Message</label>
-              <textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                placeholder="Write your message here…" rows={5}
-                style={{ ...ipt, resize:'vertical', lineHeight:1.6 }} />
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em' }}>Message</label>
+                {/* Only show greeting button for broadcast messages */}
+                {!form.recipient_id && (
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      body: f.body.startsWith('Dear {first_name},')
+                        ? f.body
+                        : `Dear {first_name},\n\n${f.body}`,
+                    }))}
+                    style={{
+                      fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:5,
+                      border:'1px solid var(--green)', background:'var(--green-muted)',
+                      color:'var(--green)', cursor:'pointer', fontFamily:'DM Sans,sans-serif',
+                    }}
+                  >
+                    + Dear [First Name]
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={form.body}
+                onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+                placeholder={!form.recipient_id
+                  ? 'Click "+ Dear [First Name]" above to add a personalised greeting, then write your message…'
+                  : 'Write your message here…'}
+                rows={6}
+                style={{ ...ipt, resize:'vertical', lineHeight:1.7 }}
+              />
+              {/* Live preview when placeholder is present */}
+              {form.body.includes('{first_name}') && (
+                <div style={{
+                  marginTop:6, padding:'8px 12px', borderRadius:6,
+                  background:'rgba(106,191,63,.08)', border:'1px solid rgba(106,191,63,.25)',
+                  fontSize:12, color:'var(--text-muted)', lineHeight:1.6,
+                }}>
+                  <span style={{ fontWeight:700, color:'var(--green)', marginRight:6 }}>Preview:</span>
+                  {form.body.replace('{first_name}', 'Sarah').split('\n').map((line, i) => (
+                    <span key={i}>{line}{i < form.body.split('\n').length - 1 ? <br /> : null}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:4 }}>Priority</label>
@@ -115,15 +162,8 @@ export default function HRMessages() {
                 {PRIORITY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:4 }}>Recipient</label>
-              <select value={form.recipient_id} onChange={e => setForm(f => ({ ...f, recipient_id: e.target.value }))} style={ipt}>
-                <option value="">All Staff (Broadcast)</option>
-                {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-              </select>
-            </div>
             <button type="submit" disabled={sending} className="btn btn-brand" style={{ marginTop:4 }}>
-              {sending ? '⏳ Sending…' : '💬 Send Message'}
+              {sending ? '⏳ Sending…' : `💬 ${form.recipient_id ? 'Send Message' : 'Broadcast to All Staff'}`}
             </button>
           </form>
         </div>
@@ -141,8 +181,8 @@ export default function HRMessages() {
                 <div style={{ fontWeight:700, fontSize:14 }}>{m.title}</div>
                 <PBadge priority={m.priority} />
               </div>
-              <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:10, lineHeight:1.6 }}>
-                {m.body.length > 140 ? m.body.slice(0, 140) + '…' : m.body}
+              <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:10, lineHeight:1.6, whiteSpace:'pre-line' }}>
+                {m.body.length > 160 ? m.body.slice(0, 160) + '…' : m.body}
               </div>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
                 <div style={{ fontSize:12, color:'var(--text-muted)' }}>

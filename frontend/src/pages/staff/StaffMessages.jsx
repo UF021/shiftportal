@@ -90,7 +90,7 @@ export default function StaffMessages() {
             </div>
 
             {/* Body */}
-            <div style={{ fontSize:13, color:'#3a5a3a', lineHeight:1.6 }}>
+            <div style={{ fontSize:13, color:'#3a5a3a', lineHeight:1.6, whiteSpace:'pre-line' }}>
               {msg.body}
             </div>
 

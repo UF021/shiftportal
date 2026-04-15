@@ -69,15 +69,17 @@ def my_messages(
     result = []
     for m in rows:
         read_ids = json.loads(m.read_by or '[]')
+        # Substitute {first_name} placeholder with the recipient's actual first name
+        personalised_body = m.body.replace('{first_name}', user.first_name)
         result.append({
-            "id":         m.id,
-            "title":      m.title,
-            "body":       m.body,
-            "priority":   m.priority,
-            "sent_at":    m.sent_at.isoformat() if m.sent_at else None,
-            "is_read":    user.id in read_ids,
+            "id":           m.id,
+            "title":        m.title,
+            "body":         personalised_body,
+            "priority":     m.priority,
+            "sent_at":      m.sent_at.isoformat() if m.sent_at else None,
+            "is_read":      user.id in read_ids,
             "is_broadcast": m.recipient_id is None,
-            "sender_name": m.sender.full_name if m.sender else "HR",
+            "sender_name":  m.sender.full_name if m.sender else "HR",
         })
     return result
 
