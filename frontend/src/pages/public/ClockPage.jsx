@@ -93,7 +93,8 @@ export default function ClockPage() {
 
   function startGPS(data) {
     if (!navigator.geolocation) {
-      setPhase(data.gps_enabled ? 'gps_denied' : 'form')
+      // Geolocation API not available on this device/browser
+      setPhase(data.gps_enabled ? 'gps_unavailable' : 'form')
       return
     }
     setPhase('gps_checking')
@@ -109,7 +110,12 @@ export default function ClockPage() {
           setPhase('form')
         }
       },
-      () => setPhase(data.gps_enabled ? 'gps_denied' : 'form'),
+      err => {
+        if (!data.gps_enabled) { setPhase('form'); return }
+        // err.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+        if (err.code === 3) setPhase('gps_timeout')
+        else                setPhase('gps_denied')
+      },
       { enableHighAccuracy: true, timeout: 15_000 }
     )
   }
@@ -193,27 +199,116 @@ export default function ClockPage() {
     </Screen>
   )
 
-  // ── GPS DENIED ────────────────────────────────────────────────────────────
+  // ── GPS DENIED (permission refused) ──────────────────────────────────────
 
   if (phase === 'gps_denied') return (
     <Screen>
-      <div style={{ fontSize: 56, marginBottom: 8 }}>📍</div>
-      <div style={{ ...card, textAlign: 'center' }}>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#c0392b', marginBottom: 14 }}>
-          Location Services Required
+      <ShieldLogo />
+      {siteInfo?.site_name && (
+        <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
+          {siteInfo.site_name}
         </div>
-        <div style={{ fontSize: 16, color: '#333', lineHeight: 1.65 }}>
-          You must enable location services to clock in.
+      )}
+      <div style={{ ...card }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#c0392b', marginBottom: 12, textAlign: 'center' }}>
+          Location Access Required
         </div>
-        <div style={{ fontSize: 14, color: '#555', marginTop: 14, lineHeight: 1.65 }}>
-          Please go to your phone <strong>Settings</strong> → <strong>Privacy</strong> → <strong>Location Services</strong> and enable GPS for your browser, then reload this page.
+        <div style={{ fontSize: 15, color: '#333', lineHeight: 1.65, marginBottom: 16 }}>
+          GPS is required to verify you are on site. Please enable location services and try again.
         </div>
+
+        {/* iPhone */}
+        <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+            🍎 iPhone
+          </div>
+          <div style={{ fontSize: 13, color: '#333', lineHeight: 1.6 }}>
+            <strong>Settings</strong> → <strong>Privacy &amp; Security</strong> → <strong>Location Services</strong> → <strong>Safari</strong> → <strong>While Using</strong>
+          </div>
+        </div>
+
+        {/* Android */}
+        <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+            🤖 Android
+          </div>
+          <div style={{ fontSize: 13, color: '#333', lineHeight: 1.6 }}>
+            <strong>Settings</strong> → <strong>Apps</strong> → <strong>Chrome</strong> → <strong>Permissions</strong> → <strong>Location</strong> → <strong>Allow</strong>
+          </div>
+        </div>
+
         <button
           onClick={() => window.location.reload()}
-          style={{ marginTop: 22, width: '100%', padding: 16, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer' }}
+          style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer', marginBottom: 18 }}
         >
-          Reload Page
+          Try Again
         </button>
+
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
+          <span style={{ fontSize: 12, color: '#aaa', whiteSpace: 'nowrap' }}>Still unable to enable GPS?</span>
+          <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
+        </div>
+
+        {/* Supervisor instruction */}
+        <div style={{ background: '#fff8e8', border: '1px solid #e8c840', borderRadius: 10, padding: '12px 14px', fontSize: 14, color: '#7a5500', lineHeight: 1.6 }}>
+          ⚠️ Please contact your <strong>line supervisor</strong> immediately and report that you are unable to clock in.
+        </div>
+      </div>
+    </Screen>
+  )
+
+  // ── GPS TIMEOUT ───────────────────────────────────────────────────────────
+
+  if (phase === 'gps_timeout') return (
+    <Screen>
+      <ShieldLogo />
+      {siteInfo?.site_name && (
+        <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
+          {siteInfo.site_name}
+        </div>
+      )}
+      <div style={{ ...card, textAlign: 'center' }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#c0392b', marginBottom: 12 }}>
+          ⏱ Location Signal Weak
+        </div>
+        <div style={{ fontSize: 15, color: '#333', lineHeight: 1.65, marginBottom: 16 }}>
+          Move outside or near a window, ensure Location Services is on, then tap Retry.
+        </div>
+        <button
+          onClick={() => { setSiteInfo(s => s); startGPS(siteInfo) }}
+          style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer', marginBottom: 18 }}
+        >
+          Retry
+        </button>
+        <div style={{ background: '#fff8e8', border: '1px solid #e8c840', borderRadius: 10, padding: '12px 14px', fontSize: 14, color: '#7a5500', lineHeight: 1.6, textAlign: 'left' }}>
+          ⚠️ Still having issues? Contact your <strong>line supervisor</strong> immediately.
+        </div>
+      </div>
+    </Screen>
+  )
+
+  // ── GPS UNAVAILABLE (no Geolocation API) ─────────────────────────────────
+
+  if (phase === 'gps_unavailable') return (
+    <Screen>
+      <ShieldLogo />
+      {siteInfo?.site_name && (
+        <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
+          {siteInfo.site_name}
+        </div>
+      )}
+      <div style={{ ...card, textAlign: 'center' }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#c0392b', marginBottom: 12 }}>
+          📵 GPS Not Available
+        </div>
+        <div style={{ fontSize: 15, color: '#333', lineHeight: 1.65, marginBottom: 16 }}>
+          GPS is not available on this device or browser.
+        </div>
+        <div style={{ background: '#fff8e8', border: '1px solid #e8c840', borderRadius: 10, padding: '12px 14px', fontSize: 14, color: '#7a5500', lineHeight: 1.6, textAlign: 'left' }}>
+          ⚠️ Please use a smartphone with GPS enabled, or contact your <strong>line supervisor</strong> immediately.
+        </div>
       </div>
     </Screen>
   )
@@ -222,7 +317,12 @@ export default function ClockPage() {
 
   if (phase === 'too_far') return (
     <Screen>
-      <div style={{ fontSize: 56, marginBottom: 8 }}>🚫</div>
+      <ShieldLogo />
+      {siteInfo?.site_name && (
+        <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
+          {siteInfo.site_name}
+        </div>
+      )}
       <div style={{ ...card, textAlign: 'center' }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: '#c0392b', marginBottom: 14 }}>
           Not On Site

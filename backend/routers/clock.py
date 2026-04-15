@@ -487,15 +487,21 @@ def manual_shift(
 @router.get("/{org_slug}/{site_code}")
 def site_info(org_slug: str, site_code: str, db: Session = Depends(get_db)):
     org, site = _get_site(db, org_slug, site_code)
+    has_gps = site.site_lat is not None and site.site_lng is not None
+    brand_email = org.brand_email or org.contact_email
+    brand_name  = org.brand_name  or org.name
     return {
-        "org_name":      org.name,
-        "site_code":     site.code,
-        "site_name":     site.name,
-        "site_address":  site.address,
-        "site_lat":      site.site_lat,
-        "site_lng":      site.site_lng,
-        "gps_enabled":   site.site_lat is not None and site.site_lng is not None,
-        "has_gps_coords": site.site_lat is not None and site.site_lng is not None,
+        "org_name":       org.name,
+        "brand_name":     brand_name,
+        "brand_email":    brand_email,
+        "hr_contact_email": brand_email,
+        "site_code":      site.code,
+        "site_name":      site.name,
+        "site_address":   site.address,
+        "site_lat":       site.site_lat,
+        "site_lng":       site.site_lng,
+        "gps_enabled":    has_gps,
+        "has_gps_coords": has_gps,
     }
 
 
