@@ -487,7 +487,6 @@ def manual_shift(
         scheduled_start = body.scheduled_start,
         is_late         = is_late,
         minutes_late    = minutes_late,
-        clocked_via_qr  = False,
         entry_notes     = body.entry_notes,
     )
     out_event = models.ClockEvent(
@@ -497,7 +496,6 @@ def manual_shift(
         event_type      = models.ClockEventType.clock_out,
         timestamp       = clock_out_dt,
         shift_minutes   = shift_minutes,
-        clocked_via_qr  = False,
         entry_notes     = body.entry_notes,
     )
     db.add(in_event)
