@@ -1,4 +1,6 @@
+import base64
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -239,6 +241,7 @@ def get_documents(
             "doc_key":    d.doc_key,
             "doc_name":   d.doc_name,
             "doc_url":    d.doc_url,
+            "has_file":   d.doc_content is not None,
             "updated_at": d.updated_at.isoformat() if d.updated_at else None,
         }
         for d in docs
@@ -264,6 +267,61 @@ def update_document(
     doc.updated_by = hr.id
     db.commit()
     return {"message": "Document updated"}
+
+
+class DocumentUpload(BaseModel):
+    pdf_base64: str
+
+
+@router.post("/me/documents/{doc_key}/upload", status_code=200)
+def upload_document(
+    doc_key: str,
+    body:    DocumentUpload,
+    db:      Session      = Depends(get_db),
+    hr:      models.User  = Depends(require_hr),
+):
+    """HR only — store a base64-encoded PDF as binary in the database."""
+    try:
+        pdf_bytes = base64.b64decode(body.pdf_base64)
+    except Exception:
+        raise HTTPException(400, "Invalid base64 data")
+    if not pdf_bytes.startswith(b'%PDF'):
+        raise HTTPException(400, "File does not appear to be a PDF")
+
+    doc = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == hr.organisation_id,
+        models.OrgDocument.doc_key         == doc_key,
+    ).first()
+    if not doc:
+        doc = models.OrgDocument(organisation_id=hr.organisation_id, doc_key=doc_key, doc_name=doc_key)
+        db.add(doc)
+    doc.doc_content = pdf_bytes
+    doc.updated_by  = hr.id
+    db.commit()
+    return {"message": "Document uploaded", "size_bytes": len(pdf_bytes)}
+
+
+@router.get("/me/documents/{doc_key}/file")
+def get_document_file(
+    doc_key:      str,
+    db:           Session      = Depends(get_db),
+    current_user: models.User  = Depends(get_current_user),
+):
+    """Any authenticated user — stream the stored PDF back."""
+    org_id = current_user.organisation_id
+    if not org_id:
+        raise HTTPException(403, "No organisation")
+    doc = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == org_id,
+        models.OrgDocument.doc_key         == doc_key,
+    ).first()
+    if not doc or not doc.doc_content:
+        raise HTTPException(404, "Document not found or not yet uploaded")
+    return Response(
+        content      = doc.doc_content,
+        media_type   = "application/pdf",
+        headers      = {"Content-Disposition": f'inline; filename="{doc.doc_name}.pdf"'},
+    )
 
 
 # ── Superadmin: create org ────────────────────────────────────────────────────

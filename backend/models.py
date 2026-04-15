@@ -20,7 +20,7 @@ Super-admin users have organisation_id = NULL and can see everything.
 import enum
 from sqlalchemy import (
     Column, Integer, String, Boolean, Date, DateTime,
-    Float, Text, ForeignKey, Enum as SAEnum, JSON, UniqueConstraint
+    Float, Text, LargeBinary, ForeignKey, Enum as SAEnum, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -290,6 +290,7 @@ class OrgDocument(Base):
     doc_key         = Column(String(100), nullable=False)   # e.g. 'pay_calendar'
     doc_name        = Column(String(200), nullable=False)   # Display name
     doc_url         = Column(String(1000), nullable=True)   # Google Drive / Dropbox link
+    doc_content     = Column(LargeBinary,  nullable=True)   # uploaded PDF binary
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     updated_by      = Column(Integer, ForeignKey('users.id'), nullable=True)
 

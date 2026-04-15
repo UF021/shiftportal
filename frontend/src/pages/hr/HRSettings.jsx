@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMyOrg, updateBranding, getMySites, createSite, deleteSite, getOrgDocs, updateOrgDoc } from '../../api/client'
+import { getMyOrg, updateBranding, getMySites, createSite, deleteSite, getOrgDocs, uploadOrgDoc } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 function BrandField({ label, type='text', hint, value, onChange }) {
@@ -18,10 +18,10 @@ export default function HRSettings() {
   const [org,      setOrg]    = useState(null)
   const [brand,    setBrand]  = useState({})
   const [sites,    setSites]  = useState([])
-  const [docs,     setDocs]   = useState([])
-  const [docUrls,  setDocUrls]  = useState({})  // { doc_key: draftUrl }
-  const [docMsgs,  setDocMsgs]  = useState({})  // { doc_key: message }
-  const [docBusy,  setDocBusy]  = useState({})  // { doc_key: bool }
+  const [docs,     setDocs]     = useState([])
+  const [docFiles, setDocFiles]  = useState({})  // { doc_key: File }
+  const [docMsgs,  setDocMsgs]  = useState({})   // { doc_key: message }
+  const [docBusy,  setDocBusy]  = useState({})   // { doc_key: bool }
   const [newSite,  setNSite]  = useState({ code:'', name:'', group:'', address:'' })
   const [saving,   setSaving] = useState(false)
   const [msg,      setMsg]    = useState('')
@@ -30,13 +30,7 @@ export default function HRSettings() {
   function load() {
     getMyOrg().then(r => { setOrg(r.data); setBrand({ brand_name:r.data.brand_name||'', brand_colour:r.data.brand_colour||'#6abf3f', brand_email:r.data.brand_email||'', contract_employer_name:r.data.contract_employer_name||'', contract_employer_address:r.data.contract_employer_address||'', contract_employer_email:r.data.contract_employer_email||'', contract_employer_phone:r.data.contract_employer_phone||'', contract_signatory_name:r.data.contract_signatory_name||'', contract_signatory_role:r.data.contract_signatory_role||'', contract_min_pay:r.data.contract_min_pay||'', contract_max_pay:r.data.contract_max_pay||'' }) }).catch(()=>{})
     getMySites().then(r=>setSites(r.data||[])).catch(()=>{})
-    getOrgDocs().then(r => {
-      const d = r.data || []
-      setDocs(d)
-      const urls = {}
-      d.forEach(doc => { urls[doc.doc_key] = doc.doc_url || '' })
-      setDocUrls(urls)
-    }).catch(()=>{})
+    getOrgDocs().then(r => setDocs(r.data || [])).catch(()=>{})
   }
   useEffect(load,[])
 
@@ -58,16 +52,24 @@ export default function HRSettings() {
     try { await deleteSite(id); load() } catch {}
   }
 
-  async function saveDoc(doc) {
-    const url = docUrls[doc.doc_key] || ''
+  async function uploadDoc(doc) {
+    const file = docFiles[doc.doc_key]
+    if (!file) return
     setDocBusy(b => ({ ...b, [doc.doc_key]: true }))
     setDocMsgs(m => ({ ...m, [doc.doc_key]: '' }))
     try {
-      await updateOrgDoc(doc.doc_key, { doc_name: doc.doc_name, doc_url: url })
-      setDocMsgs(m => ({ ...m, [doc.doc_key]: '✅ Link saved — all staff can now view this document' }))
+      const b64 = await new Promise((res, rej) => {
+        const reader = new FileReader()
+        reader.onload  = () => res(reader.result.split(',')[1])
+        reader.onerror = rej
+        reader.readAsDataURL(file)
+      })
+      await uploadOrgDoc(doc.doc_key, b64)
+      setDocMsgs(m => ({ ...m, [doc.doc_key]: '✅ PDF uploaded — all staff can now view this document' }))
+      setDocFiles(f => ({ ...f, [doc.doc_key]: null }))
       load()
-    } catch {
-      setDocMsgs(m => ({ ...m, [doc.doc_key]: '❌ Save failed' }))
+    } catch (ex) {
+      setDocMsgs(m => ({ ...m, [doc.doc_key]: '❌ ' + (ex.response?.data?.detail || 'Upload failed') }))
     } finally {
       setDocBusy(b => ({ ...b, [doc.doc_key]: false }))
     }
@@ -175,38 +177,45 @@ export default function HRSettings() {
       {tab==='documents' && (
         <>
           <div style={{marginBottom:18,fontSize:13,color:'var(--text-muted)'}}>
-            Upload links to shared documents so staff can access them from their portal. Use Google Drive or Dropbox — make sure sharing is set to <strong>Anyone with the link can view</strong>.
-          </div>
-          <div style={{background:'rgba(240,160,48,.08)',border:'1px solid rgba(240,160,48,.25)',borderRadius:8,padding:'10px 14px',fontSize:12,color:'var(--amber)',marginBottom:20}}>
-            ⚠️ For Google Drive: open the file → Share → Change to <strong>Anyone with the link</strong> → Copy link → paste below.
+            Upload PDF files to make them available to all staff in their Employment Particulars section. Files are stored securely in the database and served directly — no external sharing required.
           </div>
           {docs.map(doc => (
             <div key={doc.doc_key} className="card" style={{marginBottom:14}}>
-              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{doc.doc_name}</div>
-              <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:12}}>
-                {doc.doc_url
-                  ? <span>Current: <a href={doc.doc_url} target="_blank" rel="noopener noreferrer" style={{color:'var(--brand)',wordBreak:'break-all'}}>{doc.doc_url}</a></span>
-                  : <span style={{color:'var(--amber)'}}>Not uploaded</span>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>{doc.doc_name}</div>
+              <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:14}}>
+                {doc.has_file
+                  ? <span style={{color:'var(--brand)'}}>✅ PDF uploaded — visible to all staff</span>
+                  : <span style={{color:'var(--amber)'}}>No PDF uploaded yet</span>
                 }
               </div>
+
+              {/* File picker */}
               <div className="field" style={{marginBottom:10}}>
-                <label>Google Drive or Dropbox link</label>
+                <label>Select PDF to upload</label>
                 <input
-                  value={docUrls[doc.doc_key]||''}
-                  onChange={e=>setDocUrls(u=>({...u,[doc.doc_key]:e.target.value}))}
-                  placeholder="https://drive.google.com/file/d/..."
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={e => setDocFiles(f => ({ ...f, [doc.doc_key]: e.target.files[0] || null }))}
+                  style={{padding:'8px 0', color:'var(--text)'}}
                 />
-                <div style={{fontSize:11,color:'var(--text-muted)',marginTop:4}}>
-                  Make sure sharing is set to <em>Anyone with the link can view</em>
-                </div>
+                {docFiles[doc.doc_key] && (
+                  <div style={{fontSize:11,color:'var(--text-muted)',marginTop:4}}>
+                    Selected: {docFiles[doc.doc_key].name} ({(docFiles[doc.doc_key].size/1024).toFixed(0)} KB)
+                  </div>
+                )}
               </div>
+
               {docMsgs[doc.doc_key] && (
                 <div className={`alert ${docMsgs[doc.doc_key].startsWith('✅')?'alert-green':'alert-red'}`} style={{marginBottom:10}}>
                   {docMsgs[doc.doc_key]}
                 </div>
               )}
-              <button onClick={()=>saveDoc(doc)} className="btn btn-brand" disabled={docBusy[doc.doc_key]}>
-                {docBusy[doc.doc_key]?'Saving…':'💾 Save Link'}
+              <button
+                onClick={() => uploadDoc(doc)}
+                className="btn btn-brand"
+                disabled={docBusy[doc.doc_key] || !docFiles[doc.doc_key]}
+              >
+                {docBusy[doc.doc_key] ? 'Uploading…' : '📤 Upload PDF'}
               </button>
             </div>
           ))}
