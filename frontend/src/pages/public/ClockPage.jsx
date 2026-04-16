@@ -120,21 +120,22 @@ export default function ClockPage() {
     )
   }
 
-  async function submit() {
+  async function submit(targetAction) {
     if (!form.staffId.trim() || !form.fullName.trim()) {
       setFormError('Please enter both your full name and staff ID.')
       return
     }
+    setAction(targetAction)
     setSubmitting(true)
     setFormError('')
     try {
-      const endpoint = action === 'in' ? 'in' : 'out'
+      const endpoint = targetAction === 'in' ? 'in' : 'out'
       const body = {
         staff_id:  form.staffId.trim().toUpperCase(),
         full_name: form.fullName.trim(),
         gps_lat:   gpsCoords?.lat ?? null,
         gps_lng:   gpsCoords?.lng ?? null,
-        ...(action === 'in' ? { scheduled_start: null } : {}),
+        ...(targetAction === 'in' ? { scheduled_start: null } : {}),
       }
       const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
         method: 'POST',
@@ -144,12 +145,16 @@ export default function ClockPage() {
       const data = await r.json()
 
       if (r.status === 409 && data.detail === 'already_clocked_in') {
-        setAction('out')
-        setFormError('You are already clocked in at this site. Tap CLOCK OUT below to end your shift.')
+        setFormError('You are already clocked in. Please use CLOCK OUT.')
       } else if (!r.ok) {
-        setFormError(data.detail || 'An error occurred. Please try again.')
+        const detail = data.detail || ''
+        if (targetAction === 'out' && detail.toLowerCase().includes('no active clock-in')) {
+          setFormError('You are not currently clocked in.')
+        } else {
+          setFormError(detail || 'An error occurred. Please try again.')
+        }
       } else {
-        setResult({ ...data, submittedAction: action })
+        setResult({ ...data, submittedAction: targetAction })
         setPhase('confirm')
       }
     } catch {
@@ -411,19 +416,34 @@ export default function ClockPage() {
           </div>
         )}
 
-        {/* Submit button */}
+        {/* Clock In button */}
         <button
-          onClick={submit}
+          onClick={() => submit('in')}
           disabled={submitting}
           style={{
             width: '100%', padding: '17px 0', fontSize: 20, fontWeight: 900,
             letterSpacing: '.08em', borderRadius: 12, border: 'none',
-            background: submitting ? '#aaa' : action === 'out' ? '#e05555' : '#6abf3f',
+            background: submitting && action === 'in' ? '#aaa' : '#6abf3f',
             color: '#fff', cursor: submitting ? 'wait' : 'pointer',
             transition: 'background .2s',
           }}
         >
-          {submitting ? '…' : action === 'in' ? 'CLOCK IN' : 'CLOCK OUT'}
+          {submitting && action === 'in' ? '…' : 'CLOCK IN'}
+        </button>
+
+        {/* Clock Out button */}
+        <button
+          onClick={() => submit('out')}
+          disabled={submitting}
+          style={{
+            width: '100%', padding: '17px 0', fontSize: 20, fontWeight: 900,
+            letterSpacing: '.08em', borderRadius: 12, border: 'none',
+            background: submitting && action === 'out' ? '#aaa' : '#e05555',
+            color: '#fff', cursor: submitting ? 'wait' : 'pointer',
+            transition: 'background .2s', marginTop: 12,
+          }}
+        >
+          {submitting && action === 'out' ? '…' : 'CLOCK OUT'}
         </button>
       </div>
 
