@@ -175,6 +175,7 @@ def get_pre_registration(token: str, db: Session = Depends(get_db)):
         "sia_expiry":     rec.sia_expiry,
         "nok_name":       rec.nok_name,
         "nok_phone":      rec.nok_phone,
+        "staff_id":       rec.staff_id,
     }
 
 

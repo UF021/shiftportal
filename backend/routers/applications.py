@@ -1,5 +1,6 @@
 import os
 import uuid
+import random
 import smtplib
 import logging
 from datetime import datetime, timezone
@@ -20,6 +21,21 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://shiftportal.vercel.app")
+
+
+def _generate_reference(first_name: str, last_name: str, org_id: int, db: Session) -> str:
+    i1 = first_name[0].upper() if first_name else 'X'
+    i2 = last_name[0].upper() if last_name else 'X'
+    for _ in range(30):
+        digits = f"{random.randint(0, 999):03d}"
+        ref = f"{i1}{i2}{digits}"
+        exists = db.query(models.JobApplication).filter(
+            models.JobApplication.organisation_id == org_id,
+            models.JobApplication.reference == ref,
+        ).first()
+        if not exists:
+            return ref
+    return f"{i1}{i2}{random.randint(100, 999)}"
 
 
 # ── Email helper ──────────────────────────────────────────────────────────────
@@ -107,8 +123,11 @@ async def submit_application(
         imm_data     = await immigration_doc.read()
         imm_filename = immigration_doc.filename
 
+    ref = _generate_reference(first_name.strip(), last_name.strip(), org.id, db)
+
     app = models.JobApplication(
         organisation_id          = org.id,
+        reference                = ref,
         title                    = title.strip(),
         first_name               = first_name.strip(),
         last_name                = last_name.strip(),
@@ -135,7 +154,7 @@ async def submit_application(
     db.add(app)
     db.commit()
     db.refresh(app)
-    return {"success": True, "application_id": app.id}
+    return {"success": True, "application_id": app.id, "reference": app.reference}
 
 
 # ── HR: list all applications ─────────────────────────────────────────────────
@@ -259,6 +278,7 @@ def update_status(
             sia_expiry      = a.sia_expiry,
             nok_name        = a.nok_name,
             nok_phone       = a.nok_phone,
+            staff_id        = a.reference,
             application_id  = a.id,
         )
         db.add(pre)
@@ -292,6 +312,7 @@ def _get_app(app_id: int, hr: models.User, db: Session) -> models.JobApplication
 def _summary(a: models.JobApplication) -> dict:
     return {
         "id":           a.id,
+        "reference":    a.reference,
         "full_name":    f"{a.title} {a.first_name} {a.last_name}",
         "first_name":   a.first_name,
         "last_name":    a.last_name,

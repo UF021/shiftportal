@@ -83,8 +83,16 @@ def activate(
     if u.is_active:
         raise HTTPException(400, "User is already active")
 
-    # Always auto-generate: first letter of first + last name, then 3 random digits (e.g. ZZ123)
-    u.staff_id = _generate_staff_id(u.first_name, u.last_name, u.organisation_id, db)
+    # Use application reference as staff ID if they registered via a pre-registration link
+    pre_reg = db.query(models.PreRegistration).filter(
+        models.PreRegistration.email == u.email,
+        models.PreRegistration.organisation_id == u.organisation_id,
+        models.PreRegistration.staff_id != None,
+    ).first()
+    if pre_reg and pre_reg.staff_id:
+        u.staff_id = pre_reg.staff_id
+    else:
+        u.staff_id = _generate_staff_id(u.first_name, u.last_name, u.organisation_id, db)
 
     u.is_active             = True
     u.employment_start_date = req.employment_start_date

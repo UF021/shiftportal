@@ -382,6 +382,7 @@ class JobApplication(Base):
     status_updated_at        = Column(DateTime(timezone=True), nullable=True)
     status_updated_by        = Column(Integer, ForeignKey('users.id'), nullable=True)
     hr_notes                 = Column(Text, nullable=True)
+    reference                = Column(String(20), nullable=True)   # e.g. RL047
 
     # Personal details
     title                    = Column(String(10),  nullable=False)
@@ -443,6 +444,7 @@ class PreRegistration(Base):
     sia_expiry      = Column(String(20))
     nok_name        = Column(String(200))
     nok_phone       = Column(String(30))
+    staff_id        = Column(String(20), nullable=True)   # application reference, becomes staff ID
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     used            = Column(Boolean, default=False)
     application_id  = Column(Integer, ForeignKey('job_applications.id'), nullable=True)

@@ -94,7 +94,7 @@ export default function ApplyPage() {
   const [immigDoc,     setImmigDoc]     = useState(null)
   const [err,     setErr]     = useState('')
   const [busy,    setBusy]    = useState(false)
-  const [done,    setDone]    = useState(null)   // { application_id }
+  const [done,    setDone]    = useState(null)   // { application_id, reference }
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -177,9 +177,14 @@ export default function ApplyPage() {
         <p style={{ fontSize:15, color:'#4a6a4a', lineHeight:1.7, marginBottom:20 }}>
           Thank you for applying. We will be in touch within <strong>5 working days</strong>.
         </p>
-        <div style={{ background:'#f0f8f0', border:'1px solid #c0e0c0', borderRadius:10, padding:'14px 18px', marginBottom:20 }}>
-          <div style={{ fontSize:12, color:'#6a8a6a', fontWeight:700, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4 }}>Application Reference</div>
-          <div style={{ fontSize:26, fontWeight:900, fontFamily:'DM Mono,monospace', color:c }}>#{done.application_id}</div>
+        <div style={{ background:'#f0f8f0', border:'1px solid #c0e0c0', borderRadius:10, padding:'20px 24px', marginBottom:20 }}>
+          <div style={{ fontSize:12, color:'#6a8a6a', fontWeight:700, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:8 }}>Your Application Reference</div>
+          <div style={{ fontSize:36, fontWeight:900, fontFamily:'DM Mono,monospace', color:c, letterSpacing:'.08em', marginBottom:10 }}>
+            {done.reference || `#${done.application_id}`}
+          </div>
+          <div style={{ fontSize:13, color:'#4a6a4a', lineHeight:1.6 }}>
+            Please keep this reference safe. If you are offered a position, this will become your Staff ID.
+          </div>
         </div>
         <p style={{ fontSize:13, color:'#6a8a6a' }}>
           If you have any questions, contact <a href={`mailto:${brandEmail}`} style={{ color:c, fontWeight:600 }}>{brandEmail}</a>

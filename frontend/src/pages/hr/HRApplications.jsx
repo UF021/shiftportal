@@ -92,6 +92,12 @@ function DetailModal({ appId, onClose, onUpdated }) {
               {data?.email} · {data?.phone}
               {data?.submitted_at && <> · Submitted {new Date(data.submitted_at).toLocaleDateString('en-GB')}</>}
             </div>
+            {data?.reference && (
+              <div style={{ marginTop:6, display:'inline-flex', alignItems:'center', gap:6, background:'var(--green-muted)', border:'1px solid rgba(106,191,63,.3)', borderRadius:6, padding:'3px 10px' }}>
+                <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em' }}>Ref</span>
+                <span style={{ fontFamily:'DM Mono,monospace', fontSize:15, fontWeight:900, color:'var(--green)' }}>{data.reference}</span>
+              </div>
+            )}
           </div>
           {data && <SBadge status={data.status} />}
         </div>
@@ -248,9 +254,9 @@ export default function HRApplications() {
           <table>
             <thead>
               <tr>
+                <th>Ref</th>
                 <th>Applicant</th>
                 <th>Email</th>
-                <th>Phone</th>
                 <th>Submitted</th>
                 <th>Status</th>
                 <th></th>
@@ -263,9 +269,9 @@ export default function HRApplications() {
                 <tr><td colSpan={6} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>No applications found.</td></tr>
               ) : filtered.map(a => (
                 <tr key={a.id}>
+                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:13, fontWeight:700, color:'var(--green)' }}>{a.reference || '—'}</td>
                   <td><strong>{a.full_name}</strong></td>
                   <td style={{ fontSize:12, color:'var(--text-muted)' }}>{a.email}</td>
-                  <td style={{ fontSize:12, color:'var(--text-muted)' }}>{a.phone}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>
                     {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString('en-GB') : '—'}
                   </td>

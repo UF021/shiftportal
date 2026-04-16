@@ -15,6 +15,7 @@ export function BrandProvider({ slug, children }) {
     getOrgPublic(slug)
       .then(r => {
         const b = r.data
+        console.log('[BrandContext] org data for slug', slug, b)
         setBrand({ ...b, loaded: true })
         // Apply brand colour as CSS variable globally
         document.documentElement.style.setProperty('--brand', b.colour || '#6abf3f')
