@@ -418,7 +418,7 @@ export default function ClockPage() {
           style={{
             width: '100%', padding: '17px 0', fontSize: 20, fontWeight: 900,
             letterSpacing: '.08em', borderRadius: 12, border: 'none',
-            background: submitting ? '#aaa' : action === 'out' ? '#c0392b' : GREEN,
+            background: submitting ? '#aaa' : action === 'out' ? '#e05555' : '#6abf3f',
             color: '#fff', cursor: submitting ? 'wait' : 'pointer',
             transition: 'background .2s',
           }}
