@@ -71,6 +71,12 @@ export const getPunctuality      = uid    => api.get(`/clock/punctuality/${uid}`
 export const getShiftAvg         = uid    => api.get(`/clock/shift-avg/${uid}`)
 export const createManualShift   = d      => api.post('/clock/manual', d)
 
+// Applications
+export const getApplications    = ()         => api.get('/applications/')
+export const getApplication     = (id)       => api.get(`/applications/${id}`)
+export const updateAppStatus    = (id, data) => api.patch(`/applications/${id}/status`, data)
+export const getPreRegistration = (token)    => axios.get(`${BASE}/auth/pre-registration/${token}`)
+
 // Clock failures
 export const getClockFailures   = ()      => api.get('/clock/failures')
 export const reinstateUser      = (uid)   => api.post(`/clock/failures/${uid}/reinstate`)

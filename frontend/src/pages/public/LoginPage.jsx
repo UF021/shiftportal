@@ -96,9 +96,14 @@ export default function LoginPage() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to={`/register/${effectiveSlug}`} style={{ fontSize: 13, color: c, fontWeight: 600 }}>
-              CREATE NEW ACCOUNT to register.
-            </Link>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <Link to={`/register/${effectiveSlug}`} style={{ fontSize: 13, color: c, fontWeight: 600 }}>
+                CREATE NEW ACCOUNT to register.
+              </Link>
+              <Link to={`/apply/${effectiveSlug}`} style={{ fontSize: 13, color: '#6a8a6a' }}>
+                Looking for work? Apply here →
+              </Link>
+            </div>
             <button type="submit" disabled={busy} style={{
               padding: '10px 24px', borderRadius: 20, border: 'none',
               background: c, color: '#fff', fontFamily: 'DM Sans,sans-serif',

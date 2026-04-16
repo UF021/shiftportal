@@ -154,6 +154,30 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     }
 
 
+@router.get("/pre-registration/{token}")
+def get_pre_registration(token: str, db: Session = Depends(get_db)):
+    """Public — return pre-filled details for a registration invite token."""
+    rec = db.query(models.PreRegistration).filter(
+        models.PreRegistration.token == token,
+        models.PreRegistration.used  == False,
+    ).first()
+    if not rec:
+        raise HTTPException(404, "Registration link is invalid or has already been used")
+    return {
+        "email":          rec.email,
+        "first_name":     rec.first_name,
+        "last_name":      rec.last_name,
+        "date_of_birth":  rec.date_of_birth,
+        "address":        rec.address,
+        "phone":          rec.phone,
+        "ni_number":      rec.ni_number,
+        "sia_licence":    rec.sia_licence,
+        "sia_expiry":     rec.sia_expiry,
+        "nok_name":       rec.nok_name,
+        "nok_phone":      rec.nok_phone,
+    }
+
+
 @router.get("/org/{slug}")
 def get_org_public(slug: str, db: Session = Depends(get_db)):
     """Public endpoint — returns branding for login/register pages."""

@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
-import { register } from '../../api/client'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
+import { register, getPreRegistration } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 import OrgLogo from '../../components/OrgLogo'
 
@@ -41,17 +41,47 @@ function Row2({ children }) {
 }
 
 export default function RegisterPage() {
-  const brand    = useBrand()
-  const { slug } = useParams()
-  const nav      = useNavigate()
-  const [step, setStep]     = useState(0)
-  const [form, setForm]     = useState(EMPTY)
+  const brand             = useBrand()
+  const { slug }          = useParams()
+  const [searchParams]    = useSearchParams()
+  const nav               = useNavigate()
+  const [step, setStep]   = useState(0)
+  const [form, setForm]   = useState(EMPTY)
   const [siaRaw, setSiaRaw] = useState('')
-  const [err, setErr]       = useState('')
-  const [busy, setBusy]     = useState(false)
+  const [err, setErr]     = useState('')
+  const [busy, setBusy]   = useState(false)
+  const [prefilled, setPrefilled] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const c = brand.colour || '#6abf3f'
+
+  // Pre-fill from job application token
+  useEffect(() => {
+    const token = searchParams.get('token')
+    if (!token) return
+    getPreRegistration(token)
+      .then(r => {
+        const d = r.data
+        const digits = (d.sia_licence || '').replace(/\D/g, '').slice(0, 16)
+        setSiaRaw(digits)
+        setForm(f => ({
+          ...f,
+          first_name:   d.first_name   || '',
+          last_name:    d.last_name    || '',
+          date_of_birth: d.date_of_birth || '',
+          email:        d.email        || '',
+          phone:        d.phone        || '',
+          address_line1: d.address     || '',
+          ni_number:    d.ni_number    || '',
+          sia_licence:  digits.match(/.{1,4}/g)?.join('-') || digits,
+          sia_expiry:   d.sia_expiry   || '',
+          nok_name:     d.nok_name     || '',
+          nok_phone:    d.nok_phone    || '',
+        }))
+        setPrefilled(true)
+      })
+      .catch(() => {})
+  }, [])
 
   function handleSiaInput(e) {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 16)
@@ -111,6 +141,13 @@ export default function RegisterPage() {
       <div style={{ background:'#fff', borderRadius:16, padding:'40px', width:640, maxWidth:'100%', boxShadow:'0 4px 32px rgba(0,0,0,.08)' }}>
 
         <div style={{ marginBottom: 22 }}><OrgLogo dark={false} /></div>
+
+        {/* Pre-fill banner */}
+        {prefilled && (
+          <div style={{ background:'#e8f8e0', border:'1.5px solid #6abf3f', borderRadius:10, padding:'12px 16px', marginBottom:20, fontSize:13, color:'#2e5a1a', lineHeight:1.6 }}>
+            ✅ <strong>Welcome!</strong> Your details have been pre-filled from your job application. Please check everything is correct and complete the remaining fields.
+          </div>
+        )}
 
         {/* Progress */}
         <div style={{ fontSize:12, color:'#6a8a6a', marginBottom:8 }}>

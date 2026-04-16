@@ -361,3 +361,88 @@ class Message(Base):
 
     sender          = relationship("User", foreign_keys=[sent_by])
     recipient       = relationship("User", foreign_keys=[recipient_id])
+
+
+# ── JobApplication ────────────────────────────────────────────────────────────
+
+class ApplicationStatus(str, enum.Enum):
+    submitted    = 'submitted'
+    under_review = 'under_review'
+    accepted     = 'accepted'
+    rejected     = 'rejected'
+
+
+class JobApplication(Base):
+    __tablename__ = 'job_applications'
+
+    id                       = Column(Integer, primary_key=True, index=True)
+    organisation_id          = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False)
+    submitted_at             = Column(DateTime(timezone=True), server_default=func.now())
+    status                   = Column(SAEnum(ApplicationStatus), default=ApplicationStatus.submitted)
+    status_updated_at        = Column(DateTime(timezone=True), nullable=True)
+    status_updated_by        = Column(Integer, ForeignKey('users.id'), nullable=True)
+    hr_notes                 = Column(Text, nullable=True)
+
+    # Personal details
+    title                    = Column(String(10),  nullable=False)
+    first_name               = Column(String(100), nullable=False)
+    last_name                = Column(String(100), nullable=False)
+    date_of_birth            = Column(String(20),  nullable=False)
+    email                    = Column(String(200), nullable=False)
+    phone                    = Column(String(30),  nullable=False)
+    address                  = Column(String(500), nullable=False)
+
+    # Employment docs
+    ni_number                = Column(String(20),  nullable=False)
+    sia_licence              = Column(String(30),  nullable=False)
+    sia_expiry               = Column(String(20),  nullable=False)
+    sia_badge_data           = Column(LargeBinary, nullable=True)
+    sia_badge_filename       = Column(String(200), nullable=True)
+
+    # Immigration
+    nationality              = Column(String(100), nullable=False)
+    right_to_work            = Column(Boolean, default=False)
+    immigration_doc_data     = Column(LargeBinary, nullable=True)
+    immigration_doc_filename = Column(String(200), nullable=True)
+
+    # Work details
+    commute_method           = Column(String(200), nullable=False)
+    employment_history       = Column(Text, nullable=False)
+
+    # Emergency contact
+    nok_name                 = Column(String(200), nullable=False)
+    nok_phone                = Column(String(30),  nullable=False)
+
+    # Declarations
+    info_accurate            = Column(Boolean, default=False)
+    consent_references       = Column(Boolean, default=False)
+
+    # Registration tracking
+    registration_sent_at     = Column(DateTime(timezone=True), nullable=True)
+    registered_user_id       = Column(Integer, ForeignKey('users.id'), nullable=True)
+
+    reviewer                 = relationship("User", foreign_keys=[status_updated_by])
+
+
+# ── PreRegistration ───────────────────────────────────────────────────────────
+
+class PreRegistration(Base):
+    __tablename__ = 'pre_registrations'
+
+    id              = Column(Integer, primary_key=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'))
+    token           = Column(String(64), unique=True, nullable=False)
+    email           = Column(String(200), nullable=False)
+    first_name      = Column(String(100))
+    last_name       = Column(String(100))
+    date_of_birth   = Column(String(20))
+    address         = Column(String(500))
+    phone           = Column(String(30))
+    ni_number       = Column(String(20))
+    sia_licence     = Column(String(30))
+    sia_expiry      = Column(String(20))
+    nok_name        = Column(String(200))
+    nok_phone       = Column(String(30))
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    used            = Column(Boolean, default=False)
+    application_id  = Column(Integer, ForeignKey('job_applications.id'), nullable=True)

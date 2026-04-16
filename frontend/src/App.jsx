@@ -8,6 +8,8 @@ import RegisterPage from './pages/public/RegisterPage'
 import PendingPage  from './pages/public/PendingPage'
 import ClockPage    from './pages/public/ClockPage'
 
+import ApplyPage      from './pages/public/ApplyPage'
+
 // Staff (light theme)
 import StaffLayout    from './pages/staff/StaffLayout'
 import StaffDashboard from './pages/staff/StaffDashboard'
@@ -29,6 +31,7 @@ import HRSettings       from './pages/hr/HRSettings'
 import HRQRCodes        from './pages/hr/HRQRCodes'
 import HRClockFailures  from './pages/hr/HRClockFailures'
 import HRMessages       from './pages/hr/HRMessages'
+import HRApplications   from './pages/hr/HRApplications'
 
 // Superadmin
 import SuperLayout  from './pages/superadmin/SuperLayout'
@@ -57,6 +60,9 @@ export default function App() {
 
   return (
     <Routes>
+      {/* ── Job application (public) ── */}
+      <Route path="/apply/:slug" element={<BrandedRoute><ApplyPage /></BrandedRoute>} />
+
       {/* ── QR Clock page (public) ── */}
       <Route path="/clock/:slug/:site_code" element={<BrandedRoute><ClockPage /></BrandedRoute>} />
 
@@ -90,6 +96,7 @@ export default function App() {
         <Route path="timelogs"      element={<HRTimelogs />} />
         <Route path="holidays"      element={<HRHolidays />} />
         <Route path="manual"        element={<HRManualShift />} />
+        <Route path="applications"   element={<HRApplications />} />
         <Route path="qrcodes"       element={<HRQRCodes />} />
         <Route path="failures"      element={<HRClockFailures />} />
         <Route path="messages"      element={<HRMessages />} />
