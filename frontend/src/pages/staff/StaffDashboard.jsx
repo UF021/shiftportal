@@ -66,13 +66,14 @@ export default function StaffDashboard() {
         <span style={{ fontSize:22, flexShrink:0 }}>🔴</span>
         <div>
           <div style={{ fontWeight:700, fontSize:14, color:'#a02020', marginBottom:3 }}>
-            You did not sign out from your last shift
+            ⚠️ You did not sign out from your last shift
           </div>
-          <div style={{ fontSize:13, color:'#c05050', lineHeight:1.5 }}>
-            Your clock-in from{' '}
+          <div style={{ fontSize:13, color:'#c05050', lineHeight:1.6 }}>
+            Your clock-in on{' '}
             <strong>{new Date(openClockIn.timestamp).toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long' })}</strong>
-            {openClockIn.site_name ? ` at ${openClockIn.site_name}` : ''} was never closed.
-            Please contact your line manager or HR to have your timesheet corrected.
+            {openClockIn.site_name ? <> at <strong>{openClockIn.site_name}</strong></> : ''} has no sign-out recorded.
+            {' '}If you completed this shift, please contact your line supervisor or HR immediately to have your timesheet corrected.
+            {' '}Failure to report this may affect your pay.
           </div>
         </div>
       </div>
