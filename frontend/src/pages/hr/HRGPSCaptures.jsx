@@ -1,28 +1,39 @@
-// HRGPSCaptures.jsx — HR page for reviewing GPS coordinate submissions
+// HRGPSCaptures.jsx — HR GPS capture review page
 import { useEffect, useState } from 'react'
-import { getGpsCaptures, approveGpsCapture, rejectGpsCapture } from '../../api/client'
+import { getGpsCaptures, approveGpsCapture, rejectGpsCapture, getMySites } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
+
+const CAPTURE_LINK = 'https://portal.ikanfm.co.uk/capture-gps'
 
 function fmt(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
-  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) +
-    ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })
+  return (
+    d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    ' ' +
+    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  )
 }
 
 export default function HRGPSCaptures() {
   const { colour } = useBrand()
   const c = colour || '#6abf3f'
 
-  const [captures, setCaptures] = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [busy,     setBusy]     = useState(null)    // capture id currently being actioned
-  const [toast,    setToast]    = useState('')
+  const [captures,  setCaptures]  = useState([])
+  const [sites,     setSites]     = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [busy,      setBusy]      = useState(null)
+  const [toast,     setToast]     = useState('')
+  const [matches,   setMatches]   = useState({})    // { captureId: siteId }
+  const [linkCopied, setLinkCopied] = useState(false)
 
   function load() {
     setLoading(true)
-    getGpsCaptures()
-      .then(r => setCaptures(r.data || []))
+    Promise.all([getGpsCaptures(), getMySites()])
+      .then(([cr, sr]) => {
+        setCaptures(cr.data || [])
+        setSites(sr.data   || [])
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }
@@ -34,11 +45,17 @@ export default function HRGPSCaptures() {
     setTimeout(() => setToast(''), 3500)
   }
 
+  function setMatch(captureId, siteId) {
+    setMatches(m => ({ ...m, [captureId]: siteId }))
+  }
+
   async function approve(capture) {
+    const siteId = matches[capture.id]
+    if (!siteId) { showToast('⚠️ Please select a site to match first'); return }
     setBusy(capture.id)
     try {
-      await approveGpsCapture(capture.site_id, capture.id)
-      showToast(`✅ GPS set for ${capture.site_name}`)
+      await approveGpsCapture(capture.id, { site_id: Number(siteId) })
+      showToast(`✅ GPS set for selected site`)
       load()
     } catch (ex) {
       showToast('❌ ' + (ex.response?.data?.detail || 'Failed'))
@@ -48,7 +65,7 @@ export default function HRGPSCaptures() {
   }
 
   async function reject(capture) {
-    if (!confirm(`Reject this submission for ${capture.site_name}?`)) return
+    if (!confirm(`Reject submission from ${capture.captured_by || 'unknown'} for "${capture.site_name}"?`)) return
     setBusy(capture.id)
     try {
       await rejectGpsCapture(capture.id)
@@ -61,31 +78,12 @@ export default function HRGPSCaptures() {
     }
   }
 
-  function exportCsv() {
-    const rows = [
-      ['Site', 'Code', 'Latitude', 'Longitude', 'Accuracy (m)', 'Captured By', 'Notes', 'Status', 'Submitted At'],
-      ...captures.map(c => [
-        c.site_name, c.site_code,
-        c.latitude, c.longitude,
-        c.accuracy != null ? Math.round(c.accuracy) : '',
-        c.captured_by || '',
-        c.notes || '',
-        c.approved ? 'Approved' : 'Pending',
-        c.captured_at ? new Date(c.captured_at).toISOString() : '',
-      ]),
-    ]
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `GPS-Captures-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  function copyLink() {
+    navigator.clipboard.writeText(CAPTURE_LINK).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    })
   }
-
-  const pending  = captures.filter(c => !c.approved)
-  const approved = captures.filter(c =>  c.approved)
 
   if (loading) return <p style={{ color: 'var(--text-muted)', padding: 40 }}>Loading…</p>
 
@@ -104,136 +102,138 @@ export default function HRGPSCaptures() {
       )}
 
       {/* Header */}
-      <div style={{ marginBottom: 26, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h2 style={{ fontSize: 23, fontWeight: 700, marginBottom: 4 }}>GPS Captures</h2>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>
-            Review GPS coordinates submitted by staff — approve to update a site's location
-          </p>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 23, fontWeight: 700, marginBottom: 4 }}>GPS Captures</h2>
+        <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+          Review GPS coordinates submitted by staff — match each to a site and approve.
+        </p>
+      </div>
+
+      {/* Capture link banner */}
+      <div className="card" style={{ marginBottom: 28, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>📍 Staff Capture Link</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+            Share this single link with any staff member. They enter their name and site, then submit their GPS location.
+          </div>
+          <div style={{
+            fontFamily: 'DM Mono, monospace', fontSize: 13, color: c,
+            background: 'var(--navy-light)', borderRadius: 8, padding: '8px 12px',
+            wordBreak: 'break-all',
+          }}>
+            {CAPTURE_LINK}
+          </div>
         </div>
-        {captures.length > 0 && (
-          <button onClick={exportCsv} className="btn btn-outline" style={{ fontSize: 13 }}>
-            📥 Export CSV
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={copyLink} className="btn btn-brand" style={{ fontSize: 13 }}>
+            {linkCopied ? '✅ Copied' : '📋 Copy Link'}
           </button>
-        )}
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent('Please open this link, stand at the main entrance, and submit your GPS location: ' + CAPTURE_LINK)}`}
+            target="_blank" rel="noreferrer"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '8px 16px', borderRadius: 8, border: '1px solid #25D366',
+              color: '#25D366', fontSize: 13, textDecoration: 'none', fontFamily: 'DM Sans, sans-serif',
+              fontWeight: 600,
+            }}
+          >
+            📱 WhatsApp
+          </a>
+        </div>
       </div>
 
-      {/* Pending captures */}
+      {/* Pending submissions */}
       <div style={{ marginBottom: 10, fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-        Pending Review — {pending.length}
+        Pending Review — {captures.length}
       </div>
 
-      {pending.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)', marginBottom: 24 }}>
-          No pending submissions.
+      {captures.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          No pending GPS submissions.
         </div>
       ) : (
-        <div style={{ marginBottom: 32 }}>
-          {pending.map(cap => (
-            <div key={cap.id} className="card" style={{ marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' }}>
-              {/* Site + meta */}
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{cap.site_name}</div>
-                <div style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text-muted)', marginBottom: 4 }}>
-                  {cap.site_code}
+        captures.map(cap => (
+          <div key={cap.id} className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
+
+              {/* Submission info */}
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 2 }}>
+                  {cap.captured_by || <span style={{ color: 'var(--text-muted)' }}>Unknown</span>}
                 </div>
-                <div style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: c, marginBottom: 4 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+                  📍 "{cap.site_name}"
+                </div>
+                <div style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', color: c, marginBottom: 4 }}>
                   {cap.latitude.toFixed(6)}, {cap.longitude.toFixed(6)}
                 </div>
                 {cap.accuracy != null && (
-                  <div style={{ fontSize: 12, color: cap.accuracy <= 20 ? '#6abf3f' : cap.accuracy <= 50 ? '#f59e0b' : '#ef4444' }}>
+                  <div style={{
+                    fontSize: 12,
+                    color: cap.accuracy <= 20 ? '#6abf3f' : cap.accuracy <= 50 ? '#f59e0b' : '#ef4444',
+                    marginBottom: 4,
+                  }}>
                     ±{Math.round(cap.accuracy)} m accuracy
                   </div>
-                )}
-              </div>
-
-              {/* Captured by + notes + time */}
-              <div style={{ flex: 1, minWidth: 200 }}>
-                {cap.captured_by && (
-                  <div style={{ fontSize: 13, marginBottom: 4 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>By: </span>{cap.captured_by}
-                  </div>
-                )}
-                {cap.notes && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{cap.notes}</div>
                 )}
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fmt(cap.captured_at)}</div>
               </div>
 
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 8, alignSelf: 'center' }}>
-                <button
-                  onClick={() => approve(cap)}
-                  disabled={busy === cap.id}
-                  className="btn btn-brand"
-                  style={{ fontSize: 13, padding: '8px 16px' }}
+              {/* Site matcher + actions */}
+              <div style={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>
+                  Match to site:
+                </div>
+                <select
+                  value={matches[cap.id] || ''}
+                  onChange={e => setMatch(cap.id, e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--navy-light)',
+                    color: 'var(--text)', fontSize: 13, fontFamily: 'DM Sans, sans-serif',
+                    outline: 'none',
+                  }}
                 >
-                  {busy === cap.id ? '…' : '✅ Approve & Set'}
-                </button>
-                <button
-                  onClick={() => reject(cap)}
-                  disabled={busy === cap.id}
-                  className="btn btn-danger"
-                  style={{ fontSize: 13, padding: '8px 16px' }}
-                >
-                  🗑️ Reject
-                </button>
-              </div>
-
-              {/* Google Maps preview link */}
-              <a
-                href={`https://www.google.com/maps?q=${cap.latitude},${cap.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}
-              >
-                🗺️ View map
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Approved captures */}
-      {approved.length > 0 && (
-        <>
-          <div style={{ marginBottom: 10, fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-            Approved — {approved.length}
-          </div>
-          <div className="card" style={{ padding: 0 }}>
-            <div className="tw">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Site</th>
-                    <th>Coordinates</th>
-                    <th>Accuracy</th>
-                    <th>Captured By</th>
-                    <th>Submitted</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {approved.map(cap => (
-                    <tr key={cap.id}>
-                      <td>
-                        <strong>{cap.site_name}</strong>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>{cap.site_code}</div>
-                      </td>
-                      <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: c }}>
-                        {cap.latitude.toFixed(6)}, {cap.longitude.toFixed(6)}
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        {cap.accuracy != null ? `±${Math.round(cap.accuracy)} m` : '—'}
-                      </td>
-                      <td style={{ fontSize: 13 }}>{cap.captured_by || '—'}</td>
-                      <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmt(cap.captured_at)}</td>
-                    </tr>
+                  <option value="">— Select a site —</option>
+                  {sites.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.code})
+                    </option>
                   ))}
-                </tbody>
-              </table>
+                </select>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => approve(cap)}
+                    disabled={busy === cap.id || !matches[cap.id]}
+                    className="btn btn-brand"
+                    style={{ flex: 1, fontSize: 13, padding: '9px 14px' }}
+                  >
+                    {busy === cap.id ? '…' : '✅ Approve & Set'}
+                  </button>
+                  <button
+                    onClick={() => reject(cap)}
+                    disabled={busy === cap.id}
+                    className="btn btn-danger"
+                    style={{ flex: 1, fontSize: 13, padding: '9px 14px' }}
+                  >
+                    🗑️ Reject
+                  </button>
+                </div>
+
+                <a
+                  href={`https://www.google.com/maps?q=${cap.latitude},${cap.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}
+                >
+                  🗺️ View on Google Maps
+                </a>
+              </div>
             </div>
           </div>
-        </>
+        ))
       )}
     </>
   )

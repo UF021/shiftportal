@@ -80,7 +80,7 @@ export default function HRSettings() {
 
   const regLink = org ? `${window.location.origin}/register/${org.slug}` : '…'
 
-  const gpsCapUrl = site => `${APP_URL}/capture-gps/${org?.slug || ''}/${site.code}`
+  const GPS_LINK = `${APP_URL}/capture-gps`
 
   return (
     <>
@@ -96,7 +96,7 @@ export default function HRSettings() {
           }} onClick={e=>e.stopPropagation()}>
             <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📍 GPS Capture Link</div>
             <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:20}}>
-              Send this link to a staff member at <strong>{gpsModal.name}</strong>. They open it on their phone and submit their GPS location.
+              Send this link to a staff member standing at <strong>{gpsModal.name}</strong>. They enter their name and site, then submit their GPS location.
             </div>
 
             {/* URL */}
@@ -105,14 +105,14 @@ export default function HRSettings() {
               borderRadius:8,padding:'12px 14px',fontFamily:'DM Mono,monospace',
               fontSize:12,wordBreak:'break-all',color:'var(--green)',marginBottom:14,
             }}>
-              {gpsCapUrl(gpsModal)}
+              {GPS_LINK}
             </div>
 
             {/* QR */}
             <div style={{display:'flex',justifyContent:'center',marginBottom:18}}>
               <div style={{background:'#fff',borderRadius:10,padding:10}}>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(gpsCapUrl(gpsModal))}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(GPS_LINK)}`}
                   alt="GPS capture QR"
                   width={180} height={180}
                 />
@@ -122,13 +122,13 @@ export default function HRSettings() {
             {/* Buttons */}
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
               <button
-                onClick={()=>{ navigator.clipboard.writeText(gpsCapUrl(gpsModal)); setMsg('✅ GPS capture link copied!') }}
+                onClick={()=>{ navigator.clipboard.writeText(GPS_LINK); setMsg('✅ GPS capture link copied!') }}
                 className="btn btn-brand" style={{flex:1,fontSize:13}}
               >
                 📋 Copy Link
               </button>
               <a
-                href={`https://wa.me/?text=${encodeURIComponent('Please open this link on your phone and submit your GPS location for ' + gpsModal.name + ': ' + gpsCapUrl(gpsModal))}`}
+                href={`https://wa.me/?text=${encodeURIComponent('Please open this link, stand at the main entrance of ' + gpsModal.name + ', and submit your GPS location: ' + GPS_LINK)}`}
                 target="_blank" rel="noreferrer"
                 style={{
                   flex:1,display:'flex',alignItems:'center',justifyContent:'center',

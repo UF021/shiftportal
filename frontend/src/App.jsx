@@ -68,8 +68,8 @@ export default function App() {
       {/* ── QR Clock page (public) ── */}
       <Route path="/clock/:slug/:site_code" element={<BrandedRoute><ClockPage /></BrandedRoute>} />
 
-      {/* ── GPS Capture page (public) ── */}
-      <Route path="/capture-gps/:slug/:site_code" element={<BrandedRoute><CaptureGPS /></BrandedRoute>} />
+      {/* ── GPS Capture page (public, single generic link) ── */}
+      <Route path="/capture-gps" element={<CaptureGPS />} />
 
       {/* ── Org-scoped login / register ── */}
       <Route path="/login/:slug"    element={<BrandedRoute><LoginPage /></BrandedRoute>} />

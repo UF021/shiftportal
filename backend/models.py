@@ -431,8 +431,9 @@ class GPSCapture(Base):
     __tablename__ = 'gps_captures'
 
     id              = Column(Integer, primary_key=True)
-    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'))
-    site_id         = Column(Integer, ForeignKey('sites.id', ondelete='CASCADE'))
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=True)
+    site_id         = Column(Integer, ForeignKey('sites.id', ondelete='SET NULL'), nullable=True)
+    site_name       = Column(String(200), nullable=True)   # staff-entered site name
     latitude        = Column(Float, nullable=False)
     longitude       = Column(Float, nullable=False)
     accuracy        = Column(Float, nullable=True)
