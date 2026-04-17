@@ -9,6 +9,7 @@ import PendingPage  from './pages/public/PendingPage'
 import ClockPage    from './pages/public/ClockPage'
 
 import ApplyPage      from './pages/public/ApplyPage'
+import CaptureGPS     from './pages/public/CaptureGPS'
 
 // Staff (light theme)
 import StaffLayout    from './pages/staff/StaffLayout'
@@ -32,6 +33,7 @@ import HRQRCodes        from './pages/hr/HRQRCodes'
 import HRClockFailures  from './pages/hr/HRClockFailures'
 import HRMessages       from './pages/hr/HRMessages'
 import HRApplications   from './pages/hr/HRApplications'
+import HRGPSCaptures    from './pages/hr/HRGPSCaptures'
 
 // Superadmin
 import SuperLayout  from './pages/superadmin/SuperLayout'
@@ -65,6 +67,9 @@ export default function App() {
 
       {/* ── QR Clock page (public) ── */}
       <Route path="/clock/:slug/:site_code" element={<BrandedRoute><ClockPage /></BrandedRoute>} />
+
+      {/* ── GPS Capture page (public) ── */}
+      <Route path="/capture-gps/:slug/:site_code" element={<BrandedRoute><CaptureGPS /></BrandedRoute>} />
 
       {/* ── Org-scoped login / register ── */}
       <Route path="/login/:slug"    element={<BrandedRoute><LoginPage /></BrandedRoute>} />
@@ -100,6 +105,7 @@ export default function App() {
         <Route path="qrcodes"       element={<HRQRCodes />} />
         <Route path="failures"      element={<HRClockFailures />} />
         <Route path="messages"      element={<HRMessages />} />
+        <Route path="gps"           element={<HRGPSCaptures />} />
         <Route path="settings"      element={<HRSettings />} />
       </Route>
 

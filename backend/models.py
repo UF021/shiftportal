@@ -425,6 +425,25 @@ class JobApplication(Base):
     reviewer                 = relationship("User", foreign_keys=[status_updated_by])
 
 
+# ── GPSCapture ────────────────────────────────────────────────────────────────
+
+class GPSCapture(Base):
+    __tablename__ = 'gps_captures'
+
+    id              = Column(Integer, primary_key=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'))
+    site_id         = Column(Integer, ForeignKey('sites.id', ondelete='CASCADE'))
+    latitude        = Column(Float, nullable=False)
+    longitude       = Column(Float, nullable=False)
+    accuracy        = Column(Float, nullable=True)
+    captured_by     = Column(String(200), nullable=True)
+    notes           = Column(String(500), nullable=True)
+    captured_at     = Column(DateTime(timezone=True), server_default=func.now())
+    approved        = Column(Boolean, default=False)
+
+    site            = relationship("Site")
+
+
 # ── PreRegistration ───────────────────────────────────────────────────────────
 
 class PreRegistration(Base):

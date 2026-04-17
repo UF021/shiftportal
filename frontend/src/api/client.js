@@ -92,6 +92,12 @@ export const markMessageRead    = (id)    => api.patch(`/messages/${id}/read`)
 export const sendMessage        = (data)  => api.post('/messages/', data)
 export const getAllMessages      = ()      => api.get('/messages/all')
 
+// GPS Captures
+export const submitGpsCapture  = (slug, siteCode, data) => api.post(`/orgs/public/${slug}/sites/${siteCode}/capture-gps`, data)
+export const getGpsCaptures    = ()                      => api.get('/orgs/me/sites/gps-captures')
+export const approveGpsCapture = (siteId, captureId)    => api.patch(`/orgs/me/sites/${siteId}/approve-gps/${captureId}`)
+export const rejectGpsCapture  = (captureId)             => api.delete(`/orgs/me/sites/gps-captures/${captureId}`)
+
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')
 export const listOrgs       = ()      => api.get('/orgs/')

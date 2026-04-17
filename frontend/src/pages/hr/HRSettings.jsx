@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { getMyOrg, updateBranding, getMySites, createSite, deleteSite, getOrgDocs, uploadOrgDoc } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
+const APP_URL = import.meta.env.VITE_APP_URL || 'https://portal.ikanfm.co.uk'
+
 function BrandField({ label, type='text', hint, value, onChange }) {
   return (
     <div className="field">
@@ -26,6 +28,7 @@ export default function HRSettings() {
   const [saving,   setSaving] = useState(false)
   const [msg,      setMsg]    = useState('')
   const [tab,      setTab]    = useState('branding')
+  const [gpsModal, setGpsModal] = useState(null)   // site object or null
 
   function load() {
     getMyOrg().then(r => { setOrg(r.data); setBrand({ brand_name:r.data.brand_name||'', brand_colour:r.data.brand_colour||'#6abf3f', brand_email:r.data.brand_email||'', contract_employer_name:r.data.contract_employer_name||'', contract_employer_address:r.data.contract_employer_address||'', contract_employer_email:r.data.contract_employer_email||'', contract_employer_phone:r.data.contract_employer_phone||'', contract_signatory_name:r.data.contract_signatory_name||'', contract_signatory_role:r.data.contract_signatory_role||'', contract_min_pay:r.data.contract_min_pay||'', contract_max_pay:r.data.contract_max_pay||'' }) }).catch(()=>{})
@@ -77,8 +80,73 @@ export default function HRSettings() {
 
   const regLink = org ? `${window.location.origin}/register/${org.slug}` : '…'
 
+  const gpsCapUrl = site => `${APP_URL}/capture-gps/${org?.slug || ''}/${site.code}`
+
   return (
     <>
+      {/* GPS Capture modal */}
+      {gpsModal && (
+        <div style={{
+          position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:1000,
+          display:'flex',alignItems:'center',justifyContent:'center',padding:16,
+        }} onClick={()=>setGpsModal(null)}>
+          <div style={{
+            background:'var(--navy-mid)',border:'1px solid var(--border)',borderRadius:16,
+            padding:'28px 28px',width:'100%',maxWidth:440,
+          }} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📍 GPS Capture Link</div>
+            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:20}}>
+              Send this link to a staff member at <strong>{gpsModal.name}</strong>. They open it on their phone and submit their GPS location.
+            </div>
+
+            {/* URL */}
+            <div style={{
+              background:'var(--navy-light)',border:'1px solid var(--border)',
+              borderRadius:8,padding:'12px 14px',fontFamily:'DM Mono,monospace',
+              fontSize:12,wordBreak:'break-all',color:'var(--green)',marginBottom:14,
+            }}>
+              {gpsCapUrl(gpsModal)}
+            </div>
+
+            {/* QR */}
+            <div style={{display:'flex',justifyContent:'center',marginBottom:18}}>
+              <div style={{background:'#fff',borderRadius:10,padding:10}}>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(gpsCapUrl(gpsModal))}`}
+                  alt="GPS capture QR"
+                  width={180} height={180}
+                />
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+              <button
+                onClick={()=>{ navigator.clipboard.writeText(gpsCapUrl(gpsModal)); setMsg('✅ GPS capture link copied!') }}
+                className="btn btn-brand" style={{flex:1,fontSize:13}}
+              >
+                📋 Copy Link
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent('Please open this link on your phone and submit your GPS location for ' + gpsModal.name + ': ' + gpsCapUrl(gpsModal))}`}
+                target="_blank" rel="noreferrer"
+                style={{
+                  flex:1,display:'flex',alignItems:'center',justifyContent:'center',
+                  gap:6,padding:'10px 16px',borderRadius:8,border:'1px solid #25D366',
+                  color:'#25D366',fontSize:13,fontFamily:'DM Sans,sans-serif',textDecoration:'none',
+                  background:'transparent',cursor:'pointer',fontWeight:600,
+                }}
+              >
+                📱 WhatsApp
+              </a>
+              <button onClick={()=>setGpsModal(null)} className="btn btn-outline" style={{flex:1,fontSize:13}}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{marginBottom:26}}>
         <h2 style={{fontSize:23,fontWeight:700,marginBottom:4}}>Settings</h2>
         <p style={{fontSize:14,color:'var(--text-muted)'}}>Manage your organisation branding, contract details, and sites</p>
@@ -163,7 +231,10 @@ export default function HRSettings() {
                       <td><strong>{s.name}</strong></td>
                       <td style={{fontSize:12,color:'var(--text-muted)'}}>{s.group||'—'}</td>
                       <td style={{fontSize:12,color:'var(--text-muted)'}}>{s.address||'—'}</td>
-                      <td><button onClick={()=>removeSite(s.id)} className="btn btn-danger" style={{fontSize:11,padding:'4px 10px'}}>Remove</button></td>
+                      <td style={{display:'flex',gap:6}}>
+                        <button onClick={()=>setGpsModal(s)} className="btn btn-outline" style={{fontSize:11,padding:'4px 10px'}}>📍 GPS</button>
+                        <button onClick={()=>removeSite(s.id)} className="btn btn-danger" style={{fontSize:11,padding:'4px 10px'}}>Remove</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

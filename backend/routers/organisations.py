@@ -122,6 +122,123 @@ async def create_site(
     return site
 
 
+# ── GPS Capture endpoints ─────────────────────────────────────────────────────
+
+class GPSCaptureCreate(BaseModel):
+    latitude:    float
+    longitude:   float
+    accuracy:    Optional[float] = None
+    captured_by: Optional[str]  = None
+    notes:       Optional[str]  = None
+
+
+@router.post("/public/{slug}/sites/{site_code}/capture-gps", status_code=201)
+def submit_gps_capture(
+    slug:      str,
+    site_code: str,
+    req:       GPSCaptureCreate,
+    db:        Session = Depends(get_db),
+):
+    """Public — anyone with the link can submit GPS coordinates for HR review."""
+    org = db.query(models.Organisation).filter(
+        models.Organisation.slug      == slug,
+        models.Organisation.is_active == True,
+    ).first()
+    if not org:
+        raise HTTPException(404, "Organisation not found")
+    site = db.query(models.Site).filter(
+        models.Site.organisation_id == org.id,
+        models.Site.code            == site_code,
+        models.Site.is_active       == True,
+    ).first()
+    if not site:
+        raise HTTPException(404, "Site not found")
+    capture = models.GPSCapture(
+        organisation_id = org.id,
+        site_id         = site.id,
+        latitude        = req.latitude,
+        longitude       = req.longitude,
+        accuracy        = req.accuracy,
+        captured_by     = req.captured_by,
+        notes           = req.notes,
+    )
+    db.add(capture); db.commit(); db.refresh(capture)
+    return {"id": capture.id, "message": "GPS coordinates submitted for review"}
+
+
+@router.get("/me/sites/gps-captures")
+def list_gps_captures(
+    db: Session        = Depends(get_db),
+    hr: models.User    = Depends(require_hr),
+):
+    """HR — list all GPS capture submissions for their org."""
+    captures = (
+        db.query(models.GPSCapture)
+        .filter(models.GPSCapture.organisation_id == hr.organisation_id)
+        .order_by(models.GPSCapture.captured_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id":          c.id,
+            "site_id":     c.site_id,
+            "site_name":   c.site.name if c.site else "Unknown",
+            "site_code":   c.site.code if c.site else "—",
+            "latitude":    c.latitude,
+            "longitude":   c.longitude,
+            "accuracy":    c.accuracy,
+            "captured_by": c.captured_by,
+            "notes":       c.notes,
+            "captured_at": c.captured_at.isoformat() if c.captured_at else None,
+            "approved":    c.approved,
+        }
+        for c in captures
+    ]
+
+
+@router.patch("/me/sites/{site_id}/approve-gps/{capture_id}")
+def approve_gps_capture(
+    site_id:    int,
+    capture_id: int,
+    db:         Session     = Depends(get_db),
+    hr:         models.User = Depends(require_hr),
+):
+    """HR — approve a GPS capture and update the site's stored coordinates."""
+    capture = db.query(models.GPSCapture).filter(
+        models.GPSCapture.id              == capture_id,
+        models.GPSCapture.organisation_id == hr.organisation_id,
+        models.GPSCapture.site_id         == site_id,
+    ).first()
+    if not capture:
+        raise HTTPException(404, "Capture not found")
+    capture.approved = True
+    site = db.query(models.Site).filter(
+        models.Site.id              == site_id,
+        models.Site.organisation_id == hr.organisation_id,
+    ).first()
+    if site:
+        site.site_lat = capture.latitude
+        site.site_lng = capture.longitude
+    db.commit()
+    return {"message": "GPS coordinates approved and applied to site"}
+
+
+@router.delete("/me/sites/gps-captures/{capture_id}", status_code=204)
+def reject_gps_capture(
+    capture_id: int,
+    db:         Session     = Depends(get_db),
+    hr:         models.User = Depends(require_hr),
+):
+    """HR — reject (delete) a GPS capture submission."""
+    capture = db.query(models.GPSCapture).filter(
+        models.GPSCapture.id              == capture_id,
+        models.GPSCapture.organisation_id == hr.organisation_id,
+    ).first()
+    if not capture:
+        raise HTTPException(404, "Capture not found")
+    db.delete(capture); db.commit()
+
+
 @router.delete("/me/sites/{site_id}", status_code=204)
 def delete_site(
     site_id: int,
