@@ -6,34 +6,37 @@ Run from the backend directory:
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/backend')
+# Use Railway public URL when running locally
+if not os.getenv('DATABASE_URL'):
+    os.environ['DATABASE_URL'] = 'postgresql://postgres:bXbYQFKHYGXciCdWNdFVlCRiqdJaJInd@metro.proxy.rlwy.net:21553/railway'
 
 from database import SessionLocal
 import models
 
 SITE_COORDS = {
-    'sc-avonmeads':   (51.4516, -2.5691),
-    'sc-bluewater':   (51.4429, 0.2731),
-    'sc-cardiff':     (51.5461, -3.2153),
-    'sc-reading':     (51.4305, -0.9438),
-    'sc-teeside':     (54.5705, -1.2174),
-    'sc-southampton': (50.9049, -1.4043),
-    'vc-dagenham':    (51.5396, 0.1278),
-    'vc-purley':      (51.3741, -0.0851),
-    'vc-finchley':    (51.6120, -0.1756),
-    'vc-woodgreen':   (51.5976, -0.1094),
-    'vc-starcity':    (52.4934, -1.8626),
-    'vc-harrow':      (51.5796, -0.3364),
-    'vc-leeds':       (53.8084, -1.5931),
-    'vc-islington':   (51.5342, -0.1028),
-    'vc-thurrock':    (51.4923, 0.3103),
-    'vc-cribbs':      (51.5228, -2.5945),
-    'vc-doncaster':   (53.5228, -1.1286),
-    'vc-whitecity':   (51.5074, -0.2228),
-    'vc-shepherds':   (51.5041, -0.2184),
-    'vc-stratford':   (51.5432, -0.0042),
-    'vc-nottingham':  (52.9548, -1.1465),
-    'sc-leicester':   (52.6366, -1.1387),
-    'other':          (None, None),
+    'sc-avonmeads':   (51.4537, -2.5648),   # Showcase Avonmeads, Bristol
+    'sc-bluewater':   (51.4380,  0.2720),   # Showcase Bluewater, Greenhithe
+    'sc-cardiff':     (51.5093, -3.2137),   # Showcase Cardiff, Nantgarw
+    'sc-reading':     (51.4309, -0.9734),   # Showcase Reading, Loddon Bridge
+    'sc-teeside':     (54.5418, -1.1760),   # Showcase Teeside, Xscape Middlesbrough
+    'sc-southampton': (50.9074, -1.4047),   # Showcase Southampton, West Quay
+    'vc-dagenham':    (51.5387,  0.1149),   # Vue Dagenham Leisure Park
+    'vc-purley':      (51.3739, -0.0903),   # Vue Purley Way, Croydon
+    'vc-finchley':    (51.6057, -0.1727),   # Vue Finchley, Great North Leisure Park
+    'vc-woodgreen':   (51.5971, -0.1099),   # Vue Wood Green, The Mall
+    'vc-starcity':    (52.4934, -1.8626),   # Vue Star City Birmingham
+    'vc-harrow':      (51.5796, -0.3364),   # Vue Harrow, St Georges
+    'vc-leeds':       (53.8173, -1.5756),   # Vue Leeds Kirkstall Bridge
+    'vc-islington':   (51.5342, -0.1028),   # Vue Islington Square
+    'vc-thurrock':    (51.4923,  0.3103),   # Vue Thurrock, Lakeside
+    'vc-cribbs':      (51.5228, -2.5945),   # Vue Cribbs Causeway Bristol
+    'vc-doncaster':   (53.5228, -1.1286),   # Vue Doncaster, Frenchgate
+    'vc-whitecity':   (51.5074, -0.2228),   # Vue Westfield White City
+    'vc-shepherds':   (51.5074, -0.2228),   # Vue Shepherds Bush, Westfield
+    'vc-stratford':   (51.5432, -0.0042),   # Vue Westfield Stratford
+    'vc-nottingham':  (52.9534, -1.1496),   # Vue Nottingham, Corner House
+    'sc-leicester':   (52.6366, -1.1387),   # Showcase Leicester (unchanged — not in update list)
+    'other':          (None,     None),     # Generic site — no GPS check
 }
 
 
