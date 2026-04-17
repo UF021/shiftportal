@@ -109,7 +109,7 @@ export default function ClockPage() {
         if (data.gps_enabled && data.site_lat && data.site_lng) {
           const dist = Math.round(haversine(lat, lng, data.site_lat, data.site_lng))
           setDistance(dist)
-          setPhase(dist > 50 ? 'too_far' : 'form')
+          setPhase(dist > 20 ? 'too_far' : 'form')
         } else {
           setPhase('form')
         }
