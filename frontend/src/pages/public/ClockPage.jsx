@@ -464,13 +464,20 @@ export default function ClockPage() {
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     })
 
-    const rows = [
-      ['👤 Name',      result.full_name],
-      ['🪪 Staff ID',  result.staff_id],
-      ['📍 Location',  result.site_name],
-      ['🕐 Time',      fmtTs],
-      ...(result.sia_licence ? [['🛡 SIA Licence', result.sia_licence]] : []),
-    ]
+    // Distance: prefer backend value, fall back to pre-calculated frontend distance
+    const distMetres = result.distance_metres != null
+      ? result.distance_metres
+      : (gpsCoords && siteInfo?.site_lat != null
+          ? Math.round(haversine(gpsCoords.lat, gpsCoords.lng, siteInfo.site_lat, siteInfo.site_lng))
+          : null)
+    const distStr = distMetres != null ? `${distMetres} metres` : null
+
+    const Row = ({ label, value, valueColor }) => value == null ? null : (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #f0f0f0', gap: 12 }}>
+        <span style={{ fontSize: 14, color: '#666', fontWeight: 600, flexShrink: 0 }}>{label}</span>
+        <span style={{ fontSize: 14, color: valueColor || '#1a2a1a', fontWeight: 700, textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
+      </div>
+    )
 
     return (
       <Screen>
@@ -480,22 +487,22 @@ export default function ClockPage() {
         </div>
 
         <div style={{ ...card, maxWidth: 440 }}>
-          {rows.map(([label, val]) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #f0f0f0', gap: 12 }}>
-              <span style={{ fontSize: 14, color: '#666', fontWeight: 600, flexShrink: 0 }}>{label}</span>
-              <span style={{ fontSize: 14, color: '#1a2a1a', fontWeight: 700, textAlign: 'right', wordBreak: 'break-all' }}>{val}</span>
-            </div>
-          ))}
+          <Row label="👤 Name"       value={result.full_name} />
+          <Row label="🪪 Staff ID"   value={result.staff_id} />
+          <Row label="📍 Site"       value={result.site_name} />
+          <Row label="🗺 Distance from site" value={distStr} valueColor="#1a6a1a" />
+          <Row label="🕐 Time"       value={fmtTs} />
+          <Row label="🛡 SIA Licence" value={result.sia_licence} />
 
           {/* SIA status */}
           {result.sia_expiry && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f0f0f0', gap: 12 }}>
-              <span style={{ fontSize: 14, color: '#666', fontWeight: 600 }}>✨ SIA Status</span>
+              <span style={{ fontSize: 14, color: '#666', fontWeight: 600 }}>✅ SIA Status</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: sia.col }}>{sia.icon} {sia.label}</span>
             </div>
           )}
 
-          {/* Punctuality or shift duration */}
+          {/* Punctuality (clock-in) or shift duration (clock-out) */}
           {isIn ? (
             <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: 700, background: result.is_late ? '#fde8e8' : '#e8f8e0', color: result.is_late ? '#a02020' : '#1a6a1a' }}>
               {result.scheduled_start != null

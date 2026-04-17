@@ -766,11 +766,13 @@ def clock_in(
         raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")
 
     # ── GPS check with failure tracking ──────────────────────────────────────
-    gps_verified = False
+    gps_verified    = False
+    distance_metres = None
     if site.site_lat is not None and site.site_lng is not None:
         if body.gps_lat is None or body.gps_lng is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "GPS coordinates required for this site")
-        dist = haversine_metres(body.gps_lat, body.gps_lng, site.site_lat, site.site_lng)
+        dist            = haversine_metres(body.gps_lat, body.gps_lng, site.site_lat, site.site_lng)
+        distance_metres = round(dist)
         if dist > 50:
             _record_failure(db, org.id, user.id, body.staff_id, site.id, 'gps_mismatch', body.gps_lat, body.gps_lng, dist, ip)
 
@@ -813,17 +815,18 @@ def clock_in(
     db.commit()
 
     return {
-        "success":         True,
-        "timestamp":       now.isoformat(),
-        "site_name":       site.name,
-        "full_name":       user.full_name,
-        "staff_id":        user.staff_id,
-        "sia_licence":     user.sia_licence,
-        "sia_expiry":      str(user.sia_expiry) if user.sia_expiry else None,
-        "sia_status":      _sia_status(user.sia_expiry),
-        "is_late":         is_late,
-        "minutes_late":    minutes_late,
-        "scheduled_start": body.scheduled_start,
+        "success":          True,
+        "timestamp":        now.isoformat(),
+        "site_name":        site.name,
+        "full_name":        user.full_name,
+        "staff_id":         user.staff_id,
+        "sia_licence":      user.sia_licence,
+        "sia_expiry":       str(user.sia_expiry) if user.sia_expiry else None,
+        "sia_status":       _sia_status(user.sia_expiry),
+        "is_late":          is_late,
+        "minutes_late":     minutes_late,
+        "scheduled_start":  body.scheduled_start,
+        "distance_metres":  distance_metres,
     }
 
 
@@ -868,6 +871,10 @@ def clock_out(
     now = datetime.now(timezone.utc)
     shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
 
+    distance_metres = None
+    if site.site_lat is not None and body.gps_lat is not None:
+        distance_metres = round(haversine_metres(body.gps_lat, body.gps_lng, site.site_lat, site.site_lng))
+
     event = models.ClockEvent(
         organisation_id = org.id,
         user_id         = user.id,
@@ -883,14 +890,15 @@ def clock_out(
     db.commit()
 
     return {
-        "success":       True,
-        "timestamp":     now.isoformat(),
-        "site_name":     site.name,
-        "full_name":     user.full_name,
-        "staff_id":      user.staff_id,
-        "sia_licence":   user.sia_licence,
-        "sia_expiry":    str(user.sia_expiry) if user.sia_expiry else None,
-        "sia_status":    _sia_status(user.sia_expiry),
-        "shift_minutes": shift_minutes,
-        "clock_in_time": last_in.timestamp.strftime("%H:%M"),
+        "success":          True,
+        "timestamp":        now.isoformat(),
+        "site_name":        site.name,
+        "full_name":        user.full_name,
+        "staff_id":         user.staff_id,
+        "sia_licence":      user.sia_licence,
+        "sia_expiry":       str(user.sia_expiry) if user.sia_expiry else None,
+        "sia_status":       _sia_status(user.sia_expiry),
+        "shift_minutes":    shift_minutes,
+        "clock_in_time":    last_in.timestamp.strftime("%H:%M"),
+        "distance_metres":  distance_metres,
     }
