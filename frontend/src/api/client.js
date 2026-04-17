@@ -81,6 +81,11 @@ export const getPreRegistration = (token)    => axios.get(`${BASE}/auth/pre-regi
 export const getClockFailures   = ()      => api.get('/clock/failures')
 export const reinstateUser      = (uid)   => api.post(`/clock/failures/${uid}/reinstate`)
 
+// Shift edit / delete
+export const editShift          = (id, d) => api.patch(`/clock/entry/${id}`, d)
+export const deleteShift        = (id)    => api.delete(`/clock/entry/${id}`)
+export const bulkDeleteShifts   = (ids)   => api.delete('/clock/entries/bulk', { data: { event_ids: ids } })
+
 // Messages
 export const getMyMessages      = ()      => api.get('/messages/my')
 export const markMessageRead    = (id)    => api.patch(`/messages/${id}/read`)

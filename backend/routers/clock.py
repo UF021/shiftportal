@@ -53,6 +53,21 @@ class ManualShiftRequest(BaseModel):
     entry_notes:     Optional[str] = None
 
 
+class EditShiftRequest(BaseModel):
+    date:            date
+    clock_in_time:   str
+    clock_out_time:  str
+    site_id:         int
+    scheduled_start: Optional[str]  = None
+    is_late:         Optional[bool] = None
+    overnight:       bool           = False
+    entry_notes:     Optional[str]  = None
+
+
+class BulkDeleteRequest(BaseModel):
+    event_ids: list[int]
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_site(db: Session, org_slug: str, site_code: str) -> tuple:
@@ -351,6 +366,7 @@ def all_events(
             "date":            ci.timestamp.date().isoformat(),
             "start_time":      ci.timestamp.strftime("%H:%M"),
             "end_time":        co.timestamp.strftime("%H:%M") if co else None,
+            "site_id":         ci.site_id,
             "site_name":       site_name,
             "shift_minutes":   shift_minutes,
             "shift_hours":     round(shift_minutes / 60, 2) if shift_minutes else None,
@@ -551,6 +567,143 @@ def reinstate_user(
     ).delete(synchronize_session=False)
     db.commit()
     return {"message": f"{u.full_name} reinstated successfully"}
+
+
+# ── HR — edit a shift ────────────────────────────────────────────────────────
+
+@router.patch("/entry/{event_id}")
+def edit_shift(
+    event_id: int,
+    body:     EditShiftRequest,
+    db:       Session     = Depends(get_db),
+    hr:       models.User = Depends(require_hr),
+):
+    ci = db.query(models.ClockEvent).filter(
+        models.ClockEvent.id              == event_id,
+        models.ClockEvent.organisation_id == hr.organisation_id,
+        models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+    ).first()
+    if not ci:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Shift not found")
+
+    site = db.query(models.Site).filter(
+        models.Site.id              == body.site_id,
+        models.Site.organisation_id == hr.organisation_id,
+        models.Site.is_active       == True,
+    ).first()
+    if not site:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
+
+    in_h,  in_m  = map(int, body.clock_in_time.split(':'))
+    out_h, out_m = map(int, body.clock_out_time.split(':'))
+    clock_in_dt  = datetime(body.date.year, body.date.month, body.date.day, in_h,  in_m,  tzinfo=timezone.utc)
+    clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
+    if body.overnight or clock_out_dt <= clock_in_dt:
+        clock_out_dt += timedelta(days=1)
+
+    shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+
+    if body.is_late is not None:
+        is_late, minutes_late = body.is_late, (ci.minutes_late if body.is_late else 0)
+    else:
+        is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
+
+    # Update clock_in event
+    ci.timestamp       = clock_in_dt
+    ci.site_id         = body.site_id
+    ci.scheduled_start = body.scheduled_start
+    ci.is_late         = is_late
+    ci.minutes_late    = minutes_late
+    ci.entry_notes     = body.entry_notes
+
+    # Find and update the matching clock_out
+    co = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == ci.user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_out,
+            models.ClockEvent.timestamp  > ci.timestamp - timedelta(hours=24),
+        )
+        .order_by(models.ClockEvent.timestamp.asc())
+        .first()
+    )
+    if co:
+        co.timestamp     = clock_out_dt
+        co.site_id       = body.site_id
+        co.shift_minutes = shift_minutes
+        co.entry_notes   = body.entry_notes
+
+    db.commit()
+    return {"message": "Shift updated", "shift_minutes": shift_minutes}
+
+
+# ── HR — delete a shift ───────────────────────────────────────────────────────
+
+@router.delete("/entry/{event_id}")
+def delete_shift(
+    event_id: int,
+    db:       Session     = Depends(get_db),
+    hr:       models.User = Depends(require_hr),
+):
+    ci = db.query(models.ClockEvent).filter(
+        models.ClockEvent.id              == event_id,
+        models.ClockEvent.organisation_id == hr.organisation_id,
+        models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+    ).first()
+    if not ci:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Shift not found")
+
+    # Delete matching clock_out first (FK safety)
+    co = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == ci.user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_out,
+            models.ClockEvent.timestamp  > ci.timestamp,
+        )
+        .order_by(models.ClockEvent.timestamp.asc())
+        .first()
+    )
+    if co:
+        db.delete(co)
+    db.delete(ci)
+    db.commit()
+    return {"message": "Shift deleted"}
+
+
+# ── HR — bulk delete shifts ───────────────────────────────────────────────────
+
+@router.delete("/entries/bulk")
+def bulk_delete_shifts(
+    body: BulkDeleteRequest,
+    db:   Session     = Depends(get_db),
+    hr:   models.User = Depends(require_hr),
+):
+    deleted = 0
+    for eid in body.event_ids:
+        ci = db.query(models.ClockEvent).filter(
+            models.ClockEvent.id              == eid,
+            models.ClockEvent.organisation_id == hr.organisation_id,
+            models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+        ).first()
+        if not ci:
+            continue
+        co = (
+            db.query(models.ClockEvent)
+            .filter(
+                models.ClockEvent.user_id    == ci.user_id,
+                models.ClockEvent.event_type == models.ClockEventType.clock_out,
+                models.ClockEvent.timestamp  > ci.timestamp,
+            )
+            .order_by(models.ClockEvent.timestamp.asc())
+            .first()
+        )
+        if co:
+            db.delete(co)
+        db.delete(ci)
+        deleted += 1
+    db.commit()
+    return {"message": f"{deleted} shifts deleted", "deleted": deleted}
 
 
 # ── Public: site info ─────────────────────────────────────────────────────────
