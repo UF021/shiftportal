@@ -187,12 +187,14 @@ class SiteCreate(BaseModel):
 
 
 class SiteOut(BaseModel):
-    id:      int
-    code:    str
-    name:    str
-    group:   Optional[str]
-    address: Optional[str]
+    id:       int
+    code:     str
+    name:     str
+    group:    Optional[str]
+    address:  Optional[str]
     is_active: bool
+    site_lat: Optional[float] = None
+    site_lng: Optional[float] = None
 
     model_config = {"from_attributes": True}
 
