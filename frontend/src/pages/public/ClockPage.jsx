@@ -24,6 +24,10 @@ function siaInfo(expiry) {
   return               { label: `Valid — expires ${expiry}`,              icon: '✅', col: '#2e7d32' }
 }
 
+function formatDistance(metres) {
+  return Math.round(metres).toLocaleString('en-GB') + ' metres'
+}
+
 function fmtDur(mins) {
   if (!mins) return '—'
   return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
@@ -339,7 +343,7 @@ export default function ClockPage() {
           You must be on site to clock in.
         </div>
         <div style={{ marginTop: 18, padding: '14px 16px', background: '#fde8e8', borderRadius: 10, fontSize: 16, color: '#a02020', fontWeight: 700 }}>
-          Your current distance: <strong>{distance}m</strong> away
+          Your current distance: <strong>{distance != null ? formatDistance(distance) : '—'}</strong> away
         </div>
         <button
           onClick={() => window.location.reload()}
