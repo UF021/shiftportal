@@ -48,8 +48,15 @@ export default function HRStaff() {
     setCustomPay(isPreset || !payStr ? '' : payStr)
 
     // Parse existing assigned_sites (comma-separated names)
-    const existingNames = s.assigned_sites ? s.assigned_sites.split(',').map(x => x.trim()).filter(Boolean) : []
+    // Fall back to assigned_site_id if assigned_sites is null/empty
     const knownNames = sites.map(x => x.name)
+    let existingNames = s.assigned_sites
+      ? s.assigned_sites.split(',').map(x => x.trim()).filter(Boolean)
+      : []
+    if (existingNames.length === 0 && s.assigned_site_id) {
+      const matched = sites.find(x => x.id === s.assigned_site_id)
+      if (matched) existingNames = [matched.name]
+    }
     const known   = existingNames.filter(n => knownNames.includes(n))
     const unknown = existingNames.filter(n => !knownNames.includes(n))
     setSelSites(known)
@@ -113,7 +120,7 @@ export default function HRStaff() {
           <table>
             <thead><tr>
               <th>Name</th><th>Staff ID</th><th>SIA Licence</th><th>SIA Expiry</th>
-              <th>Pay</th><th>Start Date</th><th>Status</th><th>Actions</th>
+              <th>Pay</th><th>Start Date</th><th>Sites</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>
               {filtered.sort((a,b)=>(a.full_name||'').localeCompare(b.full_name||'')).map(s=>(
@@ -124,6 +131,32 @@ export default function HRStaff() {
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(s.sia_expiry)}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', color:'var(--green)' }}>{s.pay_rate?`£${s.pay_rate}/hr`:'—'}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(s.employment_start_date)}</td>
+                  <td>
+                    {(() => {
+                      // Build list of site names from assigned_sites or fall back to assigned_site_id
+                      let names = s.assigned_sites
+                        ? s.assigned_sites.split(',').map(x => x.trim()).filter(Boolean)
+                        : []
+                      if (names.length === 0 && s.assigned_site_id) {
+                        const m = sites.find(x => x.id === s.assigned_site_id)
+                        if (m) names = [m.name]
+                      }
+                      if (names.length === 0) {
+                        return <span style={{ fontSize:12, color:'var(--text-muted)' }}>— Unassigned —</span>
+                      }
+                      return (
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                          {names.map(n => (
+                            <span key={n} style={{
+                              fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:12,
+                              background:'rgba(106,191,63,.15)', color:'#6abf3f',
+                              whiteSpace:'nowrap',
+                            }}>{n}</span>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </td>
                   <td><Badge st={siaStatus(s.sia_expiry)}/></td>
                   <td><button onClick={()=>openEdit(s)} className="btn btn-outline" style={{ fontSize:11, padding:'5px 10px' }}>Edit</button></td>
                 </tr>
