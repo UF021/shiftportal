@@ -160,6 +160,10 @@ export default function ClockPage() {
       setFormError('Please enter both your full name and staff ID.')
       return
     }
+    if (targetAction === 'in' && !form.scheduledStart) {
+      setFormError('Please enter your scheduled start time.')
+      return
+    }
     setAction(targetAction)
     setSubmitting(true)
     setFormError('')
@@ -612,18 +616,43 @@ export default function ClockPage() {
           />
         </div>
 
-        {/* Scheduled start — clock-in only */}
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 4 }}>
-            What time was your shift scheduled to start? <span style={{ color: '#e05555' }}>*</span>
-          </label>
-          <input
-            type="time"
-            value={form.scheduledStart}
-            onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
-            style={{ ...inp, fontSize: 18, fontFamily: 'DM Mono, monospace' }}
-          />
-        </div>
+        {/* Scheduled start time */}
+        {(() => {
+          const nowMins = tick.getHours() * 60 + tick.getMinutes()
+          const schedMins = form.scheduledStart
+            ? Number(form.scheduledStart.split(':')[0]) * 60 + Number(form.scheduledStart.split(':')[1])
+            : null
+          const minsLate = schedMins != null ? nowMins - schedMins : null
+          return (
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 4 }}>
+                Scheduled start time <span style={{ color: '#e05555' }}>*</span>
+              </label>
+              <input
+                type="time"
+                value={form.scheduledStart}
+                onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
+                style={{ ...inp, fontSize: 18, fontFamily: 'DM Mono, monospace', marginBottom: minsLate != null ? 8 : 0 }}
+              />
+              {minsLate != null && minsLate > 0 && (
+                <div style={{
+                  background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 8,
+                  padding: '10px 12px', fontSize: 13, color: '#a02020', fontWeight: 700,
+                }}>
+                  ⚠️ You are {minsLate} minute{minsLate !== 1 ? 's' : ''} late
+                </div>
+              )}
+              {minsLate != null && minsLate <= 0 && (
+                <div style={{
+                  background: '#e8f8e0', border: '1px solid #a0d080', borderRadius: 8,
+                  padding: '10px 12px', fontSize: 13, color: '#2e7d32', fontWeight: 700,
+                }}>
+                  ✅ On time
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Error + override button */}
         {formError && (
