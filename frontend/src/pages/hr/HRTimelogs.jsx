@@ -6,14 +6,15 @@ import { fmtDate } from '../../api/utils'
 
 const fmtM = m => m != null ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : '—'
 
-function calcMins(dateStr, inTime, outTime, overnight) {
+function calcMins(dateStr, inTime, outTime) {
   if (!dateStr || !inTime || !outTime) return null
   const [iy, im, id] = dateStr.split('-').map(Number)
   const [ih, imm]    = inTime.split(':').map(Number)
   const [oh, omm]    = outTime.split(':').map(Number)
   let inMs  = new Date(iy, im - 1, id, ih, imm).getTime()
   let outMs = new Date(iy, im - 1, id, oh, omm).getTime()
-  if (overnight || outMs <= inMs) outMs += 86400000
+  // Auto overnight: if out <= in, shift crosses midnight — add 24h
+  if (outMs <= inMs) outMs += 86400000
   return Math.round((outMs - inMs) / 60000)
 }
 
@@ -55,8 +56,6 @@ function EditModal({ entry, sites, onClose, onSaved }) {
     clock_out_time:  entry.end_time   || '',
     site_id:         String(entry.site_id || (sites[0]?.id ?? '')),
     scheduled_start: entry.scheduled_start || '',
-    is_late:         entry.is_late ?? false,
-    overnight:       false,
     entry_notes:     entry.entry_notes || '',
   })
   const [saving, setSaving] = useState(false)
@@ -64,7 +63,16 @@ function EditModal({ entry, sites, onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const previewMins = calcMins(form.date, form.clock_in_time, form.clock_out_time, form.overnight)
+  const previewMins = calcMins(form.date, form.clock_in_time, form.clock_out_time)
+
+  // Auto-calculate lateness for preview
+  const latePreview = (() => {
+    if (!form.clock_in_time || !form.scheduled_start) return null
+    const [sh, sm] = form.scheduled_start.split(':').map(Number)
+    const [ih, im] = form.clock_in_time.split(':').map(Number)
+    const diff = (ih * 60 + im) - (sh * 60 + sm)
+    return diff > 0 ? diff : null
+  })()
 
   async function handleSave() {
     // No time validation — times are optional; blank = keep existing value
@@ -74,8 +82,6 @@ function EditModal({ entry, sites, onClose, onSaved }) {
         date:            form.date,
         site_id:         Number(form.site_id),
         scheduled_start: form.scheduled_start || null,
-        is_late:         form.is_late,
-        overnight:       form.overnight,
         entry_notes:     form.entry_notes || null,
       }
       if (form.clock_in_time)  payload.clock_in_time  = form.clock_in_time
@@ -131,16 +137,6 @@ function EditModal({ entry, sites, onClose, onSaved }) {
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 4 }}>Scheduled Start</label>
             <input type="time" value={form.scheduled_start} onChange={e => set('scheduled_start', e.target.value)} style={{ ...ipt, fontFamily: 'DM Mono,monospace' }} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 10, paddingBottom: 2 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-              <input type="checkbox" checked={form.overnight} onChange={e => set('overnight', e.target.checked)} />
-              Overnight shift
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-              <input type="checkbox" checked={form.is_late} onChange={e => set('is_late', e.target.checked)} />
-              Mark as late
-            </label>
-          </div>
         </div>
 
         <div style={{ marginTop: 12 }}>
@@ -150,14 +146,31 @@ function EditModal({ entry, sites, onClose, onSaved }) {
             style={{ ...ipt, resize: 'vertical' }} />
         </div>
 
-        {/* Duration preview */}
-        {previewMins != null && (
-          <div style={{ marginTop: 14, background: 'var(--navy-light)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Duration</span>
-            <span style={{ fontFamily: 'DM Mono,monospace', fontWeight: 900, fontSize: 16, color: previewMins > 720 ? '#b54708' : 'var(--green)' }}>
-              {fmtM(previewMins)}
-            </span>
-            {previewMins > 720 && <span style={{ fontSize: 11, color: '#b54708', fontWeight: 700 }}>⚠ Over 12h</span>}
+        {/* Duration / lateness preview */}
+        {(previewMins != null || latePreview != null) && (
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {previewMins != null && (
+              <div style={{ background: 'var(--navy-light)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Duration</span>
+                <span style={{ fontFamily: 'DM Mono,monospace', fontWeight: 900, fontSize: 16, color: previewMins > 720 ? '#b54708' : 'var(--green)' }}>
+                  {fmtM(previewMins)}
+                </span>
+                {previewMins > 720 && <span style={{ fontSize: 11, color: '#b54708', fontWeight: 700 }}>⚠ Over 12h</span>}
+                {form.clock_in_time && form.clock_out_time && form.clock_out_time <= form.clock_in_time && (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>🌙 Overnight</span>
+                )}
+              </div>
+            )}
+            {latePreview != null && (
+              <div style={{ background: 'rgba(224,85,85,.08)', border: '1px solid rgba(224,85,85,.25)', borderRadius: 8, padding: '8px 14px', fontSize: 13, color: '#e05555', fontWeight: 600 }}>
+                ⚠ {latePreview} min{latePreview !== 1 ? 's' : ''} late — will be recorded automatically
+              </div>
+            )}
+            {form.scheduled_start && form.clock_in_time && !latePreview && (
+              <div style={{ background: 'rgba(106,191,63,.08)', border: '1px solid rgba(106,191,63,.2)', borderRadius: 8, padding: '8px 14px', fontSize: 13, color: 'var(--green)', fontWeight: 600 }}>
+                ✅ On time
+              </div>
+            )}
           </div>
         )}
 

@@ -95,13 +95,11 @@ class ManualShiftRequest(BaseModel):
 
 class EditShiftRequest(BaseModel):
     date:            date
-    clock_in_time:   Optional[str]  = None
-    clock_out_time:  Optional[str]  = None
+    clock_in_time:   Optional[str] = None
+    clock_out_time:  Optional[str] = None
     site_id:         int
-    scheduled_start: Optional[str]  = None
-    is_late:         Optional[bool] = None
-    overnight:       bool           = False
-    entry_notes:     Optional[str]  = None
+    scheduled_start: Optional[str] = None
+    entry_notes:     Optional[str] = None
 
 
 class BulkDeleteRequest(BaseModel):
@@ -671,10 +669,8 @@ def edit_shift(
             year=body.date.year, month=body.date.month, day=body.date.day
         )
 
-    if body.is_late is not None:
-        is_late, minutes_late = body.is_late, (ci.minutes_late if body.is_late else 0)
-    else:
-        is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
+    # Always auto-calculate lateness — no manual override
+    is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
 
     # Update clock_in event
     ci.timestamp       = clock_in_dt
@@ -700,7 +696,8 @@ def edit_shift(
         if body.clock_out_time:
             out_h, out_m = map(int, body.clock_out_time.split(':'))
             clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
-            if body.overnight or clock_out_dt <= clock_in_dt:
+            # Auto overnight: if clock-out <= clock-in, shift crosses midnight
+            if clock_out_dt <= clock_in_dt:
                 clock_out_dt += timedelta(days=1)
             shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
             co.timestamp     = clock_out_dt
