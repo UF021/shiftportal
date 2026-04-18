@@ -583,127 +583,172 @@ export default function ClockPage() {
 
   // ── FORM ──────────────────────────────────────────────────────────────────
 
-  if (phase === 'form') return (
-    <Screen>
-      <ShieldLogo />
-      <div style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 4 }}>
-        {action === 'in' ? 'Clocking in at' : 'Clocking out at'}
-      </div>
-      <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, textAlign: 'center', marginBottom: 22, lineHeight: 1.2 }}>
-        {siteInfo?.site_name}
-      </div>
+  if (phase === 'form') {
+    const nowMins   = tick.getHours() * 60 + tick.getMinutes()
+    const schedMins = form.scheduledStart
+      ? Number(form.scheduledStart.split(':')[0]) * 60 + Number(form.scheduledStart.split(':')[1])
+      : null
+    const minsLate  = schedMins != null ? nowMins - schedMins : null
 
-      <div style={card}>
-        {/* Full name */}
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>Full Name</label>
-          <input
-            type="text" inputMode="text" autoComplete="name" placeholder="e.g. John Smith"
-            value={form.fullName}
-            onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
-            style={inp}
-          />
-        </div>
+    const fieldLabel = {
+      display: 'block', fontSize: 11, fontWeight: 700, color: '#5a7a5a',
+      textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6,
+    }
+    const fieldInput = {
+      width: '100%', padding: '13px 14px', fontSize: 15, borderRadius: 8,
+      border: '1px solid #d8e8d8', outline: 'none', background: '#fff',
+      fontFamily: 'DM Sans, sans-serif', boxSizing: 'border-box', color: '#1a2a1a',
+    }
 
-        {/* Staff ID */}
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>Staff ID</label>
-          <input
-            type="text" inputMode="text" autoCapitalize="characters" placeholder="e.g. ZZ123"
-            value={form.staffId}
-            onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
-            style={{ ...inp, fontSize: 20, fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', textTransform: 'uppercase' }}
-          />
-        </div>
+    return (
+      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, system-ui, sans-serif', background: '#f0f4f0' }}>
 
-        {/* Scheduled start time */}
-        {(() => {
-          const nowMins = tick.getHours() * 60 + tick.getMinutes()
-          const schedMins = form.scheduledStart
-            ? Number(form.scheduledStart.split(':')[0]) * 60 + Number(form.scheduledStart.split(':')[1])
-            : null
-          const minsLate = schedMins != null ? nowMins - schedMins : null
-          return (
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 4 }}>
-                Scheduled start time <span style={{ color: '#e05555' }}>*</span>
-              </label>
-              <input
-                type="time"
-                value={form.scheduledStart}
-                onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
-                style={{ ...inp, fontSize: 18, fontFamily: 'DM Mono, monospace', marginBottom: minsLate != null ? 8 : 0 }}
-              />
-              {minsLate != null && minsLate > 0 && (
-                <div style={{
-                  background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 8,
-                  padding: '10px 12px', fontSize: 13, color: '#a02020', fontWeight: 700,
-                }}>
-                  ⚠️ You are {minsLate} minute{minsLate !== 1 ? 's' : ''} late
-                </div>
-              )}
-              {minsLate != null && minsLate <= 0 && (
-                <div style={{
-                  background: '#e8f8e0', border: '1px solid #a0d080', borderRadius: 8,
-                  padding: '10px 12px', fontSize: 13, color: '#2e7d32', fontWeight: 700,
-                }}>
-                  ✅ On time
-                </div>
-              )}
-            </div>
-          )
-        })()}
+        {/* Green header */}
+        <div style={{ background: '#1B5E20', flex: '0 0 auto' }}>
 
-        {/* Error + override button */}
-        {formError && (
-          <>
+          {/* Top bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#69F0AE', flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontFamily: 'DM Mono, monospace' }}>
+              portal.ikanfm.co.uk
+            </span>
+          </div>
+
+          {/* Shield + site info */}
+          <div style={{ padding: '24px 20px 32px', textAlign: 'center' }}>
             <div style={{
-              background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 10,
-              padding: '12px 14px', fontSize: 14, color: '#a02020',
-              marginBottom: 4, lineHeight: 1.55,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 64, height: 64, borderRadius: 16,
+              background: 'rgba(105,240,174,.15)', border: '1px solid rgba(105,240,174,.3)',
+              fontSize: 30, marginBottom: 16,
+            }}>🛡</div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#69F0AE', marginBottom: 8 }}>
+              CLOCKING IN AT
+            </div>
+
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', lineHeight: 1.2, marginBottom: 6 }}>
+              {siteInfo?.site_name}
+            </div>
+
+            {siteInfo?.site_address && (
+              <div style={{ fontSize: 13, color: 'rgba(105,240,174,.7)', lineHeight: 1.4 }}>
+                {siteInfo.site_address}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* White card — rounded top corners */}
+        <div style={{
+          flex: 1, background: '#fff', borderRadius: '20px 20px 0 0',
+          marginTop: -16, padding: '28px 20px 32px',
+          overflowY: 'auto',
+        }}>
+
+          {/* Fields */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={fieldLabel}>Full Name</label>
+            <input
+              type="text" inputMode="text" autoComplete="name" placeholder="e.g. John Smith"
+              value={form.fullName}
+              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+              style={fieldInput}
+            />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={fieldLabel}>Staff ID</label>
+            <input
+              type="text" inputMode="text" autoCapitalize="characters" placeholder="e.g. IFM-045"
+              value={form.staffId}
+              onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
+              style={{ ...fieldInput, fontFamily: 'DM Mono, monospace', fontSize: 18, letterSpacing: '.08em', textTransform: 'uppercase' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={fieldLabel}>Scheduled start time</label>
+            <input
+              type="time"
+              value={form.scheduledStart}
+              onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
+              style={{ ...fieldInput, fontFamily: 'DM Mono, monospace', fontSize: 17 }}
+            />
+            {minsLate != null && minsLate > 0 && (
+              <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#fde8e8', border: '1px solid #f0aaaa', fontSize: 13, color: '#a02020', fontWeight: 700 }}>
+                ⚠️ You are {minsLate} minute{minsLate !== 1 ? 's' : ''} late
+              </div>
+            )}
+            {minsLate != null && minsLate <= 0 && (
+              <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#E8F5E9', border: '1px solid #A5D6A7', fontSize: 13, color: '#2E7D32', fontWeight: 700 }}>
+                ✅ On time
+              </div>
+            )}
+          </div>
+
+          {/* Error message */}
+          {formError && (
+            <div style={{
+              background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 8,
+              padding: '12px 14px', fontSize: 13, color: '#a02020',
+              marginBottom: 16, lineHeight: 1.5, fontWeight: 600,
             }}>
               {formError}
             </div>
-            <OverrideBtn targetAction={action} />
-            <div style={{ height: 14 }} />
-          </>
-        )}
+          )}
 
-        {/* Clock In */}
-        <button
-          onClick={() => submit('in')}
-          disabled={submitting}
-          style={{
-            width: '100%', padding: '17px 0', fontSize: 20, fontWeight: 900,
-            letterSpacing: '.08em', borderRadius: 12, border: 'none',
-            background: submitting && action === 'in' ? '#aaa' : GREEN,
-            color: '#fff', cursor: submitting ? 'wait' : 'pointer', transition: 'background .2s',
-          }}
-        >
-          {submitting && action === 'in' ? '…' : 'CLOCK IN'}
-        </button>
+          {/* Buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button
+              onClick={() => submit('in')}
+              disabled={submitting}
+              style={{
+                width: '100%', padding: '16px', fontSize: 16, fontWeight: 500,
+                borderRadius: 8, border: 'none',
+                background: submitting && action === 'in' ? '#aaa' : '#2E7D32',
+                color: '#fff', cursor: submitting ? 'wait' : 'pointer',
+                fontFamily: 'DM Sans, sans-serif',
+              }}
+            >
+              {submitting && action === 'in' ? '…' : 'CLOCK IN'}
+            </button>
 
-        {/* Clock Out */}
-        <button
-          onClick={() => submit('out')}
-          disabled={submitting}
-          style={{
-            width: '100%', padding: '17px 0', fontSize: 20, fontWeight: 900,
-            letterSpacing: '.08em', borderRadius: 12, border: 'none',
-            background: submitting && action === 'out' ? '#aaa' : '#e05555',
-            color: '#fff', cursor: submitting ? 'wait' : 'pointer',
-            transition: 'background .2s', marginTop: 12,
-          }}
-        >
-          {submitting && action === 'out' ? '…' : 'CLOCK OUT'}
-        </button>
+            <button
+              onClick={() => submit('out')}
+              disabled={submitting}
+              style={{
+                width: '100%', padding: '16px', fontSize: 16, fontWeight: 500,
+                borderRadius: 8, border: 'none',
+                background: submitting && action === 'out' ? '#aaa' : '#C62828',
+                color: '#fff', cursor: submitting ? 'wait' : 'pointer',
+                fontFamily: 'DM Sans, sans-serif',
+              }}
+            >
+              {submitting && action === 'out' ? '…' : 'CLOCK OUT'}
+            </button>
+
+            <button
+              onClick={() => openOverride('in')}
+              style={{
+                width: '100%', padding: '12px', fontSize: 13, fontWeight: 500,
+                borderRadius: 8, border: '0.5px solid #FFD54F',
+                background: '#FFECB3', color: '#6D4C00',
+                cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+              }}
+            >
+              Request Manager Override
+            </button>
+          </div>
+
+          {/* Server time */}
+          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: '#9aaa9a', fontFamily: 'DM Mono, monospace' }}>
+            {timeStr}
+          </div>
+        </div>
       </div>
-
-      <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 13, marginTop: 22, fontFamily: 'DM Mono, monospace' }}>
-        Server time: {timeStr}
-      </div>
-    </Screen>
-  )
+    )
+  }
 
   // ── CONFIRMATION ──────────────────────────────────────────────────────────
 
