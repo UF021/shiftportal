@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
 
+    # Manager override PIN (HR sets this; default is 1234)
+    manager_pin: str = "1234"
+
     # App
     app_name: str = "ShiftPortal"
     app_url: str = "https://portal.ikanfm.co.uk"

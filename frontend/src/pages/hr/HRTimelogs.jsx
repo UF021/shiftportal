@@ -221,8 +221,21 @@ export function HRTimelogs() {
     if (fil.staff_id)  p.staff_id  = fil.staff_id
     if (fil.from_date) p.from_date = fil.from_date
     if (fil.to_date)   p.to_date   = fil.to_date
+    console.log('[HRTimelogs] run() called with params:', p)
     setSelected(new Set())
-    getAllClockEvents(p).then(r => setData(r.data)).catch(() => setData({ entries: [], total_mins: 0 }))
+    getAllClockEvents(p)
+      .then(r => {
+        console.log('[HRTimelogs] API response:', r.data)
+        console.log('[HRTimelogs] entries count:', r.data?.entries?.length ?? 0)
+        if (r.data?.entries?.length) {
+          console.log('[HRTimelogs] first entry sample:', r.data.entries[0])
+        }
+        setData(r.data)
+      })
+      .catch(err => {
+        console.error('[HRTimelogs] API error:', err?.response?.data || err)
+        setData({ entries: [], total_mins: 0 })
+      })
   }
 
   function exportCSV() {
@@ -232,7 +245,7 @@ export function HRTimelogs() {
       rows.push([
         e.user_name || '—', e.date, e.start_time, e.end_time || '—',
         e.site_name || '—', fmtM(e.shift_minutes),
-        e.is_manual ? 'Manual' : 'QR',
+        e.is_override ? 'Override' : e.is_manual ? 'Manual' : 'QR',
         e.scheduled_start ? (e.is_late ? `Late ${e.minutes_late}m` : 'On time') : '—',
         e.entry_notes || '',
       ])
@@ -416,9 +429,20 @@ export function HRTimelogs() {
                       )}
                     </td>
                     <td>
-                      {e.is_manual
-                        ? <span className="badge badge-blue">✏️ Manual</span>
-                        : <span className="badge badge-green">📱 QR</span>
+                      {e.is_override
+                        ? (
+                          <>
+                            <span className="badge badge-amber">⚠️ Override</span>
+                            {e.manager_name && (
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                by {e.manager_name}
+                              </div>
+                            )}
+                          </>
+                        )
+                        : e.is_manual
+                          ? <span className="badge badge-blue">✏️ Manual</span>
+                          : <span className="badge badge-green">📱 QR</span>
                       }
                     </td>
                     <td>

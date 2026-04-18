@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from auth_utils import get_current_user, require_hr
+from config import get_settings
 import models
 
 router = APIRouter()
@@ -28,18 +29,29 @@ def haversine_metres(lat1: float, lng1: float, lat2: float, lng2: float) -> floa
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class QRClockInRequest(BaseModel):
-    staff_id:        str
-    full_name:       str
-    scheduled_start: Optional[str]   = None   # 'HH:MM'
-    gps_lat:         Optional[float] = None
-    gps_lng:         Optional[float] = None
+    staff_id:         str
+    full_name:        str
+    scheduled_start:  Optional[str]   = None   # 'HH:MM'
+    gps_lat:          Optional[float] = None
+    gps_lng:          Optional[float] = None
+    # Manager override fields
+    manager_override: bool            = False
+    manager_name:     Optional[str]   = None
+    override_reason:  Optional[str]   = None
+    manager_pin:      Optional[str]   = None
+    manual_time:      Optional[str]   = None   # 'HH:MM' — override clock-in time
 
 
 class QRClockOutRequest(BaseModel):
-    staff_id:  str
-    full_name: str
-    gps_lat:   Optional[float] = None
-    gps_lng:   Optional[float] = None
+    staff_id:         str
+    full_name:        str
+    gps_lat:          Optional[float] = None
+    gps_lng:          Optional[float] = None
+    # Manager override fields
+    manager_override: bool            = False
+    manager_name:     Optional[str]   = None
+    override_reason:  Optional[str]   = None
+    manager_pin:      Optional[str]   = None
 
 
 class ManualShiftRequest(BaseModel):
@@ -315,10 +327,18 @@ def all_events(
     to_date:   Optional[date] = None,
 ):
     from collections import defaultdict
+    from sqlalchemy.orm import joinedload
 
-    q = db.query(models.ClockEvent).filter(
-        models.ClockEvent.organisation_id == hr.organisation_id,
-        models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+    q = (
+        db.query(models.ClockEvent)
+        .options(
+            joinedload(models.ClockEvent.user),
+            joinedload(models.ClockEvent.site),
+        )
+        .filter(
+            models.ClockEvent.organisation_id == hr.organisation_id,
+            models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+        )
     )
     if staff_id:
         q = q.filter(models.ClockEvent.user_id == staff_id)
@@ -337,6 +357,7 @@ def all_events(
 
     clock_outs_raw = (
         db.query(models.ClockEvent)
+        .options(joinedload(models.ClockEvent.site))
         .filter(
             models.ClockEvent.organisation_id == hr.organisation_id,
             models.ClockEvent.event_type      == models.ClockEventType.clock_out,
@@ -351,18 +372,31 @@ def all_events(
     for co in clock_outs_raw:
         outs_by_user[co.user_id].append(co)
 
+    def _parse_override(notes: str | None) -> tuple[bool, str | None]:
+        """Return (is_override, manager_name) from entry_notes."""
+        if not notes or not notes.startswith('[OVERRIDE]'):
+            return False, None
+        manager_name = None
+        for part in notes.split('|'):
+            part = part.strip()
+            if part.startswith('Manager:'):
+                manager_name = part.replace('Manager:', '').strip()
+                break
+        return True, manager_name
+
     entries    = []
     total_mins = 0
     for ci in clock_ins:
-        co = next((o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp), None)
+        co            = next((o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp), None)
         site_name     = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
         shift_minutes = co.shift_minutes if co else None
-        is_manual     = ci.entry_notes is not None
+        is_override, manager_name = _parse_override(ci.entry_notes)
+        is_manual     = bool(ci.entry_notes) and not is_override
 
         entries.append({
             "id":              ci.id,
             "user_id":         ci.user_id,
-            "user_name":       ci.user.full_name if ci.user else None,
+            "user_name":       ci.user.full_name if ci.user else "Unknown",
             "date":            ci.timestamp.date().isoformat(),
             "start_time":      ci.timestamp.strftime("%H:%M"),
             "end_time":        co.timestamp.strftime("%H:%M") if co else None,
@@ -374,6 +408,8 @@ def all_events(
             "minutes_late":    ci.minutes_late,
             "scheduled_start": ci.scheduled_start,
             "is_manual":       is_manual,
+            "is_override":     is_override,
+            "manager_name":    manager_name,
             "entry_notes":     ci.entry_notes or None,
             "gps_verified":    ci.gps_verified,
         })
@@ -765,6 +801,62 @@ def clock_in(
     if _has_open_clock_in(db, user.id):
         raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")
 
+    # ── Manager override path — skip GPS entirely ────────────────────────────
+    if body.manager_override:
+        settings = get_settings()
+        if body.manager_pin != settings.manager_pin:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid manager authorisation code")
+        if not body.manager_name or not body.manager_name.strip():
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Duty Manager name is required for override")
+
+        # Use provided manual_time for the timestamp, else server time
+        now = datetime.now(timezone.utc)
+        if body.manual_time:
+            try:
+                h, m = map(int, body.manual_time.split(':'))
+                now = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            except (ValueError, AttributeError):
+                pass
+
+        is_late, minutes_late = _calc_lateness(body.scheduled_start, now)
+        override_notes = (
+            f"[OVERRIDE] Manager: {body.manager_name.strip()} | "
+            f"Reason: {body.override_reason or 'Not specified'}"
+        )
+        event = models.ClockEvent(
+            organisation_id = org.id,
+            user_id         = user.id,
+            site_id         = site.id,
+            event_type      = models.ClockEventType.clock_in,
+            timestamp       = now,
+            scheduled_start = body.scheduled_start,
+            is_late         = is_late,
+            minutes_late    = minutes_late,
+            gps_lat         = None,
+            gps_lng         = None,
+            gps_verified    = False,
+            clocked_via_qr  = False,
+            entry_notes     = override_notes,
+        )
+        db.add(event)
+        db.commit()
+        return {
+            "success":         True,
+            "timestamp":       now.isoformat(),
+            "site_name":       site.name,
+            "full_name":       user.full_name,
+            "staff_id":        user.staff_id,
+            "sia_licence":     user.sia_licence,
+            "sia_expiry":      str(user.sia_expiry) if user.sia_expiry else None,
+            "sia_status":      _sia_status(user.sia_expiry),
+            "is_late":         is_late,
+            "minutes_late":    minutes_late,
+            "scheduled_start": body.scheduled_start,
+            "distance_metres": None,
+            "is_override":     True,
+            "manager_name":    body.manager_name.strip(),
+        }
+
     # ── GPS check with failure tracking ──────────────────────────────────────
     gps_verified    = False
     distance_metres = None
@@ -827,6 +919,8 @@ def clock_in(
         "minutes_late":     minutes_late,
         "scheduled_start":  body.scheduled_start,
         "distance_metres":  distance_metres,
+        "is_override":      False,
+        "manager_name":     None,
     }
 
 
@@ -867,6 +961,49 @@ def clock_out(
     if last_out:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active clock-in found. You have already clocked out.")
 
+    # ── Manager override path for clock-out — skip GPS ───────────────────────
+    if body.manager_override:
+        settings = get_settings()
+        if body.manager_pin != settings.manager_pin:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid manager authorisation code")
+        if not body.manager_name or not body.manager_name.strip():
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Duty Manager name is required for override")
+        now           = datetime.now(timezone.utc)
+        shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
+        override_notes = (
+            f"[OVERRIDE] Manager: {body.manager_name.strip()} | "
+            f"Reason: {body.override_reason or 'Not specified'}"
+        )
+        event = models.ClockEvent(
+            organisation_id = org.id,
+            user_id         = user.id,
+            site_id         = site.id,
+            event_type      = models.ClockEventType.clock_out,
+            timestamp       = now,
+            gps_lat         = None,
+            gps_lng         = None,
+            gps_verified    = False,
+            shift_minutes   = shift_minutes,
+            entry_notes     = override_notes,
+        )
+        db.add(event)
+        db.commit()
+        return {
+            "success":         True,
+            "timestamp":       now.isoformat(),
+            "site_name":       site.name,
+            "full_name":       user.full_name,
+            "staff_id":        user.staff_id,
+            "sia_licence":     user.sia_licence,
+            "sia_expiry":      str(user.sia_expiry) if user.sia_expiry else None,
+            "sia_status":      _sia_status(user.sia_expiry),
+            "shift_minutes":   shift_minutes,
+            "clock_in_time":   last_in.timestamp.strftime("%H:%M"),
+            "distance_metres": None,
+            "is_override":     True,
+            "manager_name":    body.manager_name.strip(),
+        }
+
     gps_verified = _check_gps(site, body.gps_lat, body.gps_lng)
     now = datetime.now(timezone.utc)
     shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
@@ -901,4 +1038,6 @@ def clock_out(
         "shift_minutes":    shift_minutes,
         "clock_in_time":    last_in.timestamp.strftime("%H:%M"),
         "distance_metres":  distance_metres,
+        "is_override":      False,
+        "manager_name":     None,
     }

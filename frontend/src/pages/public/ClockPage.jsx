@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 const BASE  = import.meta.env.VITE_API_URL || '/api'
-const GREEN = '#6abf3f'
-const DARK  = '#1a3a1a'
+const GREEN  = '#6abf3f'
+const AMBER  = '#d08020'
+const DARK   = '#1a3a1a'
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,11 @@ function formatDistance(metres) {
 function fmtDur(mins) {
   if (!mins) return '—'
   return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
+}
+
+function nowHHMM() {
+  const d = new Date()
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 // ── Shared layout ─────────────────────────────────────────────────────────────
@@ -65,6 +71,12 @@ const card = {
   width: '100%', maxWidth: 420, boxShadow: '0 12px 40px rgba(0,0,0,.28)',
 }
 
+const inp = {
+  width: '100%', padding: '15px 14px', fontSize: 16, borderRadius: 10,
+  border: '1.5px solid #ddd', outline: 'none',
+  fontFamily: 'DM Sans, sans-serif', boxSizing: 'border-box',
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ClockPage() {
@@ -78,8 +90,19 @@ export default function ClockPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError,  setFormError]  = useState('')
   const [result,     setResult]     = useState(null)
-  const [action,     setAction]     = useState('in')   // 'in' | 'out'
+  const [action,     setAction]     = useState('in')
   const [tick,       setTick]       = useState(new Date())
+
+  // Manager override state
+  const [overrideAction, setOverrideAction] = useState('in')
+  const [overrideError,  setOverrideError]  = useState('')
+  const [overrideForm,   setOverrideForm]   = useState({
+    managerName:    '',
+    managerPin:     '',
+    clockTime:      '',
+    scheduledStart: '',
+    reason:         'GPS unavailable',
+  })
 
   // Live clock
   useEffect(() => {
@@ -97,7 +120,6 @@ export default function ClockPage() {
 
   function startGPS(data) {
     if (!navigator.geolocation) {
-      // Geolocation API not available on this device/browser
       setPhase(data.gps_enabled ? 'gps_unavailable' : 'form')
       return
     }
@@ -116,13 +138,23 @@ export default function ClockPage() {
       },
       err => {
         if (!data.gps_enabled) { setPhase('form'); return }
-        // err.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
         if (err.code === 3) setPhase('gps_timeout')
         else                setPhase('gps_denied')
       },
       { enableHighAccuracy: true, timeout: 15_000 }
     )
   }
+
+  // ── Open override form ────────────────────────────────────────────────────
+
+  function openOverride(targetAction) {
+    setOverrideAction(targetAction)
+    setOverrideError('')
+    setOverrideForm(f => ({ ...f, clockTime: nowHHMM() }))
+    setPhase('override')
+  }
+
+  // ── Normal submit ────────────────────────────────────────────────────────
 
   async function submit(targetAction) {
     if (!form.staffId.trim() || !form.fullName.trim()) {
@@ -168,15 +200,91 @@ export default function ClockPage() {
     }
   }
 
+  // ── Override submit ───────────────────────────────────────────────────────
+
+  async function submitOverride() {
+    if (!form.fullName.trim() || !form.staffId.trim()) {
+      setOverrideError('Staff full name and ID are required.')
+      return
+    }
+    if (!overrideForm.managerName.trim()) {
+      setOverrideError('Duty Manager full name is required.')
+      return
+    }
+    if (!overrideForm.managerPin) {
+      setOverrideError('Manager authorisation code is required.')
+      return
+    }
+
+    setSubmitting(true)
+    setOverrideError('')
+    try {
+      const endpoint = overrideAction === 'in' ? 'in' : 'out'
+      const body = {
+        staff_id:         form.staffId.trim().toUpperCase(),
+        full_name:        form.fullName.trim(),
+        gps_lat:          null,
+        gps_lng:          null,
+        manager_override: true,
+        manager_name:     overrideForm.managerName.trim(),
+        override_reason:  overrideForm.reason,
+        manager_pin:      overrideForm.managerPin,
+        ...(overrideAction === 'in' ? {
+          scheduled_start: overrideForm.scheduledStart || null,
+          manual_time:     overrideForm.clockTime || null,
+        } : {}),
+      }
+      const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await r.json()
+      if (!r.ok) {
+        setOverrideError(data.detail || 'Override failed. Please check the authorisation code.')
+      } else {
+        setResult({
+          ...data,
+          submittedAction: overrideAction,
+          is_override:     true,
+          manager_name:    overrideForm.managerName.trim(),
+        })
+        setPhase('confirm')
+      }
+    } catch {
+      setOverrideError('Network error — please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   function reset() {
     setForm({ staffId: '', fullName: '' })
     setFormError('')
     setAction('in')
     setResult(null)
+    setOverrideError('')
     setPhase('form')
   }
 
   const timeStr = tick.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+  // ── Override button (reusable) ────────────────────────────────────────────
+
+  const OverrideBtn = ({ targetAction = 'in' }) => (
+    <button
+      onClick={() => openOverride(targetAction)}
+      style={{
+        width: '100%', padding: '13px 0', borderRadius: 12,
+        border: `2px solid ${AMBER}`, background: 'rgba(208,128,32,.08)',
+        color: AMBER, fontSize: 15, fontWeight: 700,
+        cursor: 'pointer', marginTop: 12,
+        fontFamily: 'DM Sans, sans-serif',
+      }}
+    >
+      🔑 Request Manager Override
+    </button>
+  )
 
   // ── LOADING / GPS CHECKING ────────────────────────────────────────────────
 
@@ -208,7 +316,7 @@ export default function ClockPage() {
     </Screen>
   )
 
-  // ── GPS DENIED (permission refused) ──────────────────────────────────────
+  // ── GPS DENIED ────────────────────────────────────────────────────────────
 
   if (phase === 'gps_denied') return (
     <Screen>
@@ -225,45 +333,30 @@ export default function ClockPage() {
         <div style={{ fontSize: 15, color: '#333', lineHeight: 1.65, marginBottom: 16 }}>
           GPS is required to verify you are on site. Please enable location services and try again.
         </div>
-
-        {/* iPhone */}
         <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
-            🍎 iPhone
-          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>🍎 iPhone</div>
           <div style={{ fontSize: 13, color: '#333', lineHeight: 1.6 }}>
             <strong>Settings</strong> → <strong>Privacy &amp; Security</strong> → <strong>Location Services</strong> → <strong>Safari</strong> → <strong>While Using</strong>
           </div>
         </div>
-
-        {/* Android */}
         <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
-            🤖 Android
-          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>🤖 Android</div>
           <div style={{ fontSize: 13, color: '#333', lineHeight: 1.6 }}>
             <strong>Settings</strong> → <strong>Apps</strong> → <strong>Chrome</strong> → <strong>Permissions</strong> → <strong>Location</strong> → <strong>Allow</strong>
           </div>
         </div>
-
         <button
           onClick={() => window.location.reload()}
-          style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer', marginBottom: 18 }}
+          style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer', marginBottom: 10 }}
         >
           Try Again
         </button>
-
-        {/* Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
           <span style={{ fontSize: 12, color: '#aaa', whiteSpace: 'nowrap' }}>Still unable to enable GPS?</span>
           <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
         </div>
-
-        {/* Supervisor instruction */}
-        <div style={{ background: '#fff8e8', border: '1px solid #e8c840', borderRadius: 10, padding: '12px 14px', fontSize: 14, color: '#7a5500', lineHeight: 1.6 }}>
-          ⚠️ Please contact your <strong>line supervisor</strong> immediately and report that you are unable to clock in.
-        </div>
+        <OverrideBtn targetAction="in" />
       </div>
     </Screen>
   )
@@ -287,18 +380,16 @@ export default function ClockPage() {
         </div>
         <button
           onClick={() => { setSiteInfo(s => s); startGPS(siteInfo) }}
-          style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer', marginBottom: 18 }}
+          style={{ width: '100%', padding: 15, borderRadius: 12, border: 'none', background: GREEN, color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer', marginBottom: 10 }}
         >
           Retry
         </button>
-        <div style={{ background: '#fff8e8', border: '1px solid #e8c840', borderRadius: 10, padding: '12px 14px', fontSize: 14, color: '#7a5500', lineHeight: 1.6, textAlign: 'left' }}>
-          ⚠️ Still having issues? Contact your <strong>line supervisor</strong> immediately.
-        </div>
+        <OverrideBtn targetAction="in" />
       </div>
     </Screen>
   )
 
-  // ── GPS UNAVAILABLE (no Geolocation API) ─────────────────────────────────
+  // ── GPS UNAVAILABLE ───────────────────────────────────────────────────────
 
   if (phase === 'gps_unavailable') return (
     <Screen>
@@ -315,9 +406,7 @@ export default function ClockPage() {
         <div style={{ fontSize: 15, color: '#333', lineHeight: 1.65, marginBottom: 16 }}>
           GPS is not available on this device or browser.
         </div>
-        <div style={{ background: '#fff8e8', border: '1px solid #e8c840', borderRadius: 10, padding: '12px 14px', fontSize: 14, color: '#7a5500', lineHeight: 1.6, textAlign: 'left' }}>
-          ⚠️ Please use a smartphone with GPS enabled, or contact your <strong>line supervisor</strong> immediately.
-        </div>
+        <OverrideBtn targetAction="in" />
       </div>
     </Screen>
   )
@@ -351,11 +440,162 @@ export default function ClockPage() {
         >
           Try Again
         </button>
+        <OverrideBtn targetAction="in" />
       </div>
     </Screen>
   )
 
-  // ── FORM (Phase 3) ────────────────────────────────────────────────────────
+  // ── MANAGER OVERRIDE FORM ─────────────────────────────────────────────────
+
+  if (phase === 'override') return (
+    <Screen>
+      <ShieldLogo />
+      {siteInfo?.site_name && (
+        <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 14, marginBottom: 16, textAlign: 'center' }}>
+          {siteInfo.site_name}
+        </div>
+      )}
+
+      <div style={{ ...card, maxWidth: 460 }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 34, marginBottom: 6 }}>🔑</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#333', marginBottom: 4 }}>
+            Manager Override Sign-In
+          </div>
+          <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>
+            A Duty Manager must be present and authorise this sign-{overrideAction}
+          </div>
+        </div>
+
+        {/* Staff details (pre-filled, editable) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Staff Full Name</label>
+            <input
+              style={{ ...inp, fontSize: 14 }}
+              value={form.fullName}
+              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+              placeholder="e.g. John Smith"
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Staff ID</label>
+            <input
+              style={{ ...inp, fontSize: 14, fontFamily: 'DM Mono, monospace', textTransform: 'uppercase' }}
+              value={form.staffId}
+              onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
+              placeholder="e.g. ZZ123"
+            />
+          </div>
+        </div>
+
+        {/* Manager details */}
+        <div style={{ borderTop: '1px solid #eee', paddingTop: 14, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: AMBER, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>
+            Duty Manager Details
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Duty Manager Full Name *</label>
+            <input
+              style={{ ...inp, fontSize: 15 }}
+              value={overrideForm.managerName}
+              onChange={e => setOverrideForm(f => ({ ...f, managerName: e.target.value }))}
+              placeholder="e.g. Jane Wilson"
+            />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Manager Authorisation Code *</label>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              style={{ ...inp, fontSize: 22, fontFamily: 'DM Mono, monospace', letterSpacing: '.2em' }}
+              value={overrideForm.managerPin}
+              onChange={e => setOverrideForm(f => ({ ...f, managerPin: e.target.value }))}
+              placeholder="••••"
+            />
+          </div>
+        </div>
+
+        {/* Time + reason */}
+        <div style={{ display: 'grid', gridTemplateColumns: overrideAction === 'in' ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 14 }}>
+          {overrideAction === 'in' && (
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Clock In Time</label>
+              <input
+                type="time"
+                style={{ ...inp, fontSize: 15, fontFamily: 'DM Mono, monospace' }}
+                value={overrideForm.clockTime}
+                onChange={e => setOverrideForm(f => ({ ...f, clockTime: e.target.value }))}
+              />
+            </div>
+          )}
+          {overrideAction === 'in' && (
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Scheduled Start</label>
+              <input
+                type="time"
+                style={{ ...inp, fontSize: 15, fontFamily: 'DM Mono, monospace' }}
+                value={overrideForm.scheduledStart}
+                onChange={e => setOverrideForm(f => ({ ...f, scheduledStart: e.target.value }))}
+              />
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Reason</label>
+          <select
+            style={{ ...inp, fontSize: 14, background: '#fff' }}
+            value={overrideForm.reason}
+            onChange={e => setOverrideForm(f => ({ ...f, reason: e.target.value }))}
+          >
+            <option>GPS unavailable</option>
+            <option>Phone GPS fault</option>
+            <option>QR code damaged</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        {/* Error */}
+        {overrideError && (
+          <div style={{
+            background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 10,
+            padding: '12px 14px', fontSize: 14, color: '#a02020', marginBottom: 14,
+          }}>
+            {overrideError}
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          onClick={submitOverride}
+          disabled={submitting}
+          style={{
+            width: '100%', padding: '17px 0', fontSize: 17, fontWeight: 800,
+            letterSpacing: '.06em', borderRadius: 12, border: 'none',
+            background: submitting ? '#aaa' : AMBER,
+            color: '#fff', cursor: submitting ? 'wait' : 'pointer',
+          }}
+        >
+          {submitting ? '…' : `AUTHORISE SIGN ${overrideAction.toUpperCase()}`}
+        </button>
+
+        <button
+          onClick={() => setPhase('form')}
+          style={{
+            width: '100%', padding: '13px 0', fontSize: 14, fontWeight: 600,
+            borderRadius: 12, border: '1.5px solid #ddd', background: 'transparent',
+            color: '#888', cursor: 'pointer', marginTop: 10,
+          }}
+        >
+          ← Go Back
+        </button>
+      </div>
+    </Screen>
+  )
+
+  // ── FORM ──────────────────────────────────────────────────────────────────
 
   if (phase === 'form') return (
     <Screen>
@@ -370,72 +610,56 @@ export default function ClockPage() {
       <div style={card}>
         {/* Full name */}
         <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>
-            Full Name
-          </label>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>Full Name</label>
           <input
-            type="text"
-            inputMode="text"
-            autoComplete="name"
-            placeholder="e.g. John Smith"
+            type="text" inputMode="text" autoComplete="name" placeholder="e.g. John Smith"
             value={form.fullName}
             onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
-            style={{
-              width: '100%', padding: '15px 14px', fontSize: 17, borderRadius: 10,
-              border: '1.5px solid #ddd', outline: 'none',
-              fontFamily: 'DM Sans, sans-serif', boxSizing: 'border-box',
-            }}
+            style={inp}
           />
         </div>
 
         {/* Staff ID */}
         <div style={{ marginBottom: 22 }}>
-          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>
-            Staff ID
-          </label>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>Staff ID</label>
           <input
-            type="text"
-            inputMode="text"
-            autoCapitalize="characters"
-            placeholder="e.g. ZZ123"
+            type="text" inputMode="text" autoCapitalize="characters" placeholder="e.g. ZZ123"
             value={form.staffId}
             onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
-            style={{
-              width: '100%', padding: '15px 14px', fontSize: 20, borderRadius: 10,
-              border: '1.5px solid #ddd', outline: 'none',
-              fontFamily: 'DM Mono, monospace', letterSpacing: '.1em',
-              textTransform: 'uppercase', boxSizing: 'border-box',
-            }}
+            style={{ ...inp, fontSize: 20, fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', textTransform: 'uppercase' }}
           />
         </div>
 
-        {/* Error */}
+        {/* Error + override button */}
         {formError && (
-          <div style={{
-            background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 10,
-            padding: '12px 14px', fontSize: 14, color: '#a02020',
-            marginBottom: 16, lineHeight: 1.55,
-          }}>
-            {formError}
-          </div>
+          <>
+            <div style={{
+              background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 10,
+              padding: '12px 14px', fontSize: 14, color: '#a02020',
+              marginBottom: 4, lineHeight: 1.55,
+            }}>
+              {formError}
+            </div>
+            <OverrideBtn targetAction={action} />
+            <div style={{ height: 14 }} />
+          </>
         )}
 
-        {/* Clock In button */}
+        {/* Clock In */}
         <button
           onClick={() => submit('in')}
           disabled={submitting}
           style={{
             width: '100%', padding: '17px 0', fontSize: 20, fontWeight: 900,
             letterSpacing: '.08em', borderRadius: 12, border: 'none',
-            background: submitting && action === 'in' ? '#aaa' : '#6abf3f',
-            color: '#fff', cursor: submitting ? 'wait' : 'pointer',
-            transition: 'background .2s',
+            background: submitting && action === 'in' ? '#aaa' : GREEN,
+            color: '#fff', cursor: submitting ? 'wait' : 'pointer', transition: 'background .2s',
           }}
         >
           {submitting && action === 'in' ? '…' : 'CLOCK IN'}
         </button>
 
-        {/* Clock Out button */}
+        {/* Clock Out */}
         <button
           onClick={() => submit('out')}
           disabled={submitting}
@@ -457,7 +681,7 @@ export default function ClockPage() {
     </Screen>
   )
 
-  // ── CONFIRMATION (Phase 4) ────────────────────────────────────────────────
+  // ── CONFIRMATION ──────────────────────────────────────────────────────────
 
   if (phase === 'confirm' && result) {
     const isIn = result.submittedAction === 'in'
@@ -468,7 +692,6 @@ export default function ClockPage() {
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     })
 
-    // Distance: prefer backend value, fall back to pre-calculated frontend distance
     const distMetres = result.distance_metres != null
       ? result.distance_metres
       : (gpsCoords && siteInfo?.site_lat != null
@@ -498,7 +721,6 @@ export default function ClockPage() {
           <Row label="🕐 Time"       value={fmtTs} />
           <Row label="🛡 SIA Licence" value={result.sia_licence} />
 
-          {/* SIA status */}
           {result.sia_expiry && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f0f0f0', gap: 12 }}>
               <span style={{ fontSize: 14, color: '#666', fontWeight: 600 }}>✅ SIA Status</span>
@@ -506,7 +728,6 @@ export default function ClockPage() {
             </div>
           )}
 
-          {/* Punctuality (clock-in) or shift duration (clock-out) */}
           {isIn ? (
             <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: 700, background: result.is_late ? '#fde8e8' : '#e8f8e0', color: result.is_late ? '#a02020' : '#1a6a1a' }}>
               {result.scheduled_start != null
@@ -524,7 +745,17 @@ export default function ClockPage() {
             </div>
           )}
 
-          {/* Screenshot reminder */}
+          {/* Manager override banner */}
+          {result.is_override && (
+            <div style={{
+              marginTop: 12, padding: '12px 14px', borderRadius: 10,
+              background: '#fff8e8', border: `1.5px solid ${AMBER}`,
+              fontSize: 14, color: '#7a5500', fontWeight: 700, textAlign: 'center',
+            }}>
+              ⚠️ Manager Override — Authorised by {result.manager_name}
+            </div>
+          )}
+
           <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#fffbe8', border: '1px solid #e8d060', fontSize: 13, color: '#7a6000', textAlign: 'center', lineHeight: 1.55 }}>
             📸 Please <strong>screenshot this confirmation</strong> for your records
           </div>
