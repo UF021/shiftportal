@@ -50,9 +50,9 @@ function Toast({ toast }) {
 
 function EditModal({ entry, sites, onClose, onSaved }) {
   const [form, setForm] = useState({
-    date:            entry.date,
-    clock_in_time:   entry.start_time,
-    clock_out_time:  entry.end_time || '',
+    date:            entry.date       || '',
+    clock_in_time:   entry.start_time || '',
+    clock_out_time:  entry.end_time   || '',
     site_id:         String(entry.site_id || (sites[0]?.id ?? '')),
     scheduled_start: entry.scheduled_start || '',
     is_late:         entry.is_late ?? false,
@@ -67,21 +67,24 @@ function EditModal({ entry, sites, onClose, onSaved }) {
   const previewMins = calcMins(form.date, form.clock_in_time, form.clock_out_time, form.overnight)
 
   async function handleSave() {
+    // No time validation — times are optional; blank = keep existing value
     setSaving(true); setErr('')
     try {
-      await editShift(entry.id, {
+      const payload = {
         date:            form.date,
-        clock_in_time:   form.clock_in_time  || null,
-        clock_out_time:  form.clock_out_time || null,
         site_id:         Number(form.site_id),
         scheduled_start: form.scheduled_start || null,
         is_late:         form.is_late,
         overnight:       form.overnight,
         entry_notes:     form.entry_notes || null,
-      })
+      }
+      if (form.clock_in_time)  payload.clock_in_time  = form.clock_in_time
+      if (form.clock_out_time) payload.clock_out_time = form.clock_out_time
+      await editShift(entry.id, payload)
       onSaved('✅ Shift updated')
     } catch (ex) {
-      setErr(ex.response?.data?.detail || 'Failed to save changes')
+      const detail = ex.response?.data?.detail
+      setErr(typeof detail === 'string' ? detail : 'Failed to save changes')
     } finally { setSaving(false) }
   }
 
@@ -113,11 +116,15 @@ function EditModal({ entry, sites, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 4 }}>Clock In</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 4 }}>
+              Clock In <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+            </label>
             <input type="time" value={form.clock_in_time} onChange={e => set('clock_in_time', e.target.value)} style={{ ...ipt, fontFamily: 'DM Mono,monospace' }} />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 4 }}>Clock Out</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 4 }}>
+              Clock Out <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+            </label>
             <input type="time" value={form.clock_out_time} onChange={e => set('clock_out_time', e.target.value)} style={{ ...ipt, fontFamily: 'DM Mono,monospace' }} />
           </div>
           <div>
