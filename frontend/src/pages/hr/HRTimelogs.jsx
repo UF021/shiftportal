@@ -67,13 +67,12 @@ function EditModal({ entry, sites, onClose, onSaved }) {
   const previewMins = calcMins(form.date, form.clock_in_time, form.clock_out_time, form.overnight)
 
   async function handleSave() {
-    if (!form.clock_in_time || !form.clock_out_time) return setErr('Clock in and out times are required.')
     setSaving(true); setErr('')
     try {
       await editShift(entry.id, {
         date:            form.date,
-        clock_in_time:   form.clock_in_time,
-        clock_out_time:  form.clock_out_time,
+        clock_in_time:   form.clock_in_time  || null,
+        clock_out_time:  form.clock_out_time || null,
         site_id:         Number(form.site_id),
         scheduled_start: form.scheduled_start || null,
         is_late:         form.is_late,

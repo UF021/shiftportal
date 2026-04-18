@@ -95,8 +95,8 @@ class ManualShiftRequest(BaseModel):
 
 class EditShiftRequest(BaseModel):
     date:            date
-    clock_in_time:   str
-    clock_out_time:  str
+    clock_in_time:   Optional[str]  = None
+    clock_out_time:  Optional[str]  = None
     site_id:         int
     scheduled_start: Optional[str]  = None
     is_late:         Optional[bool] = None
@@ -662,14 +662,14 @@ def edit_shift(
     if not site:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
 
-    in_h,  in_m  = map(int, body.clock_in_time.split(':'))
-    out_h, out_m = map(int, body.clock_out_time.split(':'))
-    clock_in_dt  = datetime(body.date.year, body.date.month, body.date.day, in_h,  in_m,  tzinfo=timezone.utc)
-    clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
-    if body.overnight or clock_out_dt <= clock_in_dt:
-        clock_out_dt += timedelta(days=1)
-
-    shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+    # Resolve clock_in datetime — use provided time or keep existing
+    if body.clock_in_time:
+        in_h, in_m = map(int, body.clock_in_time.split(':'))
+        clock_in_dt = datetime(body.date.year, body.date.month, body.date.day, in_h, in_m, tzinfo=timezone.utc)
+    else:
+        clock_in_dt = ci.timestamp.replace(
+            year=body.date.year, month=body.date.month, day=body.date.day
+        )
 
     if body.is_late is not None:
         is_late, minutes_late = body.is_late, (ci.minutes_late if body.is_late else 0)
@@ -695,11 +695,18 @@ def edit_shift(
         .order_by(models.ClockEvent.timestamp.asc())
         .first()
     )
+    shift_minutes = co.shift_minutes if co else None
     if co:
-        co.timestamp     = clock_out_dt
-        co.site_id       = body.site_id
-        co.shift_minutes = shift_minutes
-        co.entry_notes   = body.entry_notes
+        if body.clock_out_time:
+            out_h, out_m = map(int, body.clock_out_time.split(':'))
+            clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
+            if body.overnight or clock_out_dt <= clock_in_dt:
+                clock_out_dt += timedelta(days=1)
+            shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+            co.timestamp     = clock_out_dt
+            co.shift_minutes = shift_minutes
+        co.site_id     = body.site_id
+        co.entry_notes = body.entry_notes
 
     db.commit()
     return {"message": "Shift updated", "shift_minutes": shift_minutes}
