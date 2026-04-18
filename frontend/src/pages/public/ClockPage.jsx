@@ -98,7 +98,6 @@ export default function ClockPage() {
   const [overrideError,  setOverrideError]  = useState('')
   const [overrideForm,   setOverrideForm]   = useState({
     managerName:    '',
-    managerPin:     '',
     clockTime:      '',
     scheduledStart: '',
     reason:         'GPS unavailable',
@@ -211,10 +210,6 @@ export default function ClockPage() {
       setOverrideError('Duty Manager full name is required.')
       return
     }
-    if (!overrideForm.managerPin) {
-      setOverrideError('Manager authorisation code is required.')
-      return
-    }
 
     setSubmitting(true)
     setOverrideError('')
@@ -228,7 +223,6 @@ export default function ClockPage() {
         manager_override: true,
         manager_name:     overrideForm.managerName.trim(),
         override_reason:  overrideForm.reason,
-        manager_pin:      overrideForm.managerPin,
         ...(overrideAction === 'in' ? {
           scheduled_start: overrideForm.scheduledStart || null,
           manual_time:     overrideForm.clockTime || null,
@@ -501,18 +495,6 @@ export default function ClockPage() {
               value={overrideForm.managerName}
               onChange={e => setOverrideForm(f => ({ ...f, managerName: e.target.value }))}
               placeholder="e.g. Jane Wilson"
-            />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Manager Authorisation Code *</label>
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              style={{ ...inp, fontSize: 22, fontFamily: 'DM Mono, monospace', letterSpacing: '.2em' }}
-              value={overrideForm.managerPin}
-              onChange={e => setOverrideForm(f => ({ ...f, managerPin: e.target.value }))}
-              placeholder="••••"
             />
           </div>
         </div>

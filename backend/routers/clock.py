@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from auth_utils import get_current_user, require_hr
-from config import get_settings
 import models
 
 router = APIRouter()
@@ -69,7 +68,6 @@ class QRClockInRequest(BaseModel):
     manager_override: bool            = False
     manager_name:     Optional[str]   = None
     override_reason:  Optional[str]   = None
-    manager_pin:      Optional[str]   = None
     manual_time:      Optional[str]   = None   # 'HH:MM' — override clock-in time
 
 
@@ -82,7 +80,6 @@ class QRClockOutRequest(BaseModel):
     manager_override: bool            = False
     manager_name:     Optional[str]   = None
     override_reason:  Optional[str]   = None
-    manager_pin:      Optional[str]   = None
 
 
 class ManualShiftRequest(BaseModel):
@@ -834,9 +831,6 @@ def clock_in(
 
     # ── Manager override path — skip GPS entirely ────────────────────────────
     if body.manager_override:
-        settings = get_settings()
-        if body.manager_pin != settings.manager_pin:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid manager authorisation code")
         if not body.manager_name or not body.manager_name.strip():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Duty Manager name is required for override")
 
@@ -994,9 +988,6 @@ def clock_out(
 
     # ── Manager override path for clock-out — skip GPS ───────────────────────
     if body.manager_override:
-        settings = get_settings()
-        if body.manager_pin != settings.manager_pin:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid manager authorisation code")
         if not body.manager_name or not body.manager_name.strip():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Duty Manager name is required for override")
         now           = datetime.now(timezone.utc)
