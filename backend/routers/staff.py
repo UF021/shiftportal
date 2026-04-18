@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List
 
 from database import get_db
 from schemas import EditUserRequest
@@ -65,3 +67,45 @@ def update_staff(
 
     db.commit()
     return {"message": "Updated", "id": u.id}
+
+
+class BulkDeleteRequest(BaseModel):
+    user_ids: List[int]
+
+
+@router.delete("/{user_id}")
+def delete_staff(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "User not found")
+    org_guard(hr, u.organisation_id)
+    if u.role != models.UserRole.staff:
+        raise HTTPException(403, "Can only delete staff accounts")
+    db.delete(u)
+    db.commit()
+    return {"message": "Deleted", "id": user_id}
+
+
+@router.delete("/bulk/delete")
+def bulk_delete_staff(
+    req: BulkDeleteRequest,
+    db:  Session = Depends(get_db),
+    hr:  models.User = Depends(require_hr),
+):
+    users = db.query(models.User).filter(models.User.id.in_(req.user_ids)).all()
+    deleted = 0
+    for u in users:
+        try:
+            org_guard(hr, u.organisation_id)
+        except HTTPException:
+            continue
+        if u.role != models.UserRole.staff:
+            continue
+        db.delete(u)
+        deleted += 1
+    db.commit()
+    return {"deleted": deleted}

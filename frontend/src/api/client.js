@@ -31,8 +31,10 @@ export const getMe        = ()               => api.get('/auth/me')
 export const getOrgPublic = slug             => api.get(`/auth/org/${slug}`)
 
 // Staff
-export const getAllStaff  = ()       => api.get('/staff/all')
-export const updateStaff  = (id, d) => api.patch(`/staff/${id}`, d)
+export const getAllStaff      = ()           => api.get('/staff/all')
+export const updateStaff      = (id, d)     => api.patch(`/staff/${id}`, d)
+export const deleteStaff      = (id)        => api.delete(`/staff/${id}`)
+export const bulkDeleteStaff  = (user_ids)  => api.delete('/staff/bulk/delete', { data: { user_ids } })
 
 // Registrations
 export const getPending   = ()       => api.get('/registrations/pending')
