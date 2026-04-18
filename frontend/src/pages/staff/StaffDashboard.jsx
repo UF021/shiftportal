@@ -49,6 +49,10 @@ export default function StaffDashboard() {
   // Recent 5 completed shifts (already sorted most-recent-first by backend)
   const recentShifts = shifts.slice(0, 5)
 
+  // Most recent shift that had a scheduled start — check if late
+  const lastScheduled = shifts.find(s => s.scheduled_start)
+  const lastShiftLate = lastScheduled?.is_late ? lastScheduled : null
+
   const sia    = user?.sia_expiry ? new Date(user.sia_expiry) : null
   const days   = sia ? Math.ceil((sia - new Date()) / 86400000) : null
   const gone   = days !== null && days < 0
@@ -95,6 +99,27 @@ export default function StaffDashboard() {
             You have {urgentMessages.length} urgent message{urgentMessages.length > 1 ? 's' : ''}.
           </div>
           <div style={{ fontSize:12, color:'#c05050' }}>Tap to view →</div>
+        </div>
+      </div>
+    )}
+
+    {/* Late shift banner */}
+    {lastShiftLate && (
+      <div style={{
+        background: '#fff8e8', border: '1.5px solid #f0a030', borderRadius: 12,
+        padding: '14px 16px', marginBottom: 14,
+        display: 'flex', alignItems: 'flex-start', gap: 12,
+      }}>
+        <span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#7a5000', marginBottom: 3 }}>
+            You were {lastShiftLate.minutes_late} {lastShiftLate.minutes_late === 1 ? 'minute' : 'minutes'} late for your last shift
+          </div>
+          <div style={{ fontSize: 13, color: '#9a6a00', lineHeight: 1.5 }}>
+            {new Date(lastShiftLate.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long' })}
+            {lastShiftLate.site_name ? <> at <strong>{lastShiftLate.site_name}</strong></> : ''}.
+            {' '}Please ensure you arrive on time.
+          </div>
         </div>
       </div>
     )}
@@ -184,8 +209,8 @@ export default function StaffDashboard() {
           </div>
           <div style={{ width:1, height:40, background:'#e0ead0' }} />
           <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:28, fontWeight:700, fontFamily:'DM Mono,monospace', fontStyle:'normal', color:'#c0392b' }}>{lateCount}</div>
-            <div style={{ fontSize:11, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.05em', marginTop:2 }}>Late</div>
+            <div style={{ fontSize:28, fontWeight:900, fontFamily:'DM Mono,monospace', fontStyle:'normal', color: lateCount > 0 ? '#c0392b' : '#6a8a6a' }}>{lateCount}</div>
+            <div style={{ fontSize:11, color: lateCount > 0 ? '#c0392b' : '#6a8a6a', textTransform:'uppercase', letterSpacing:'.05em', marginTop:2, fontWeight: lateCount > 0 ? 700 : 400 }}>Late</div>
           </div>
           <div style={{ width:1, height:40, background:'#e0ead0' }} />
           <div style={{ textAlign:'center' }}>

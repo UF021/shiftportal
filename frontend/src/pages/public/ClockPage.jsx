@@ -86,7 +86,7 @@ export default function ClockPage() {
   const [siteInfo,   setSiteInfo]   = useState(null)
   const [gpsCoords,  setGpsCoords]  = useState(null)
   const [distance,   setDistance]   = useState(null)
-  const [form,       setForm]       = useState({ staffId: '', fullName: '' })
+  const [form,       setForm]       = useState({ staffId: '', fullName: '', scheduledStart: '' })
   const [submitting, setSubmitting] = useState(false)
   const [formError,  setFormError]  = useState('')
   const [result,     setResult]     = useState(null)
@@ -170,7 +170,7 @@ export default function ClockPage() {
         full_name: form.fullName.trim(),
         gps_lat:   gpsCoords?.lat ?? null,
         gps_lng:   gpsCoords?.lng ?? null,
-        ...(targetAction === 'in' ? { scheduled_start: null } : {}),
+        ...(targetAction === 'in' ? { scheduled_start: form.scheduledStart || null } : {}),
       }
       const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
         method: 'POST',
@@ -253,7 +253,7 @@ export default function ClockPage() {
   }
 
   function reset() {
-    setForm({ staffId: '', fullName: '' })
+    setForm({ staffId: '', fullName: '', scheduledStart: '' })
     setFormError('')
     setAction('in')
     setResult(null)
@@ -602,13 +602,26 @@ export default function ClockPage() {
         </div>
 
         {/* Staff ID */}
-        <div style={{ marginBottom: 22 }}>
+        <div style={{ marginBottom: 18 }}>
           <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 7 }}>Staff ID</label>
           <input
             type="text" inputMode="text" autoCapitalize="characters" placeholder="e.g. ZZ123"
             value={form.staffId}
             onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
             style={{ ...inp, fontSize: 20, fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', textTransform: 'uppercase' }}
+          />
+        </div>
+
+        {/* Scheduled start — clock-in only */}
+        <div style={{ marginBottom: 22 }}>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#444', marginBottom: 4 }}>
+            What time was your shift scheduled to start? <span style={{ color: '#e05555' }}>*</span>
+          </label>
+          <input
+            type="time"
+            value={form.scheduledStart}
+            onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
+            style={{ ...inp, fontSize: 18, fontFamily: 'DM Mono, monospace' }}
           />
         </div>
 
@@ -711,13 +724,22 @@ export default function ClockPage() {
           )}
 
           {isIn ? (
-            <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: 700, background: result.is_late ? '#fde8e8' : '#e8f8e0', color: result.is_late ? '#a02020' : '#1a6a1a' }}>
-              {result.scheduled_start != null
-                ? result.is_late
-                  ? `⚠️ Late by ${result.minutes_late} minute${result.minutes_late !== 1 ? 's' : ''}`
-                  : '✅ On Time'
-                : '✅ Clock-in recorded'}
-            </div>
+            result.is_late ? (
+              <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 10, textAlign: 'center', background: '#fde8e8', border: '2px solid #e05555' }}>
+                <div style={{ fontSize: 28, fontWeight: 900, color: '#a02020', lineHeight: 1.1 }}>
+                  ⚠️ {result.minutes_late} {result.minutes_late === 1 ? 'minute' : 'minutes'} late
+                </div>
+                <div style={{ fontSize: 13, color: '#c05050', marginTop: 6, fontWeight: 600 }}>
+                  Please ensure you arrive on time for future shifts
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 10, textAlign: 'center', background: '#e8f8e0', border: '2px solid #6abf3f' }}>
+                <div style={{ fontSize: 26, fontWeight: 900, color: '#1a6a1a' }}>
+                  ✅ On Time
+                </div>
+              </div>
+            )
           ) : (
             <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: 700, background: '#e8f0ff', color: '#1a3a8a' }}>
               🕐 Shift duration: {fmtDur(result.shift_minutes)}

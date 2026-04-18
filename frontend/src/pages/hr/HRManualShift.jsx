@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAllStaff, getMySites, createManualShift } from '../../api/client'
 
-// ── Helpers defined at module level to prevent remount on every render ────────
-
 function F({ label, required, children }) {
   return (
     <div className="field">
@@ -28,16 +26,13 @@ function TimeField({ label, required, value, onChange }) {
   )
 }
 
-// ── Page component ─────────────────────────────────────────────────────────────
-
 export default function HRManualShift() {
   const [staff,  setStaff]  = useState([])
   const [sites,  setSites]  = useState([])
   const [form,   setForm]   = useState({
     user_id: '', site_id: '', date: '',
-    clock_in_time: '09:00', clock_out_time: '17:00',
+    clock_in_time: '09:00',
     scheduled_start: '09:00',
-    overnight: false,
     entry_notes: '',
   })
   const [busy, setBusy] = useState(false)
@@ -59,16 +54,6 @@ export default function HRManualShift() {
     return Math.max(0, (ih * 60 + im) - (sh * 60 + sm))
   })()
 
-  // Real-time shift duration preview
-  const shiftMins = (() => {
-    if (!form.clock_in_time || !form.clock_out_time) return null
-    const [ih, im] = form.clock_in_time.split(':').map(Number)
-    const [oh, om] = form.clock_out_time.split(':').map(Number)
-    let total = (oh * 60 + om) - (ih * 60 + im)
-    if (form.overnight || total <= 0) total += 24 * 60
-    return total
-  })()
-
   async function submit() {
     setErr(''); setOk('')
     if (!form.user_id || !form.site_id || !form.date)
@@ -80,14 +65,12 @@ export default function HRManualShift() {
         site_id:         parseInt(form.site_id),
         date:            form.date,
         clock_in_time:   form.clock_in_time,
-        clock_out_time:  form.clock_out_time,
         scheduled_start: form.scheduled_start || null,
-        overnight:       form.overnight,
         entry_notes:     form.entry_notes || null,
       })
-      setOk('✅ Manual shift entry created successfully.')
-      setForm(f => ({ ...f, user_id: '', site_id: '', date: '', entry_notes: '', overnight: false }))
-    } catch(ex) { setErr(ex.response?.data?.detail || 'Failed to create shift.') }
+      setOk('✅ Clock-in entry created successfully.')
+      setForm(f => ({ ...f, user_id: '', site_id: '', date: '', entry_notes: '' }))
+    } catch(ex) { setErr(ex.response?.data?.detail || 'Failed to create entry.') }
     finally { setBusy(false) }
   }
 
@@ -102,7 +85,7 @@ export default function HRManualShift() {
       <div style={{ marginBottom:26 }}>
         <h2 style={{ fontSize:23, fontWeight:700, marginBottom:4 }}>Manual Shift Entry</h2>
         <p style={{ fontSize:14, color:'var(--text-muted)' }}>
-          Create backdated shift records — use when QR scanner was offline or for system backup entries
+          Create backdated clock-in records — use when QR scanner was offline or for system backup entries
         </p>
       </div>
 
@@ -130,30 +113,14 @@ export default function HRManualShift() {
             style={{ ...selStyle, fontFamily:'DM Mono,sans-serif', boxSizing:'border-box' }} />
         </F>
 
-        <TimeField label="Clock In Time"   required value={form.clock_in_time}   onChange={v => setField('clock_in_time', v)} />
-        <TimeField label="Clock Out Time"  required value={form.clock_out_time}  onChange={v => setField('clock_out_time', v)} />
+        <TimeField label="Clock In Time" required value={form.clock_in_time} onChange={v => setField('clock_in_time', v)} />
         <TimeField label="Scheduled Start (for punctuality)" value={form.scheduled_start} onChange={v => setField('scheduled_start', v)} />
-
-        {shiftMins !== null && (
-          <div style={{ background:'rgba(106,191,63,.08)', border:'1px solid rgba(106,191,63,.22)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--brand)', marginBottom:8 }}>
-            ⏱ Shift duration: <strong>{Math.floor(shiftMins / 60)}h {String(shiftMins % 60).padStart(2,'0')}m</strong>
-            {form.overnight && <span style={{ marginLeft:8, opacity:.7 }}>· overnight</span>}
-          </div>
-        )}
 
         {minsLate > 0 && (
           <div style={{ background:'rgba(240,160,48,.12)', border:'1px solid rgba(240,160,48,.3)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--amber)', marginBottom:16 }}>
             ⚠ Auto-detected: {minsLate} min{minsLate !== 1 ? 's' : ''} late
           </div>
         )}
-
-        <div className="field">
-          <label style={{ display:'flex', alignItems:'center', gap:10, textTransform:'none', letterSpacing:'normal', fontSize:14, fontWeight:500, color:'var(--text)', cursor:'pointer' }}>
-            <input type="checkbox" checked={form.overnight} onChange={e => setField('overnight', e.target.checked)}
-              style={{ accentColor:'var(--green)', width:17, height:17, flexShrink:0 }} />
-            Overnight shift (clock out is next day)
-          </label>
-        </div>
 
         <F label="Reason / Notes">
           <textarea value={form.entry_notes} onChange={e => setField('entry_notes', e.target.value)} rows={3}
@@ -165,11 +132,11 @@ export default function HRManualShift() {
         {ok  && <div className="alert alert-green" style={{ marginBottom:12 }}>{ok}</div>}
 
         <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px', fontSize:12, color:'var(--text-muted)', marginBottom:16 }}>
-          ℹ Creates two clock events (clock_in + clock_out) with <strong>clocked_via_qr = false</strong>. Visible in Time Report.
+          ℹ Creates a clock-in event. Staff must clock out via QR code or a separate manual entry.
         </div>
 
         <button onClick={submit} disabled={busy} className="btn btn-brand btn-full btn-lg">
-          {busy ? 'Creating…' : '✏ Create Manual Shift Entry'}
+          {busy ? 'Creating…' : '✏ Create Clock-In Entry'}
         </button>
       </div>
     </>

@@ -188,8 +188,9 @@ export function HRTimelogs() {
   const [staff,   setStaff]   = useState([])
   const [hols,    setHols]    = useState([])
   const [sites,   setSites]   = useState([])
-  const [fil,     setFil]     = useState({ staff_id: '', from_date: '', to_date: '' })
-  const [mode,    setMode]    = useState('timelogs')
+  const [fil,      setFil]      = useState({ staff_id: '', from_date: '', to_date: '' })
+  const [mode,     setMode]     = useState('timelogs')
+  const [lateOnly, setLateOnly] = useState(false)
 
   // Selection state
   const [selected, setSelected] = useState(new Set())
@@ -258,7 +259,10 @@ export function HRTimelogs() {
 
   // ── Selection helpers ────────────────────────────────────────────────────────
 
-  const entries = data?.entries || []
+  const allEntries = data?.entries || []
+  const entries = lateOnly ? allEntries.filter(e => e.is_late) : allEntries
+  const onTimeCount = allEntries.filter(e => e.scheduled_start && !e.is_late).length
+  const lateCount   = allEntries.filter(e => e.is_late).length
 
   function toggleRow(id) {
     setSelected(prev => {
@@ -348,11 +352,26 @@ export function HRTimelogs() {
           </F>
           <button onClick={run} className="btn btn-brand">🔍 Search</button>
           <button onClick={exportCSV} className="btn btn-outline">📥 Export CSV</button>
+          <button
+            onClick={() => { setLateOnly(v => !v); setSelected(new Set()) }}
+            style={{
+              padding: '9px 14px', borderRadius: 8, cursor: 'pointer',
+              fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: lateOnly ? 700 : 400,
+              border: `1px solid ${lateOnly ? '#e05555' : 'var(--border)'}`,
+              background: lateOnly ? 'rgba(224,85,85,.1)' : 'transparent',
+              color: lateOnly ? '#e05555' : 'var(--text-muted)',
+            }}
+          >
+            🔴 Late Only{lateOnly ? ' ✓' : ''}
+          </button>
         </div>
 
         {data && (
-          <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total: <strong style={{ color: 'var(--green)', fontFamily: 'DM Mono,monospace' }}>{fmtM(data.total_mins)}</strong></span>
+          <div style={{ display: 'flex', gap: 20, marginBottom: 14, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total shifts: <strong style={{ color: 'var(--green)' }}>{allEntries.length}</strong></span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>On time: <strong style={{ color: 'var(--green)' }}>{onTimeCount}</strong></span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Late: <strong style={{ color: lateCount > 0 ? '#e05555' : 'var(--text-muted)', fontWeight: lateCount > 0 ? 700 : 400 }}>{lateCount}</strong></span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total hours: <strong style={{ color: 'var(--green)', fontFamily: 'DM Mono,monospace' }}>{fmtM(data.total_mins)}</strong></span>
             <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Shifts: <strong style={{ color: 'var(--green)' }}>{entries.length}</strong></span>
           </div>
         )}
@@ -400,9 +419,11 @@ export function HRTimelogs() {
                   <tr key={e.id} style={{
                     background: selected.has(e.id)
                       ? 'rgba(106,191,63,.06)'
-                      : e.shift_minutes > 720
-                        ? 'rgba(181,71,8,.06)'
-                        : undefined,
+                      : e.is_late
+                        ? 'rgba(224,85,85,.05)'
+                        : e.shift_minutes > 720
+                          ? 'rgba(181,71,8,.06)'
+                          : undefined,
                   }}>
                     <td style={{ textAlign: 'center' }}>
                       <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleRow(e.id)} />
@@ -446,11 +467,11 @@ export function HRTimelogs() {
                       }
                     </td>
                     <td>
-                      {e.scheduled_start
-                        ? e.is_late
-                          ? <span className="badge badge-red">Late {e.minutes_late}m</span>
-                          : <span className="badge badge-green">On time</span>
-                        : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                      {e.is_late
+                        ? <span className="badge badge-red">🔴 Late {e.minutes_late}m</span>
+                        : e.scheduled_start
+                          ? <span className="badge badge-green">✅ On time</span>
+                          : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
                       }
                     </td>
                     <td>
