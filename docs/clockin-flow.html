@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShiftPortal — QR Clock-In/Out Flow</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #6e7681;
+    margin-bottom: 48px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 48px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #8b949e;
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* ── Flow canvas ── */
+  .flow {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* ── Node types ── */
+  .node {
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.4;
+    position: relative;
+    width: 220px;
+    flex-shrink: 0;
+  }
+  .node.start {
+    background: #238636;
+    border: 2px solid #2ea043;
+    color: #fff;
+    border-radius: 999px;
+    width: 200px;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .node.step {
+    background: #161b22;
+    border: 1.5px solid #30363d;
+    color: #c9d1d9;
+  }
+  .node.api {
+    background: #0d2137;
+    border: 1.5px solid #1f6feb;
+    color: #79c0ff;
+  }
+  .node.decision {
+    background: #1a1f2e;
+    border: 2px solid #388bfd;
+    color: #79c0ff;
+    transform: rotate(0);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    width: 180px;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    padding: 10px 28px;
+  }
+  .node.success {
+    background: #0f2a14;
+    border: 2px solid #2ea043;
+    color: #56d364;
+  }
+  .node.error {
+    background: #2d1219;
+    border: 1.5px solid #f85149;
+    color: #ff7b72;
+  }
+  .node.warning {
+    background: #2b1d09;
+    border: 1.5px solid #d29922;
+    color: #e3b341;
+  }
+  .node.override {
+    background: #211a00;
+    border: 2px solid #d29922;
+    color: #e3b341;
+  }
+  .node.db {
+    background: #161b22;
+    border: 2px dashed #388bfd;
+    color: #79c0ff;
+    border-radius: 8px;
+  }
+  .node.confirm {
+    background: #0f2a14;
+    border: 2px solid #2ea043;
+    color: #56d364;
+    width: 260px;
+  }
+
+  /* ── Arrow connectors ── */
+  .arrow {
+    width: 2px;
+    background: #30363d;
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .arrow.h {
+    width: auto;
+    height: 2px;
+    flex-direction: row;
+  }
+  .arrow::after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 10px solid #30363d;
+    flex-shrink: 0;
+  }
+  .arrow.green { background: #2ea043; }
+  .arrow.green::after { border-top-color: #2ea043; }
+  .arrow.red { background: #f85149; }
+  .arrow.red::after { border-top-color: #f85149; }
+  .arrow.amber { background: #d29922; }
+  .arrow.amber::after { border-top-color: #d29922; }
+  .arrow.blue { background: #388bfd; }
+  .arrow.blue::after { border-top-color: #388bfd; }
+
+  .arrow-label {
+    position: absolute;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    right: 8px;
+    background: #0d1117;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .arrow-label.yes { color: #2ea043; }
+  .arrow-label.no  { color: #f85149; }
+
+  /* ── Row (horizontal split) ── */
+  .row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+  }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Branch container ── */
+  .branch-wrap {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 32px;
+    width: 100%;
+    padding: 0 12px;
+  }
+
+  .branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Section headers ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #6e7681;
+    margin-bottom: 16px;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::before,
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #21262d;
+  }
+
+  /* ── Tick / badge ── */
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-top: 5px;
+  }
+  .badge.green { background: #0f2a14; color: #56d364; border: 1px solid #2ea043; }
+  .badge.red   { background: #2d1219; color: #ff7b72; border: 1px solid #f85149; }
+  .badge.blue  { background: #0d2137; color: #79c0ff; border: 1px solid #1f6feb; }
+  .badge.amber { background: #211a00; color: #e3b341; border: 1px solid #d29922; }
+
+  /* pipe */
+  .pipe {
+    height: 28px;
+    width: 2px;
+    background: #30363d;
+    margin: 0;
+  }
+  .pipe.green { background: #2ea043; }
+  .pipe.red   { background: #f85149; }
+  .pipe.amber { background: #d29922; }
+  .pipe.blue  { background: #388bfd; }
+
+  .arrowhead {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 9px solid #30363d;
+    margin-bottom: 0;
+  }
+  .arrowhead.green { border-top-color: #2ea043; }
+  .arrowhead.red   { border-top-color: #f85149; }
+  .arrowhead.amber { border-top-color: #d29922; }
+  .arrowhead.blue  { border-top-color: #388bfd; }
+
+  .connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* H-rule across split */
+  .h-rule {
+    height: 2px;
+    background: #30363d;
+  }
+
+  /* Node sub-text */
+  .node-sub {
+    font-size: 10px;
+    font-weight: 400;
+    color: inherit;
+    opacity: 0.7;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  /* Floating note */
+  .note {
+    background: #161b22;
+    border: 1px dashed #30363d;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #8b949e;
+    max-width: 220px;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* Big section bands */
+  .band {
+    width: 100%;
+    border-radius: 16px;
+    padding: 28px 24px;
+    margin: 8px 0;
+    position: relative;
+  }
+  .band-label {
+    position: absolute;
+    top: 10px;
+    left: 16px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    opacity: 0.5;
+  }
+
+  /* Key insight boxes */
+  .insight {
+    background: #0d2137;
+    border-left: 3px solid #1f6feb;
+    border-radius: 0 8px 8px 0;
+    padding: 8px 14px;
+    font-size: 11px;
+    color: #79c0ff;
+    line-height: 1.5;
+    max-width: 360px;
+    margin: 6px 0;
+  }
+
+  /* Full-width flow band */
+  .main-flow {
+    max-width: 980px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Two-column chart layout */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    max-width: 980px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  .chart-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .divider {
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, #30363d 20%, #30363d 80%, transparent);
+    align-self: stretch;
+  }
+
+  /* Phase label */
+  .phase-label {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #6e7681;
+    border: 1px solid #21262d;
+    border-radius: 999px;
+    padding: 3px 10px;
+    margin: 18px 0 6px;
+  }
+
+  /* Wide node */
+  .node.wide { width: 280px; }
+  .node.narrow { width: 180px; }
+</style>
+</head>
+<body>
+
+<h1>🛡 ShiftPortal — QR Clock-In/Out Journey</h1>
+<p class="subtitle">Complete step-by-step flow from QR scan to shift recorded in database</p>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#238636;border:1.5px solid #2ea043"></div> Start / End</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0d2137;border:1.5px solid #1f6feb"></div> API call</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#1a1f2e;border:2px solid #388bfd"></div> Decision</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0f2a14;border:1.5px solid #2ea043"></div> Success state</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2d1219;border:1.5px solid #f85149"></div> Error / blocked</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#211a00;border:1.5px solid #d29922"></div> Override path</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#161b22;border:2px dashed #388bfd"></div> Database write</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     PHASE 1 — ENTRY
+════════════════════════════════════════════════════════════ -->
+<div class="main-flow">
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+
+    <!-- START -->
+    <div class="phase-label">Phase 1 — Entry</div>
+    <div class="node start">📱 Staff Scans QR Code</div>
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+
+    <div class="node step wide">
+      Browser opens ClockPage URL
+      <div class="node-sub">portal.ikanfm.co.uk / {org-slug} / {site-code}</div>
+    </div>
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+
+    <!-- PHASE 2 -->
+    <div class="phase-label">Phase 2 — Site Lookup</div>
+    <div class="node api wide">
+      GET /clock/{slug}/{site_code}
+      <div class="node-sub">Fetch site info from backend</div>
+    </div>
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+
+  </div>
+
+  <!-- Branch: site found? -->
+  <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;width:100%;">
+
+    <!-- NO branch — site error -->
+    <div style="display:flex;flex-direction:column;align-items:center;margin-right:0;">
+      <div style="height:2px;width:120px;background:#f85149;"></div>
+    </div>
+
+    <!-- Decision diamond rendered as styled box for simplicity -->
+    <div style="display:flex;flex-direction:column;align-items:center;">
+
+      <div style="
+        background:#1a1f2e;border:2px solid #388bfd;color:#79c0ff;
+        font-size:12px;font-weight:700;text-align:center;padding:14px 18px;
+        width:180px;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);
+        display:flex;align-items:center;justify-content:center;height:90px;
+        border-radius:0;
+      ">Site & org found?</div>
+
+      <!-- YES down -->
+      <div style="display:flex;align-items:flex-start;justify-content:center;gap:80px;margin-top:0;">
+
+        <!-- NO → error -->
+        <div style="display:flex;flex-direction:column;align-items:center;margin-top:-45px;margin-right:-30px;">
+          <div style="height:46px;width:2px;background:#f85149;"></div>
+          <div class="arrowhead red"></div>
+          <div class="node error narrow" style="font-size:11px;">
+            ❌ "Organisation not found" or<br>"Site not found"
+            <div class="node-sub">Page stops — nothing to do</div>
+          </div>
+        </div>
+
+        <!-- YES down -->
+        <div style="display:flex;flex-direction:column;align-items:center;margin-top:0;">
+          <div style="font-size:9px;font-weight:800;color:#2ea043;letter-spacing:.08em;margin-bottom:2px;">YES</div>
+          <div class="pipe green"></div>
+          <div class="arrowhead green"></div>
+
+          <!-- ════ PHASE 3 — GPS ════ -->
+          <div class="phase-label">Phase 3 — GPS Check</div>
+
+          <!-- GPS enabled? -->
+          <div style="
+            background:#1a1f2e;border:2px solid #388bfd;color:#79c0ff;
+            font-size:12px;font-weight:700;text-align:center;padding:14px 18px;
+            width:200px;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);
+            display:flex;align-items:center;justify-content:center;height:90px;
+          ">GPS enabled on site?</div>
+
+          <div style="display:flex;align-items:flex-start;justify-content:center;gap:40px;">
+
+            <!-- NO — skip GPS -->
+            <div style="display:flex;flex-direction:column;align-items:center;margin-top:-45px;">
+              <div style="height:46px;width:2px;background:#6e7681;"></div>
+              <div class="arrowhead"></div>
+              <div class="node step narrow" style="font-size:11px;">
+                Skip GPS
+                <div class="node-sub">Go straight to form</div>
+              </div>
+            </div>
+
+            <!-- YES — check GPS -->
+            <div style="display:flex;flex-direction:column;align-items:center;margin-top:0;">
+              <div style="font-size:9px;font-weight:800;color:#2ea043;letter-spacing:.08em;margin-bottom:2px;">YES</div>
+              <div class="pipe green"></div>
+              <div class="arrowhead green"></div>
+
+              <div class="node step" style="width:200px;font-size:12px;">
+                Request browser location
+                <div class="node-sub">navigator.geolocation (timeout 15s)</div>
+              </div>
+              <div class="pipe"></div>
+              <div class="arrowhead"></div>
+
+              <!-- GPS result decision -->
+              <div style="
+                background:#1a1f2e;border:2px solid #388bfd;color:#79c0ff;
+                font-size:11px;font-weight:700;text-align:center;padding:12px 22px;
+                width:190px;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);
+                display:flex;align-items:center;justify-content:center;height:84px;
+              ">GPS result?</div>
+
+              <!-- Three GPS outcomes -->
+              <div style="display:flex;align-items:flex-start;justify-content:center;gap:16px;margin-top:-42px;">
+
+                <!-- GPS denied -->
+                <div style="display:flex;flex-direction:column;align-items:center;">
+                  <div style="height:42px;width:2px;background:#f85149;"></div>
+                  <div class="arrowhead red"></div>
+                  <div class="node error" style="font-size:11px;width:160px;">
+                    🚫 GPS denied/timeout
+                    <div class="node-sub">Must use Manager Override</div>
+                  </div>
+                </div>
+
+                <!-- Got location — distance check -->
+                <div style="display:flex;flex-direction:column;align-items:center;margin-top:0;">
+                  <div style="font-size:9px;font-weight:800;color:#2ea043;letter-spacing:.08em;margin-top:42px;margin-bottom:2px;">GOT LOCATION</div>
+                  <div class="pipe green"></div>
+                  <div class="arrowhead green"></div>
+                  <div class="node step" style="width:200px;font-size:11px;">
+                    Haversine distance check
+                    <div class="node-sub">vs site lat/lng — threshold 70 m</div>
+                  </div>
+                  <div class="pipe"></div>
+                  <div class="arrowhead"></div>
+                  <!-- Distance decision -->
+                  <div style="
+                    background:#1a1f2e;border:2px solid #388bfd;color:#79c0ff;
+                    font-size:11px;font-weight:700;text-align:center;padding:12px 22px;
+                    width:190px;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);
+                    display:flex;align-items:center;justify-content:center;height:84px;
+                  ">Within 70 m?</div>
+
+                  <div style="display:flex;align-items:flex-start;justify-content:center;gap:24px;margin-top:-42px;">
+
+                    <!-- TOO FAR -->
+                    <div style="display:flex;flex-direction:column;align-items:center;">
+                      <div style="height:42px;width:2px;background:#f85149;"></div>
+                      <div class="arrowhead red"></div>
+                      <div class="node error" style="font-size:11px;width:155px;">
+                        📍 Too far from site
+                        <div class="node-sub">Shows distance · Override available</div>
+                      </div>
+                    </div>
+
+                    <!-- WITHIN RANGE -->
+                    <div style="display:flex;flex-direction:column;align-items:center;margin-top:0;">
+                      <div style="font-size:9px;font-weight:800;color:#2ea043;letter-spacing:.08em;margin-top:42px;margin-bottom:2px;">YES ✓</div>
+                      <div class="pipe green"></div>
+                      <div class="arrowhead green"></div>
+                      <div class="node success" style="width:160px;font-size:11px;">
+                        GPS verified ✅
+                        <div class="node-sub">gps_verified = true</div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Merge all paths to FORM -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0;margin-top:48px;">
+
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+
+    <!-- ════ PHASE 4 — FORM ════ -->
+    <div class="phase-label">Phase 4 — Staff Form</div>
+
+    <div class="node step wide" style="background:#0c1a2e;border-color:#1f6feb;color:#e6edf3;width:310px;">
+      <div style="font-size:14px;font-weight:800;margin-bottom:8px;color:#79c0ff;">🖊 Clock Form</div>
+      <div style="text-align:left;font-size:12px;line-height:1.8;">
+        <div>• <strong>Full Name</strong> — flexible match (first, last, reversed…)</div>
+        <div>• <strong>Staff ID</strong> — case-insensitive lookup</div>
+        <div>• <strong>Scheduled Start</strong> — <span style="color:#e3b341">required for Clock In</span></div>
+        <div style="margin-top:6px;color:#6e7681;font-size:10px;">⏱ Live lateness indicator updates every second</div>
+      </div>
+    </div>
+
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+
+    <!-- Three button options -->
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:24px;width:100%;">
+
+      <!-- CLOCK IN -->
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div class="node success" style="width:175px;background:#0f2a14;">
+          🟢 CLOCK IN
+          <div class="node-sub">POST /clock/{slug}/{code}/in</div>
+        </div>
+      </div>
+
+      <!-- CLOCK OUT -->
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div class="node error" style="width:175px;background:#2d1219;">
+          🔴 CLOCK OUT
+          <div class="node-sub">POST /clock/{slug}/{code}/out</div>
+        </div>
+      </div>
+
+      <!-- OVERRIDE -->
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div class="node override" style="width:195px;">
+          🔑 Request Manager Override
+          <div class="node-sub">Opens override form · no GPS required</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ════ PHASE 5 — BACKEND ════ -->
+    <div class="phase-label" style="margin-top:32px;">Phase 5 — Backend Validation (normal path)</div>
+
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:28px;width:100%;max-width:900px;">
+
+      <!-- LEFT: CLOCK IN BACKEND -->
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1;">
+        <div style="font-size:10px;font-weight:800;color:#56d364;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">Clock-In path</div>
+
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          1. Lookup org by slug<br>2. Lookup site by code
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          3. Lookup staff by staff_id
+          <div class="node-sub">within org — returns 401 if not found</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          4. names_match() check
+          <div class="node-sub">full · first only · last only · reversed · any words</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          5. is_active check
+          <div class="node-sub">403 if account not yet activated</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          6. Duplicate clock-in check
+          <div class="node-sub">409 already_clocked_in if open shift exists</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          7. GPS re-verify (server side)
+          <div class="node-sub">If site has coords: must be ≤ 70 m</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node step" style="width:100%;max-width:260px;font-size:11px;background:#161b22;">
+          8. _calc_lateness()
+          <div class="node-sub">now − scheduled_start → is_late, minutes_late</div>
+        </div>
+        <div class="connector"><div class="pipe green"></div><div class="arrowhead green"></div></div>
+        <div class="node step" style="width:100%;max-width:260px;font-size:11px;background:#161b22;">
+          9. SIA licence status check
+          <div class="node-sub">valid / expiring / expired — included in response</div>
+        </div>
+        <div class="connector"><div class="pipe green"></div><div class="arrowhead green"></div></div>
+        <div class="node db" style="width:100%;max-width:260px;font-size:12px;">
+          💾 INSERT ClockEvent
+          <div class="node-sub">type=clock_in · is_late · minutes_late<br>scheduled_start · gps_verified · site_id</div>
+        </div>
+      </div>
+
+      <!-- DIVIDER -->
+      <div class="divider" style="margin-top:30px;"></div>
+
+      <!-- RIGHT: CLOCK OUT BACKEND -->
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1;">
+        <div style="font-size:10px;font-weight:800;color:#ff7b72;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">Clock-Out path</div>
+
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          1. Same org / site / staff lookup
+          <div class="node-sub">401 if not found or name mismatch</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          2. Find open clock-in
+          <div class="node-sub">Most recent clock_in with no later clock_out</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          3. No open clock-in?
+          <div class="node-sub">→ 400 "No active clock-in found"</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node api" style="width:100%;max-width:260px;font-size:11px;">
+          4. GPS re-verify (server side)
+          <div class="node-sub">Same 70 m check if site has coords</div>
+        </div>
+        <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+        <div class="node step" style="width:100%;max-width:260px;font-size:11px;background:#161b22;">
+          5. Compute shift_minutes
+          <div class="node-sub">clock_out.ts − clock_in.ts in minutes<br>Auto-detects overnight (out ≤ in → +1 day)</div>
+        </div>
+        <div class="connector"><div class="pipe green"></div><div class="arrowhead green"></div></div>
+        <div class="node db" style="width:100%;max-width:260px;font-size:12px;">
+          💾 INSERT ClockEvent
+          <div class="node-sub">type=clock_out · shift_minutes stored<br>on clock_out row</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ════ PHASE 6 — CONFIRM ════ -->
+    <div class="phase-label" style="margin-top:32px;">Phase 6 — Confirmation Screen</div>
+    <div class="connector"><div class="pipe green"></div><div class="arrowhead green"></div></div>
+
+    <div class="node confirm wide">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">✅ Success Screen</div>
+      <div style="text-align:left;font-size:12px;line-height:1.9;color:#c9d1d9;">
+        <div>• Clocked <strong>IN / OUT</strong> at site name</div>
+        <div>• Time recorded</div>
+        <div>• Duration (clock-out only)</div>
+        <div>• Lateness: <span style="color:#e3b341">⚠ X min late</span> or <span style="color:#56d364">✅ On time</span></div>
+        <div>• SIA status badge</div>
+        <div>• <span style="color:#e3b341">Override badge</span> if manager override used</div>
+      </div>
+    </div>
+
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+    <div class="node step" style="width:220px;">Staff taps "Done"</div>
+    <div class="connector"><div class="pipe"></div><div class="arrowhead"></div></div>
+    <div class="node start" style="border-color:#388bfd;background:#0d2137;">Form resets — ready for next scan</div>
+
+  </div>
+
+  <!-- ════ OVERRIDE PATH ════ -->
+  <div style="margin-top:64px;border-top:1px solid #21262d;padding-top:40px;">
+
+    <div class="phase-label" style="width:600px;margin:0 auto 24px;">Override Path — Manager Authorisation</div>
+
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:32px;max-width:900px;margin:0 auto;">
+
+      <!-- Override form -->
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1;">
+        <div class="node override" style="width:100%;max-width:280px;">
+          🔑 Override Form
+          <div class="node-sub" style="text-align:left;margin-top:6px;line-height:1.7;">
+            • Duty Manager full name (required)<br>
+            • Clock time (pre-filled = now)<br>
+            • Scheduled start (for lateness)<br>
+            • Reason: GPS unavailable / arrived early<br>&nbsp;&nbsp;/ other
+          </div>
+        </div>
+        <div class="connector"><div class="pipe amber"></div><div class="arrowhead amber"></div></div>
+        <div class="node api" style="width:100%;max-width:280px;font-size:11px;">
+          POST /clock/{slug}/{code}/in|out
+          <div class="node-sub">manager_override: true · no GPS · manual_time allowed</div>
+        </div>
+        <div class="connector"><div class="pipe amber"></div><div class="arrowhead amber"></div></div>
+        <div class="node step" style="width:100%;max-width:280px;font-size:11px;background:#161b22;">
+          Same staff lookup + lateness calc
+          <div class="node-sub">No GPS check — override bypasses geofence</div>
+        </div>
+        <div class="connector"><div class="pipe amber"></div><div class="arrowhead amber"></div></div>
+        <div class="node db" style="width:100%;max-width:280px;font-size:12px;">
+          💾 INSERT ClockEvent
+          <div class="node-sub">entry_notes = "[OVERRIDE] Manager: {name} | Reason: {reason}"</div>
+        </div>
+      </div>
+
+      <!-- Insight box -->
+      <div style="flex:1;max-width:280px;margin-top:24px;">
+        <div class="insight">
+          <strong>Why overrides exist:</strong><br>
+          GPS may be blocked indoors, in basements, or on certain handsets. The override path lets a duty manager on-site authorise a clock event without geofencing — the manager's name and reason are permanently stored in <code>entry_notes</code> so HR can audit every bypass.
+        </div>
+        <div style="height:16px;"></div>
+        <div class="insight" style="border-left-color:#d29922;">
+          <strong>Override badge in HR view:</strong><br>
+          HRTimelogs parses <code>[OVERRIDE]</code> prefix from <code>entry_notes</code> and shows an amber ⚠ Override badge alongside the manager's name.
+        </div>
+        <div style="height:16px;"></div>
+        <div class="insight" style="border-left-color:#f85149;">
+          <strong>What overrides cannot bypass:</strong><br>
+          Staff ID / name lookup still runs — an override does not allow clocking in as someone else. Only GPS geofencing is bypassed.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════ ERROR STATES REFERENCE ════ -->
+  <div style="margin-top:64px;border-top:1px solid #21262d;padding-top:40px;max-width:980px;margin-left:auto;margin-right:auto;">
+
+    <div class="phase-label" style="width:600px;margin:0 auto 24px;">Error States Reference</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+
+      <div class="node error" style="width:auto;text-align:left;font-size:12px;line-height:1.8;">
+        <div style="font-size:11px;font-weight:800;color:#ff7b72;margin-bottom:6px;">🔐 Auth errors</div>
+        <div>• Staff ID not recognised (401)</div>
+        <div>• Name not recognised (401)</div>
+        <div>• Account not activated (403)</div>
+      </div>
+
+      <div class="node warning" style="width:auto;text-align:left;font-size:12px;line-height:1.8;background:#2b1d09;border-color:#d29922;color:#e3b341;">
+        <div style="font-size:11px;font-weight:800;margin-bottom:6px;">📍 Location errors</div>
+        <div>• GPS denied by browser</div>
+        <div>• GPS timeout (>15 s)</div>
+        <div>• Too far from site (>70 m)</div>
+      </div>
+
+      <div class="node error" style="width:auto;text-align:left;font-size:12px;line-height:1.8;">
+        <div style="font-size:11px;font-weight:800;color:#ff7b72;margin-bottom:6px;">⚡ State errors</div>
+        <div>• Already clocked in (409)</div>
+        <div>• No active clock-in (400)</div>
+        <div>• Network error (catch)</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ════ DATA FLOW SUMMARY ════ -->
+  <div style="margin-top:64px;border-top:1px solid #21262d;padding-top:40px;max-width:980px;margin-left:auto;margin-right:auto;">
+
+    <div class="phase-label" style="width:600px;margin:0 auto 24px;">What gets stored in the database</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+      <div class="node db" style="width:auto;text-align:left;font-size:12px;line-height:1.9;">
+        <div style="font-size:12px;font-weight:800;color:#79c0ff;margin-bottom:8px;">ClockEvent (clock_in row)</div>
+        <div>• <code>event_type</code>: clock_in</div>
+        <div>• <code>timestamp</code>: UTC datetime</div>
+        <div>• <code>user_id</code>, <code>site_id</code>, <code>organisation_id</code></div>
+        <div>• <code>scheduled_start</code>: HH:MM string</div>
+        <div>• <code>is_late</code>: boolean</div>
+        <div>• <code>minutes_late</code>: integer</div>
+        <div>• <code>gps_lat</code>, <code>gps_lng</code>, <code>gps_verified</code></div>
+        <div>• <code>entry_notes</code>: override info or null</div>
+      </div>
+
+      <div class="node db" style="width:auto;text-align:left;font-size:12px;line-height:1.9;">
+        <div style="font-size:12px;font-weight:800;color:#79c0ff;margin-bottom:8px;">ClockEvent (clock_out row)</div>
+        <div>• <code>event_type</code>: clock_out</div>
+        <div>• <code>timestamp</code>: UTC datetime</div>
+        <div>• <code>user_id</code>, <code>site_id</code>, <code>organisation_id</code></div>
+        <div>• <code>shift_minutes</code>: total duration</div>
+        <div>• <code>gps_lat</code>, <code>gps_lng</code>, <code>gps_verified</code></div>
+        <div style="color:#6e7681;font-size:10px;margin-top:6px;">Paired to clock_in by: clock_out.timestamp &gt; clock_in.timestamp</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- footer -->
+  <div style="text-align:center;margin-top:60px;font-size:11px;color:#6e7681;">
+    ShiftPortal — QR Clock-In/Out Flow · Generated 2026-04-18
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -124,9 +124,10 @@ def _get_site(db: Session, org_slug: str, site_code: str) -> tuple:
 
 def _lookup_staff(db: Session, org_id: int, staff_id: str, full_name: str) -> models.User:
     """Look up a user by staff_id within an org; validate name and active status."""
+    from sqlalchemy import func
     user = db.query(models.User).filter(
         models.User.organisation_id == org_id,
-        models.User.staff_id        == staff_id.strip().upper(),
+        func.lower(models.User.staff_id) == staff_id.strip().lower(),
     ).first()
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Staff ID not recognised")

@@ -170,7 +170,7 @@ export default function ClockPage() {
     try {
       const endpoint = targetAction === 'in' ? 'in' : 'out'
       const body = {
-        staff_id:  form.staffId.trim().toUpperCase(),
+        staff_id:  form.staffId.trim(),
         full_name: form.fullName.trim(),
         gps_lat:   gpsCoords?.lat ?? null,
         gps_lng:   gpsCoords?.lng ?? null,
@@ -220,7 +220,7 @@ export default function ClockPage() {
     try {
       const endpoint = overrideAction === 'in' ? 'in' : 'out'
       const body = {
-        staff_id:         form.staffId.trim().toUpperCase(),
+        staff_id:         form.staffId.trim(),
         full_name:        form.fullName.trim(),
         gps_lat:          null,
         gps_lng:          null,
@@ -479,9 +479,9 @@ export default function ClockPage() {
           <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Staff ID</label>
             <input
-              style={{ ...inp, fontSize: 14, fontFamily: 'DM Mono, monospace', textTransform: 'uppercase' }}
+              style={{ ...inp, fontSize: 14, fontFamily: 'DM Mono, monospace' }}
               value={form.staffId}
-              onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
+              onChange={e => setForm(f => ({ ...f, staffId: e.target.value }))}
               placeholder="e.g. ZZ123"
             />
           </div>
@@ -660,9 +660,9 @@ export default function ClockPage() {
           <div style={{ marginBottom: 16 }}>
             <label style={fieldLabel}>Staff ID</label>
             <input
-              type="text" inputMode="text" autoCapitalize="characters" placeholder="e.g. IFM-045"
+              type="text" inputMode="text" autoCapitalize="none" placeholder="e.g. IFM-045"
               value={form.staffId}
-              onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
+              onChange={e => setForm(f => ({ ...f, staffId: e.target.value }))}
               style={{ ...fieldInput, fontFamily: 'DM Mono, monospace', fontSize: 18, letterSpacing: '.08em', textTransform: 'uppercase' }}
             />
           </div>
