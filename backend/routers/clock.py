@@ -15,6 +15,37 @@ import models
 router = APIRouter()
 
 
+# ── Name matching ─────────────────────────────────────────────────────────────
+
+def names_match(entered: str, stored_first: str, stored_last: str) -> bool:
+    entered = entered.strip().lower()
+    full = f'{stored_first} {stored_last}'.strip().lower()
+    first = stored_first.strip().lower()
+    last = stored_last.strip().lower()
+
+    # Exact full name match
+    if entered == full:
+        return True
+    # Last name only
+    if entered == last:
+        return True
+    # First name only
+    if entered == first:
+        return True
+    # Last name, First name format
+    if entered == f'{last} {first}':
+        return True
+    # Remove all spaces and compare
+    if entered.replace(' ', '') == full.replace(' ', ''):
+        return True
+    # Check if entered name contains both first and last name words
+    entered_words = set(entered.split())
+    if stored_first.lower() in entered_words and stored_last.lower() in entered_words:
+        return True
+
+    return False
+
+
 # ── Haversine ─────────────────────────────────────────────────────────────────
 
 def haversine_metres(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -104,8 +135,8 @@ def _lookup_staff(db: Session, org_id: int, staff_id: str, full_name: str) -> mo
     ).first()
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Staff ID not recognised")
-    if user.full_name.strip().lower() != full_name.strip().lower():
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Name does not match our records")
+    if not names_match(full_name, user.first_name, user.last_name):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Name not recognised. Please enter your name exactly as registered — e.g. John Smith. If problems persist contact your supervisor.")
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account is not yet activated")
     return user
@@ -789,10 +820,10 @@ def clock_in(
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Staff ID not recognised")
 
-    if user.full_name.strip().lower() != body.full_name.strip().lower():
+    if not names_match(body.full_name, user.first_name, user.last_name):
         _record_failure(db, org.id, user.id, body.staff_id, site.id, 'name_mismatch', body.gps_lat, body.gps_lng, None, ip)
         db.commit()
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Name does not match our records")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Name not recognised. Please enter your name exactly as registered — e.g. John Smith. If problems persist contact your supervisor.")
 
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been suspended after 3 failed location attempts. Please contact your supervisor.")
