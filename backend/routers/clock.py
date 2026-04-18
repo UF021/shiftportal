@@ -105,10 +105,10 @@ def _check_gps(site: models.Site, gps_lat: Optional[float], gps_lng: Optional[fl
     if gps_lat is None or gps_lng is None:
         return False
     dist = haversine_metres(gps_lat, gps_lng, site.site_lat, site.site_lng)
-    if dist > 20:
+    if dist > 70:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"You must be within 20 metres of the site ({int(dist)} m away)"
+            f"You must be within 70 metres of the site ({int(dist)} m away)"
         )
     return True
 
@@ -773,7 +773,7 @@ def clock_in(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "GPS coordinates required for this site")
         dist            = haversine_metres(body.gps_lat, body.gps_lng, site.site_lat, site.site_lng)
         distance_metres = round(dist)
-        if dist > 20:
+        if dist > 70:
             _record_failure(db, org.id, user.id, body.staff_id, site.id, 'gps_mismatch', body.gps_lat, body.gps_lng, dist, ip)
 
             since = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -791,7 +791,7 @@ def clock_in(
                 raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been suspended after 3 failed location attempts. Please contact your supervisor.")
 
             db.commit()
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"You must be within 20 metres of the site ({int(dist)} m away)")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"You must be within 70 metres of the site ({int(dist)} m away)")
 
         gps_verified = True
 
