@@ -12,7 +12,7 @@ const REASON_LABELS = {
 
 function reasonLabel(row) {
   if (row.failure_reason === 'gps_mismatch' && row.distance_metres != null) {
-    return `Wrong Location (${Math.round(row.distance_metres)}m away)`
+    return `Wrong Location (${Math.round(row.distance_metres)} metres away)`
   }
   const fn = REASON_LABELS[row.failure_reason]
   return fn ? fn() : row.failure_reason
@@ -145,7 +145,7 @@ export default function HRClockFailures() {
                       )}
                     </td>
                     <td style={{ fontFamily:'DM Mono,monospace', fontSize:13 }}>
-                      {r.distance_metres != null ? `${Math.round(r.distance_metres)}m` : '—'}
+                      {r.distance_metres != null ? `${Math.round(r.distance_metres)} metres` : '—'}
                     </td>
                     <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>
                       <div>{dateStr}</div>

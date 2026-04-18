@@ -174,7 +174,7 @@ export default function HRGPSCaptures() {
                     color: cap.accuracy <= 20 ? '#6abf3f' : cap.accuracy <= 50 ? '#f59e0b' : '#ef4444',
                     marginBottom: 4,
                   }}>
-                    ±{Math.round(cap.accuracy)} m accuracy
+                    ±{Math.round(cap.accuracy)} metres accuracy
                   </div>
                 )}
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fmt(cap.captured_at)}</div>

@@ -268,7 +268,7 @@ export default function CaptureGPS() {
                   color: displayGps.accuracy <= ACCURACY_TARGET ? GREEN
                        : displayGps.accuracy <= 50 ? '#f59e0b' : '#ef4444',
                 }}>
-                  Accuracy: {Math.round(displayGps.accuracy)}m
+                  Accuracy: {Math.round(displayGps.accuracy)} metres
                 </div>
               ) : (
                 <div style={{ fontSize: 15, color: '#6b7280' }}>Waiting for GPS signal…</div>
@@ -284,7 +284,7 @@ export default function CaptureGPS() {
                 background: '#fffbeb', border: '1.5px solid #fcd34d',
                 borderRadius: 10, padding: '14px 16px', marginBottom: 20, fontSize: 13, color: '#92400e',
               }}>
-                Best accuracy achieved: <strong>{Math.round(bestGps.accuracy)}m</strong> — this may be less precise.
+                Best accuracy achieved: <strong>{Math.round(bestGps.accuracy)} metres</strong> — this may be less precise.
                 Submit anyway or move closer to the entrance and retry.
               </div>
             )}
