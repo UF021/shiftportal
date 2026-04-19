@@ -160,7 +160,7 @@ export default function ClockPage() {
       setFormError('Please enter both your full name and staff ID.')
       return
     }
-    if (targetAction === 'in' && !form.scheduledStart) {
+    if (!form.scheduledStart) {
       setFormError('Please enter your scheduled start time.')
       return
     }
@@ -170,11 +170,11 @@ export default function ClockPage() {
     try {
       const endpoint = targetAction === 'in' ? 'in' : 'out'
       const body = {
-        staff_id:  form.staffId.trim(),
-        full_name: form.fullName.trim(),
-        gps_lat:   gpsCoords?.lat ?? null,
-        gps_lng:   gpsCoords?.lng ?? null,
-        ...(targetAction === 'in' ? { scheduled_start: form.scheduledStart || null } : {}),
+        staff_id:        form.staffId.trim(),
+        full_name:       form.fullName.trim(),
+        gps_lat:         gpsCoords?.lat ?? null,
+        gps_lng:         gpsCoords?.lng ?? null,
+        scheduled_start: form.scheduledStart || null,
       }
       const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
         method: 'POST',
@@ -227,10 +227,8 @@ export default function ClockPage() {
         manager_override: true,
         manager_name:     overrideForm.managerName.trim(),
         override_reason:  overrideForm.reason,
-        ...(overrideAction === 'in' ? {
-          scheduled_start: overrideForm.scheduledStart || null,
-          manual_time:     overrideForm.clockTime || null,
-        } : {}),
+        scheduled_start:  overrideForm.scheduledStart || null,
+        manual_time:      overrideForm.clockTime || null,
       }
       console.log('[Override] submitting to', `${BASE}/clock/${slug}/${siteCode}/${endpoint}`, body)
       const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
@@ -271,19 +269,23 @@ export default function ClockPage() {
 
   // ── Override button (reusable) ────────────────────────────────────────────
 
-  const OverrideBtn = ({ targetAction = 'in' }) => (
-    <button
-      onClick={() => openOverride(targetAction)}
-      style={{
-        width: '100%', padding: '13px 0', borderRadius: 12,
-        border: `2px solid ${AMBER}`, background: 'rgba(208,128,32,.08)',
-        color: AMBER, fontSize: 15, fontWeight: 700,
-        cursor: 'pointer', marginTop: 12,
-        fontFamily: 'DM Sans, sans-serif',
-      }}
-    >
-      🔑 Request Manager Override
-    </button>
+  const OverrideBtn = () => (
+    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+      {['in', 'out'].map(act => (
+        <button
+          key={act}
+          onClick={() => openOverride(act)}
+          style={{
+            flex: 1, padding: '12px 0', borderRadius: 12,
+            border: `2px solid ${AMBER}`, background: 'rgba(208,128,32,.08)',
+            color: AMBER, fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+          }}
+        >
+          🔑 Override Sign {act === 'in' ? 'In' : 'Out'}
+        </button>
+      ))}
+    </div>
   )
 
   // ── LOADING / GPS CHECKING ────────────────────────────────────────────────
@@ -356,7 +358,7 @@ export default function ClockPage() {
           <span style={{ fontSize: 12, color: '#aaa', whiteSpace: 'nowrap' }}>Still unable to enable GPS?</span>
           <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
         </div>
-        <OverrideBtn targetAction="in" />
+        <OverrideBtn />
       </div>
     </Screen>
   )
@@ -384,7 +386,7 @@ export default function ClockPage() {
         >
           Retry
         </button>
-        <OverrideBtn targetAction="in" />
+        <OverrideBtn />
       </div>
     </Screen>
   )
@@ -406,7 +408,7 @@ export default function ClockPage() {
         <div style={{ fontSize: 15, color: '#333', lineHeight: 1.65, marginBottom: 16 }}>
           GPS is not available on this device or browser.
         </div>
-        <OverrideBtn targetAction="in" />
+        <OverrideBtn />
       </div>
     </Screen>
   )
@@ -440,7 +442,7 @@ export default function ClockPage() {
         >
           Try Again
         </button>
-        <OverrideBtn targetAction="in" />
+        <OverrideBtn />
       </div>
     </Screen>
   )
@@ -506,29 +508,27 @@ export default function ClockPage() {
         </div>
 
         {/* Time + reason */}
-        <div style={{ display: 'grid', gridTemplateColumns: overrideAction === 'in' ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 14 }}>
-          {overrideAction === 'in' && (
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Clock In Time</label>
-              <input
-                type="time"
-                style={{ ...inp, fontSize: 15, fontFamily: 'DM Mono, monospace' }}
-                value={overrideForm.clockTime}
-                onChange={e => setOverrideForm(f => ({ ...f, clockTime: e.target.value }))}
-              />
-            </div>
-          )}
-          {overrideAction === 'in' && (
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Scheduled Start</label>
-              <input
-                type="time"
-                style={{ ...inp, fontSize: 15, fontFamily: 'DM Mono, monospace' }}
-                value={overrideForm.scheduledStart}
-                onChange={e => setOverrideForm(f => ({ ...f, scheduledStart: e.target.value }))}
-              />
-            </div>
-          )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>
+              {overrideAction === 'in' ? 'Clock In Time' : 'Clock Out Time'}
+            </label>
+            <input
+              type="time"
+              style={{ ...inp, fontSize: 15, fontFamily: 'DM Mono, monospace' }}
+              value={overrideForm.clockTime}
+              onChange={e => setOverrideForm(f => ({ ...f, clockTime: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Scheduled Start</label>
+            <input
+              type="time"
+              style={{ ...inp, fontSize: 15, fontFamily: 'DM Mono, monospace' }}
+              value={overrideForm.scheduledStart}
+              onChange={e => setOverrideForm(f => ({ ...f, scheduledStart: e.target.value }))}
+            />
+          </div>
         </div>
 
         <div style={{ marginBottom: 18 }}>
@@ -730,17 +730,30 @@ export default function ClockPage() {
               {submitting && action === 'out' ? '…' : 'CLOCK OUT'}
             </button>
 
-            <button
-              onClick={() => openOverride('in')}
-              style={{
-                width: '100%', padding: '12px', fontSize: 13, fontWeight: 500,
-                borderRadius: 8, border: '0.5px solid #FFD54F',
-                background: '#FFECB3', color: '#6D4C00',
-                cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-              }}
-            >
-              Request Manager Override
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => openOverride('in')}
+                style={{
+                  flex: 1, padding: '12px', fontSize: 12, fontWeight: 600,
+                  borderRadius: 8, border: '0.5px solid #FFD54F',
+                  background: '#FFECB3', color: '#6D4C00',
+                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                🔑 Override Sign In
+              </button>
+              <button
+                onClick={() => openOverride('out')}
+                style={{
+                  flex: 1, padding: '12px', fontSize: 12, fontWeight: 600,
+                  borderRadius: 8, border: '0.5px solid #FFD54F',
+                  background: '#FFECB3', color: '#6D4C00',
+                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                🔑 Override Sign Out
+              </button>
+            </div>
           </div>
 
           {/* Server time */}

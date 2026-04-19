@@ -93,6 +93,8 @@ class QRClockOutRequest(BaseModel):
     manager_override: bool            = False
     manager_name:     Optional[str]   = None
     override_reason:  Optional[str]   = None
+    manual_time:      Optional[str]   = None   # 'HH:MM' — override clock-out time
+    scheduled_start:  Optional[str]   = None   # for lateness if re-clocking
 
 
 class ManualShiftRequest(BaseModel):
@@ -1035,7 +1037,13 @@ def clock_out(
     if body.manager_override:
         if not body.manager_name or not body.manager_name.strip():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Duty Manager name is required for override")
-        now           = _now_uk()
+        now = _now_uk()
+        if body.manual_time:
+            try:
+                h, m = map(int, body.manual_time.split(':'))
+                now = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            except (ValueError, AttributeError):
+                pass
         shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
         override_notes = (
             f"[OVERRIDE] Manager: {body.manager_name.strip()} | "

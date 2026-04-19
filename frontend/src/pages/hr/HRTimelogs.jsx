@@ -424,6 +424,7 @@ export function HRTimelogs() {
                   </th>
                   <th>Employee</th>
                   <th>Date</th>
+                  <th>Scheduled</th>
                   <th>Start</th>
                   <th>End</th>
                   <th>Site</th>
@@ -454,6 +455,7 @@ export function HRTimelogs() {
                       )}
                     </td>
                     <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{fmtDate(e.date)}</td>
+                    <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12, color: 'var(--text-muted)' }}>{e.scheduled_start || '—'}</td>
                     <td style={{ color: 'var(--green)', fontFamily: 'DM Mono,monospace' }}>{e.start_time}</td>
                     <td style={{ color: 'var(--red)', fontFamily: 'DM Mono,monospace' }}>{e.end_time || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{e.site_name || '—'}</td>
@@ -509,7 +511,7 @@ export function HRTimelogs() {
                     </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                  <tr><td colSpan={11} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
                     {data ? 'No records for selected filters' : 'Select filters and click Search'}
                   </td></tr>
                 )}
