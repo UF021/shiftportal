@@ -1,7 +1,20 @@
 import math
 import random
+import pytz
 from datetime import datetime, timezone, timedelta, date
 from typing import Optional
+
+UK_TZ = pytz.timezone('Europe/London')
+
+
+def _now_uk() -> datetime:
+    """Current time as a UK-timezone-aware datetime (BST or GMT as appropriate)."""
+    return datetime.now(UK_TZ)
+
+
+def _localize_uk(year: int, month: int, day: int, hour: int, minute: int) -> datetime:
+    """Build a UK-local datetime from date + HH:MM components."""
+    return UK_TZ.localize(datetime(year, month, day, hour, minute))
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -270,11 +283,12 @@ def my_history(
             used_out_ids.add(co.id)
         site_name = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
         is_manual = ci.entry_notes is not None
+        ci_uk = ci.timestamp.astimezone(UK_TZ)
         shifts.append({
             "id":              ci.id,
-            "date":            ci.timestamp.date().isoformat(),
-            "start_time":      ci.timestamp.strftime("%H:%M"),
-            "end_time":        co.timestamp.strftime("%H:%M") if co else None,
+            "date":            ci_uk.date().isoformat(),
+            "start_time":      ci_uk.strftime("%H:%M"),
+            "end_time":        co.timestamp.astimezone(UK_TZ).strftime("%H:%M") if co else None,
             "site_name":       site_name,
             "shift_minutes":   co.shift_minutes if co else None,
             "is_late":         ci.is_late,
@@ -420,13 +434,14 @@ def all_events(
         is_override, manager_name = _parse_override(ci.entry_notes)
         is_manual     = bool(ci.entry_notes) and not is_override
 
+        ci_uk = ci.timestamp.astimezone(UK_TZ)
         entries.append({
             "id":              ci.id,
             "user_id":         ci.user_id,
             "user_name":       ci.user.full_name if ci.user else "Unknown",
-            "date":            ci.timestamp.date().isoformat(),
-            "start_time":      ci.timestamp.strftime("%H:%M"),
-            "end_time":        co.timestamp.strftime("%H:%M") if co else None,
+            "date":            ci_uk.date().isoformat(),
+            "start_time":      ci_uk.strftime("%H:%M"),
+            "end_time":        co.timestamp.astimezone(UK_TZ).strftime("%H:%M") if co else None,
             "site_id":         ci.site_id,
             "site_name":       site_name,
             "shift_minutes":   shift_minutes,
@@ -534,7 +549,7 @@ def manual_shift(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
 
     in_h, in_m = map(int, body.clock_in_time.split(':'))
-    clock_in_dt = datetime(body.date.year, body.date.month, body.date.day, in_h, in_m, tzinfo=timezone.utc)
+    clock_in_dt = _localize_uk(body.date.year, body.date.month, body.date.day, in_h, in_m)
     is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
     notes = body.entry_notes if body.entry_notes is not None else ""
 
@@ -555,7 +570,7 @@ def manual_shift(
     out_id = None
     if body.clock_out_time:
         out_h, out_m = map(int, body.clock_out_time.split(':'))
-        clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
+        clock_out_dt = _localize_uk(body.date.year, body.date.month, body.date.day, out_h, out_m)
         if body.overnight or clock_out_dt <= clock_in_dt:
             clock_out_dt += timedelta(days=1)
         shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
@@ -661,12 +676,12 @@ def edit_shift(
     if not site:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
 
-    # Resolve clock_in datetime — use provided time or keep existing
+    # Resolve clock_in datetime — use provided time (UK) or keep existing
     if body.clock_in_time:
         in_h, in_m = map(int, body.clock_in_time.split(':'))
-        clock_in_dt = datetime(body.date.year, body.date.month, body.date.day, in_h, in_m, tzinfo=timezone.utc)
+        clock_in_dt = _localize_uk(body.date.year, body.date.month, body.date.day, in_h, in_m)
     else:
-        clock_in_dt = ci.timestamp.replace(
+        clock_in_dt = ci.timestamp.astimezone(UK_TZ).replace(
             year=body.date.year, month=body.date.month, day=body.date.day
         )
 
@@ -681,28 +696,49 @@ def edit_shift(
     ci.minutes_late    = minutes_late
     ci.entry_notes     = body.entry_notes
 
+    # Flush so the co query uses the updated clock_in timestamp
+    db.flush()
+
     # Find and update the matching clock_out
     co = (
         db.query(models.ClockEvent)
         .filter(
             models.ClockEvent.user_id    == ci.user_id,
             models.ClockEvent.event_type == models.ClockEventType.clock_out,
-            models.ClockEvent.timestamp  > ci.timestamp - timedelta(hours=24),
+            models.ClockEvent.timestamp  > clock_in_dt - timedelta(hours=24),
         )
         .order_by(models.ClockEvent.timestamp.asc())
         .first()
     )
     shift_minutes = co.shift_minutes if co else None
-    if co:
-        if body.clock_out_time:
-            out_h, out_m = map(int, body.clock_out_time.split(':'))
-            clock_out_dt = datetime(body.date.year, body.date.month, body.date.day, out_h, out_m, tzinfo=timezone.utc)
-            # Auto overnight: if clock-out <= clock-in, shift crosses midnight
-            if clock_out_dt <= clock_in_dt:
-                clock_out_dt += timedelta(days=1)
-            shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+
+    if body.clock_out_time:
+        out_h, out_m = map(int, body.clock_out_time.split(':'))
+        clock_out_dt = _localize_uk(body.date.year, body.date.month, body.date.day, out_h, out_m)
+        # Auto overnight: if clock-out <= clock-in, shift crosses midnight
+        if clock_out_dt <= clock_in_dt:
+            clock_out_dt += timedelta(days=1)
+        shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+        if co:
+            # Update existing clock_out
             co.timestamp     = clock_out_dt
             co.shift_minutes = shift_minutes
+            co.site_id       = body.site_id
+            co.entry_notes   = body.entry_notes
+        else:
+            # Create new clock_out event — shift had no sign-out previously
+            new_co = models.ClockEvent(
+                organisation_id = ci.organisation_id,
+                user_id         = ci.user_id,
+                site_id         = body.site_id,
+                event_type      = models.ClockEventType.clock_out,
+                timestamp       = clock_out_dt,
+                shift_minutes   = shift_minutes,
+                entry_notes     = body.entry_notes,
+            )
+            db.add(new_co)
+    elif co:
+        # No new clock_out_time provided — just update site/notes on existing co
         co.site_id     = body.site_id
         co.entry_notes = body.entry_notes
 
@@ -844,8 +880,8 @@ def clock_in(
         if not body.manager_name or not body.manager_name.strip():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Duty Manager name is required for override")
 
-        # Use provided manual_time for the timestamp, else server time
-        now = datetime.now(timezone.utc)
+        # Use provided manual_time for the timestamp, else current UK time
+        now = _now_uk()
         if body.manual_time:
             try:
                 h, m = map(int, body.manual_time.split(':'))
@@ -921,7 +957,7 @@ def clock_in(
 
         gps_verified = True
 
-    now = datetime.now(timezone.utc)
+    now = _now_uk()
     is_late, minutes_late = _calc_lateness(body.scheduled_start, now)
 
     event = models.ClockEvent(
@@ -999,7 +1035,7 @@ def clock_out(
     if body.manager_override:
         if not body.manager_name or not body.manager_name.strip():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Duty Manager name is required for override")
-        now           = datetime.now(timezone.utc)
+        now           = _now_uk()
         shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
         override_notes = (
             f"[OVERRIDE] Manager: {body.manager_name.strip()} | "
@@ -1029,14 +1065,14 @@ def clock_out(
             "sia_expiry":      str(user.sia_expiry) if user.sia_expiry else None,
             "sia_status":      _sia_status(user.sia_expiry),
             "shift_minutes":   shift_minutes,
-            "clock_in_time":   last_in.timestamp.strftime("%H:%M"),
+            "clock_in_time":   last_in.timestamp.astimezone(UK_TZ).strftime("%H:%M"),
             "distance_metres": None,
             "is_override":     True,
             "manager_name":    body.manager_name.strip(),
         }
 
     gps_verified = _check_gps(site, body.gps_lat, body.gps_lng)
-    now = datetime.now(timezone.utc)
+    now = _now_uk()
     shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
 
     distance_metres = None

@@ -74,7 +74,7 @@ export default function StaffDashboard() {
           </div>
           <div style={{ fontSize:13, color:'#c05050', lineHeight:1.6 }}>
             Your clock-in on{' '}
-            <strong>{new Date(openClockIn.timestamp).toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long' })}</strong>
+            <strong>{new Date(openClockIn.timestamp).toLocaleDateString('en-GB', { timeZone:'Europe/London', weekday:'long', day:'2-digit', month:'long' })}</strong>
             {openClockIn.site_name ? <> at <strong>{openClockIn.site_name}</strong></> : ''} has no sign-out recorded.
             {' '}If you completed this shift, please contact your line supervisor or HR immediately to have your timesheet corrected.
             {' '}Failure to report this may affect your pay.
@@ -139,7 +139,7 @@ export default function StaffDashboard() {
         <div style={{ fontSize: 16, fontWeight: 700, color: isClocked ? '#fff' : '#1a2a1a' }}>
           {clockData === null ? '…'
             : isClocked
-              ? `Clocked in · ${new Date(openClockIn.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+              ? `Clocked in · ${new Date(openClockIn.timestamp).toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' })}`
               : 'Not clocked in'}
         </div>
         {isClocked && openClockIn?.site_name && (
