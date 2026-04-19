@@ -87,11 +87,13 @@ export default function ClockPage() {
   const [gpsCoords,  setGpsCoords]  = useState(null)
   const [distance,   setDistance]   = useState(null)
   const [form,       setForm]       = useState({ staffId: '', fullName: '', scheduledStart: '' })
+  const [formMode,   setFormMode]   = useState('in')   // 'in' | 'out'
   const [submitting, setSubmitting] = useState(false)
   const [formError,  setFormError]  = useState('')
   const [result,     setResult]     = useState(null)
   const [action,     setAction]     = useState('in')
   const [tick,       setTick]       = useState(new Date())
+  const [pageLoadTime]              = useState(() => new Date())
 
   // Manager override state
   const [overrideAction, setOverrideAction] = useState('in')
@@ -164,7 +166,7 @@ export default function ClockPage() {
       setFormError('Please enter both your full name and staff ID.')
       return
     }
-    if (!form.scheduledStart) {
+    if (targetAction === 'in' && !form.scheduledStart) {
       setFormError('Please enter your scheduled start time.')
       return
     }
@@ -178,7 +180,7 @@ export default function ClockPage() {
         full_name:       form.fullName.trim(),
         gps_lat:         gpsCoords?.lat ?? null,
         gps_lng:         gpsCoords?.lng ?? null,
-        scheduled_start: form.scheduledStart || null,
+        scheduled_start: targetAction === 'in' ? (form.scheduledStart || null) : null,
       }
       const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
         method: 'POST',
@@ -262,6 +264,7 @@ export default function ClockPage() {
 
   function reset() {
     setForm({ staffId: '', fullName: '', scheduledStart: '' })
+    setFormMode('in')
     setFormError('')
     setAction('in')
     setResult(null)
@@ -590,56 +593,86 @@ export default function ClockPage() {
   // ── FORM ──────────────────────────────────────────────────────────────────
 
   if (phase === 'form') {
+    const isIn = formMode === 'in'
+
+    // Header colours
+    const topBarBg  = isIn ? '#1B5E20' : '#B71C1C'
+    const headerBg  = isIn ? '#2E7D32' : '#C62828'
+    const accent    = isIn ? '#69F0AE' : '#FF8A80'
+
+    // Lateness (clock-in only)
     const nowMins   = tick.getHours() * 60 + tick.getMinutes()
     const schedMins = form.scheduledStart
       ? Number(form.scheduledStart.split(':')[0]) * 60 + Number(form.scheduledStart.split(':')[1])
       : null
     const minsLate  = schedMins != null ? nowMins - schedMins : null
 
+    // Elapsed timer since page load (clock-out display)
+    const elapsedSec  = Math.floor((tick - pageLoadTime) / 1000)
+    const elapsedH    = Math.floor(elapsedSec / 3600)
+    const elapsedM    = Math.floor((elapsedSec % 3600) / 60)
+    const elapsedDisp = `${String(elapsedH).padStart(2, '0')}h ${String(elapsedM).padStart(2, '0')}m`
+
     const fieldLabel = {
-      display: 'block', fontSize: 11, fontWeight: 700, color: '#5a7a5a',
-      textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6,
+      display: 'block', fontSize: 12, fontWeight: 700,
+      color: '#1a2a1a', marginBottom: 6,
     }
     const fieldInput = {
       width: '100%', padding: '13px 14px', fontSize: 15, borderRadius: 8,
-      border: '1px solid #d8e8d8', outline: 'none', background: '#fff',
+      border: '1.5px solid #d0d0d0', outline: 'none', background: '#fff',
       fontFamily: 'DM Sans, sans-serif', boxSizing: 'border-box', color: '#1a2a1a',
     }
 
     return (
-      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, system-ui, sans-serif', background: '#f0f4f0' }}>
+      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, system-ui, sans-serif', background: '#f4f4f4' }}>
 
-        {/* Green header */}
-        <div style={{ background: '#1B5E20', flex: '0 0 auto' }}>
+        {/* Coloured header */}
+        <div style={{ background: headerBg, flex: '0 0 auto' }}>
 
           {/* Top bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#69F0AE', flexShrink: 0 }} />
+          <div style={{ background: topBarBg, display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: accent, flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontFamily: 'DM Mono, monospace' }}>
               portal.ikanfm.co.uk
             </span>
           </div>
 
           {/* Shield + site info */}
-          <div style={{ padding: '24px 20px 32px', textAlign: 'center' }}>
+          <div style={{ padding: '20px 20px 32px', textAlign: 'center' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 64, height: 64, borderRadius: 16,
-              background: 'rgba(105,240,174,.15)', border: '1px solid rgba(105,240,174,.3)',
-              fontSize: 30, marginBottom: 16,
+              width: 56, height: 56, borderRadius: 14,
+              background: 'rgba(255,255,255,.15)', border: `1px solid rgba(255,255,255,.3)`,
+              fontSize: 26, marginBottom: 14,
             }}>🛡</div>
 
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#69F0AE', marginBottom: 8 }}>
-              CLOCKING IN AT
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: accent, marginBottom: 6 }}>
+              {isIn ? 'CLOCKING IN AT' : 'CLOCKING OUT AT'}
             </div>
 
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', lineHeight: 1.2, marginBottom: 6 }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', lineHeight: 1.2, marginBottom: 4 }}>
               {siteInfo?.site_name}
             </div>
 
             {siteInfo?.site_address && (
-              <div style={{ fontSize: 13, color: 'rgba(105,240,174,.7)', lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', lineHeight: 1.4 }}>
                 {siteInfo.site_address}
+              </div>
+            )}
+
+            {/* Elapsed timer — clock-out mode only */}
+            {!isIn && (
+              <div style={{
+                display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
+                marginTop: 16, background: 'rgba(0,0,0,.25)', borderRadius: 12,
+                padding: '12px 28px', border: '1px solid rgba(255,255,255,.15)',
+              }}>
+                <div style={{ fontSize: 32, fontWeight: 900, fontFamily: 'DM Mono, monospace', color: '#fff', letterSpacing: '.06em' }}>
+                  {elapsedDisp}
+                </div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', marginTop: 4 }}>
+                  Time on shift
+                </div>
               </div>
             )}
           </div>
@@ -648,13 +681,46 @@ export default function ClockPage() {
         {/* White card — rounded top corners */}
         <div style={{
           flex: 1, background: '#fff', borderRadius: '20px 20px 0 0',
-          marginTop: -16, padding: '28px 20px 32px',
+          marginTop: -16, padding: '24px 20px 32px',
           overflowY: 'auto',
         }}>
 
-          {/* Fields */}
+          {/* Mode toggle tabs */}
+          <div style={{
+            display: 'flex', borderRadius: 10, overflow: 'hidden',
+            border: '1.5px solid #e0e0e0', marginBottom: 20,
+          }}>
+            {[['in', 'CLOCK IN', '#2E7D32'], ['out', 'CLOCK OUT', '#C62828']].map(([mode, label, col]) => (
+              <button
+                key={mode}
+                onClick={() => { setFormMode(mode); setFormError('') }}
+                style={{
+                  flex: 1, padding: '12px 0', fontSize: 13, fontWeight: 700,
+                  border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                  background: formMode === mode ? col : '#f9f9f9',
+                  color: formMode === mode ? '#fff' : '#999',
+                  transition: 'all .15s',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Info bar — clock-in only */}
+          {isIn && (
+            <div style={{
+              background: '#E8F5E9', border: '1px solid #A5D6A7', borderRadius: 8,
+              padding: '10px 14px', fontSize: 13, color: '#2E7D32', fontWeight: 600,
+              marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              ✓ All fields below are required to clock in
+            </div>
+          )}
+
+          {/* Full Name */}
           <div style={{ marginBottom: 16 }}>
-            <label style={fieldLabel}>Full Name</label>
+            <label style={fieldLabel}>Full Name <span style={{ color: '#C62828' }}>*</span></label>
             <input
               type="text" inputMode="text" autoComplete="name" placeholder="e.g. John Smith"
               value={form.fullName}
@@ -663,37 +729,47 @@ export default function ClockPage() {
             />
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={fieldLabel}>Staff ID</label>
+          {/* Staff ID */}
+          <div style={{ marginBottom: isIn ? 16 : 20 }}>
+            <label style={fieldLabel}>Staff ID <span style={{ color: '#C62828' }}>*</span></label>
             <input
               type="text" inputMode="text" autoCapitalize="none" placeholder="e.g. IFM-045"
               value={form.staffId}
               onChange={e => setForm(f => ({ ...f, staffId: e.target.value }))}
-              style={{ ...fieldInput, fontFamily: 'DM Mono, monospace', fontSize: 18, letterSpacing: '.08em', textTransform: 'uppercase' }}
+              style={{ ...fieldInput, fontFamily: 'DM Mono, monospace', fontSize: 17, letterSpacing: '.06em' }}
             />
           </div>
 
-          <div style={{ marginBottom: 20 }}>
-            <label style={fieldLabel}>Scheduled start time</label>
-            <input
-              type="time"
-              value={form.scheduledStart}
-              onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
-              style={{ ...fieldInput, fontFamily: 'DM Mono, monospace', fontSize: 17 }}
-            />
-            {minsLate != null && minsLate > 0 && (
-              <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#fde8e8', border: '1px solid #f0aaaa', fontSize: 13, color: '#a02020', fontWeight: 700 }}>
-                ⚠️ You are {minsLate} minute{minsLate !== 1 ? 's' : ''} late
-              </div>
-            )}
-            {minsLate != null && minsLate <= 0 && (
-              <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#E8F5E9', border: '1px solid #A5D6A7', fontSize: 13, color: '#2E7D32', fontWeight: 700 }}>
-                ✅ On time
-              </div>
-            )}
-          </div>
+          {/* Scheduled Start — clock-in only */}
+          {isIn && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ ...fieldLabel, color: '#1B5E20', fontWeight: 800, fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>
+                What time was your shift scheduled to start? <span style={{ color: '#C62828' }}>*</span>
+              </label>
+              <input
+                type="time"
+                value={form.scheduledStart}
+                onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
+                style={{
+                  ...fieldInput,
+                  fontFamily: 'DM Mono, monospace', fontSize: 17,
+                  border: '1.5px solid #2E7D32', background: '#f0f9f0',
+                }}
+              />
+              {minsLate != null && minsLate > 0 && (
+                <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#fde8e8', border: '1px solid #f0aaaa', fontSize: 13, color: '#a02020', fontWeight: 700 }}>
+                  ⚠️ You are {minsLate} minute{minsLate !== 1 ? 's' : ''} late
+                </div>
+              )}
+              {minsLate != null && minsLate <= 0 && (
+                <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#E8F5E9', border: '1px solid #A5D6A7', fontSize: 13, color: '#2E7D32', fontWeight: 700 }}>
+                  ✅ On time
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Error message */}
+          {/* Error */}
           {formError && (
             <div style={{
               background: '#fde8e8', border: '1px solid #f0aaaa', borderRadius: 8,
@@ -704,17 +780,17 @@ export default function ClockPage() {
             </div>
           )}
 
-          {/* Buttons */}
+          {/* Action buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button
               onClick={() => submit('in')}
               disabled={submitting}
               style={{
-                width: '100%', padding: '16px', fontSize: 16, fontWeight: 500,
+                width: '100%', padding: '16px', fontSize: 15, fontWeight: 700,
                 borderRadius: 8, border: 'none',
                 background: submitting && action === 'in' ? '#aaa' : '#2E7D32',
                 color: '#fff', cursor: submitting ? 'wait' : 'pointer',
-                fontFamily: 'DM Sans, sans-serif',
+                fontFamily: 'DM Sans, sans-serif', letterSpacing: '.04em',
               }}
             >
               {submitting && action === 'in' ? '…' : 'CLOCK IN'}
@@ -724,11 +800,11 @@ export default function ClockPage() {
               onClick={() => submit('out')}
               disabled={submitting}
               style={{
-                width: '100%', padding: '16px', fontSize: 16, fontWeight: 500,
+                width: '100%', padding: '16px', fontSize: 15, fontWeight: 700,
                 borderRadius: 8, border: 'none',
                 background: submitting && action === 'out' ? '#aaa' : '#C62828',
                 color: '#fff', cursor: submitting ? 'wait' : 'pointer',
-                fontFamily: 'DM Sans, sans-serif',
+                fontFamily: 'DM Sans, sans-serif', letterSpacing: '.04em',
               }}
             >
               {submitting && action === 'out' ? '…' : 'CLOCK OUT'}
@@ -738,9 +814,9 @@ export default function ClockPage() {
               <button
                 onClick={() => openOverride('in')}
                 style={{
-                  flex: 1, padding: '12px', fontSize: 12, fontWeight: 600,
-                  borderRadius: 8, border: '0.5px solid #FFD54F',
-                  background: '#FFECB3', color: '#6D4C00',
+                  flex: 1, padding: '11px', fontSize: 11, fontWeight: 700,
+                  borderRadius: 8, border: '1px solid #FFD54F',
+                  background: '#FFF8E1', color: '#6D4C00',
                   cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
                 }}
               >
@@ -749,9 +825,9 @@ export default function ClockPage() {
               <button
                 onClick={() => openOverride('out')}
                 style={{
-                  flex: 1, padding: '12px', fontSize: 12, fontWeight: 600,
-                  borderRadius: 8, border: '0.5px solid #FFD54F',
-                  background: '#FFECB3', color: '#6D4C00',
+                  flex: 1, padding: '11px', fontSize: 11, fontWeight: 700,
+                  borderRadius: 8, border: '1px solid #FFD54F',
+                  background: '#FFF8E1', color: '#6D4C00',
                   cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
                 }}
               >
@@ -761,7 +837,7 @@ export default function ClockPage() {
           </div>
 
           {/* Server time */}
-          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: '#9aaa9a', fontFamily: 'DM Mono, monospace' }}>
+          <div style={{ textAlign: 'center', marginTop: 22, fontSize: 12, color: '#b0b0b0', fontFamily: 'DM Mono, monospace' }}>
             {timeStr}
           </div>
         </div>
