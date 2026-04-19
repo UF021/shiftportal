@@ -232,14 +232,16 @@ export default function ClockPage() {
           manual_time:     overrideForm.clockTime || null,
         } : {}),
       }
+      console.log('[Override] submitting to', `${BASE}/clock/${slug}/${siteCode}/${endpoint}`, body)
       const r    = await fetch(`${BASE}/clock/${slug}/${siteCode}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       const data = await r.json()
+      console.log('[Override] response', r.status, data)
       if (!r.ok) {
-        setOverrideError(data.detail || 'Override failed. Please check the authorisation code.')
+        setOverrideError(data.detail || 'Override failed. Please try again.')
       } else {
         setResult({
           ...data,

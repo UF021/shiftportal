@@ -817,9 +817,10 @@ def clock_in(
     ip = request.client.host if request.client else None
 
     # ── Staff ID lookup (with failure recording) ──────────────────────────────
+    from sqlalchemy import func as sqlfunc
     user = db.query(models.User).filter(
         models.User.organisation_id == org.id,
-        models.User.staff_id        == body.staff_id.strip().upper(),
+        sqlfunc.lower(models.User.staff_id) == body.staff_id.strip().lower(),
     ).first()
     if not user:
         _record_failure(db, org.id, None, body.staff_id, site.id, 'id_not_found', body.gps_lat, body.gps_lng, None, ip)
@@ -869,7 +870,6 @@ def clock_in(
             gps_lat         = None,
             gps_lng         = None,
             gps_verified    = False,
-            clocked_via_qr  = False,
             entry_notes     = override_notes,
         )
         db.add(event)
