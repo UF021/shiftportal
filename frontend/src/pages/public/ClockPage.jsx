@@ -149,7 +149,11 @@ export default function ClockPage() {
   function openOverride(targetAction) {
     setOverrideAction(targetAction)
     setOverrideError('')
-    setOverrideForm(f => ({ ...f, clockTime: nowHHMM() }))
+    setOverrideForm(f => ({
+      ...f,
+      clockTime:      nowHHMM(),
+      scheduledStart: form.scheduledStart || f.scheduledStart,
+    }))
     setPhase('override')
   }
 
