@@ -86,7 +86,7 @@ export default function LoginPage() {
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4a6a4a', cursor: 'pointer' }}>
               <input type="checkbox" style={{ accentColor: c }} /> Remember me
             </label>
-            <a href="#" style={{ fontSize: 13, color: c, textDecoration: 'none' }}>Forgot Password?</a>
+            <Link to={`/forgot-password/${effectiveSlug}`} style={{ fontSize: 13, color: c, textDecoration: 'none' }}>Forgot Password?</Link>
           </div>
 
           {err && (

@@ -32,7 +32,9 @@ export default function HRManualShift() {
   const [form,   setForm]   = useState({
     user_id: '', site_id: '', date: '',
     clock_in_time: '09:00',
+    clock_out_time: '',
     scheduled_start: '09:00',
+    overnight: false,
     entry_notes: '',
   })
   const [busy, setBusy] = useState(false)
@@ -54,6 +56,17 @@ export default function HRManualShift() {
     return Math.max(0, (ih * 60 + im) - (sh * 60 + sm))
   })()
 
+  // Shift duration preview
+  const shiftDuration = (() => {
+    if (!form.clock_in_time || !form.clock_out_time) return null
+    const [ih, im] = form.clock_in_time.split(':').map(Number)
+    const [oh, om] = form.clock_out_time.split(':').map(Number)
+    let mins = (oh * 60 + om) - (ih * 60 + im)
+    if (form.overnight || mins <= 0) mins += 1440  // +24h
+    if (mins <= 0) return null
+    return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
+  })()
+
   async function submit() {
     setErr(''); setOk('')
     if (!form.user_id || !form.site_id || !form.date)
@@ -65,11 +78,13 @@ export default function HRManualShift() {
         site_id:         parseInt(form.site_id),
         date:            form.date,
         clock_in_time:   form.clock_in_time,
+        clock_out_time:  form.clock_out_time || null,
         scheduled_start: form.scheduled_start || null,
+        overnight:       form.overnight,
         entry_notes:     form.entry_notes || null,
       })
-      setOk('✅ Clock-in entry created successfully.')
-      setForm(f => ({ ...f, user_id: '', site_id: '', date: '', entry_notes: '' }))
+      setOk('✅ Shift entry created successfully.')
+      setForm(f => ({ ...f, user_id: '', site_id: '', date: '', clock_out_time: '', overnight: false, entry_notes: '' }))
     } catch(ex) { setErr(ex.response?.data?.detail || 'Failed to create entry.') }
     finally { setBusy(false) }
   }
@@ -122,6 +137,24 @@ export default function HRManualShift() {
           </div>
         )}
 
+        <TimeField label="Clock Out Time (optional)" value={form.clock_out_time} onChange={v => setField('clock_out_time', v)} />
+
+        {form.clock_out_time && (
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+            <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--text-muted)', cursor:'pointer' }}>
+              <input type="checkbox" checked={form.overnight} onChange={e => setField('overnight', e.target.checked)}
+                style={{ accentColor:'var(--brand,#6abf3f)', width:16, height:16 }} />
+              Overnight shift (clock-out is next day)
+            </label>
+          </div>
+        )}
+
+        {shiftDuration && (
+          <div style={{ background:'rgba(106,191,63,.1)', border:'1px solid rgba(106,191,63,.3)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--text)', marginBottom:16 }}>
+            ⏱ Shift duration: <strong style={{ fontFamily:'DM Mono,monospace' }}>{shiftDuration}</strong>
+          </div>
+        )}
+
         <F label="Reason / Notes">
           <textarea value={form.entry_notes} onChange={e => setField('entry_notes', e.target.value)} rows={3}
             placeholder="e.g. QR scanner offline, system backup entry, card reader fault…"
@@ -132,11 +165,13 @@ export default function HRManualShift() {
         {ok  && <div className="alert alert-green" style={{ marginBottom:12 }}>{ok}</div>}
 
         <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px', fontSize:12, color:'var(--text-muted)', marginBottom:16 }}>
-          ℹ Creates a clock-in event. Staff must clock out via QR code or a separate manual entry.
+          ℹ {form.clock_out_time
+            ? 'Creates a complete shift record with clock-in and clock-out times.'
+            : 'Creates a clock-in event. Staff must clock out via QR code or a separate manual entry.'}
         </div>
 
         <button onClick={submit} disabled={busy} className="btn btn-brand btn-full btn-lg">
-          {busy ? 'Creating…' : '✏ Create Clock-In Entry'}
+          {busy ? 'Creating…' : form.clock_out_time ? '✏ Create Full Shift Entry' : '✏ Create Clock-In Entry'}
         </button>
       </div>
     </>

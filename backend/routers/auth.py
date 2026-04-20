@@ -1,13 +1,30 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from typing import Optional
+import uuid
 
 from database import get_db
 from schemas import LoginRequest, TokenOut, RegisterRequest, UserProfile
 from auth_utils import verify_password, hash_password, create_token, get_current_user
 import models
+from pydantic import BaseModel
 
 router = APIRouter()
+
+# ── In-memory reset token store { token: { user_id, expires_at, attempts } } ──
+_reset_tokens: dict = {}
+
+
+class VerifyIdentityRequest(BaseModel):
+    email: str
+    date_of_birth: str   # YYYY-MM-DD
+    org_slug: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 
 @router.post("/login", response_model=TokenOut)
@@ -177,6 +194,61 @@ def get_pre_registration(token: str, db: Session = Depends(get_db)):
         "nok_phone":      rec.nok_phone,
         "staff_id":       rec.staff_id,
     }
+
+
+@router.post("/verify-identity")
+def verify_identity(req: VerifyIdentityRequest, db: Session = Depends(get_db)):
+    """Step 1 of forgot-password: verify email + DOB, return a short-lived token."""
+    org = db.query(models.Organisation).filter(
+        models.Organisation.slug == req.org_slug,
+        models.Organisation.is_active == True,
+    ).first()
+    if not org:
+        raise HTTPException(404, "Organisation not found")
+
+    user = db.query(models.User).filter(
+        models.User.email == req.email.lower(),
+        models.User.organisation_id == org.id,
+        models.User.is_active == True,
+    ).first()
+
+    # Generic message prevents email enumeration
+    if not user or not user.date_of_birth:
+        raise HTTPException(400, "We could not verify your identity. Please check your details and try again.")
+
+    dob_str = str(user.date_of_birth)  # YYYY-MM-DD
+    if dob_str != req.date_of_birth.strip():
+        raise HTTPException(400, "We could not verify your identity. Please check your details and try again.")
+
+    token = str(uuid.uuid4())
+    _reset_tokens[token] = {
+        "user_id":    user.id,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=15),
+    }
+    return {"reset_token": token}
+
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Step 2 of forgot-password: set new password using the verified token."""
+    entry = _reset_tokens.get(req.token)
+    if not entry:
+        raise HTTPException(400, "Reset link is invalid or has expired.")
+    if datetime.now(timezone.utc) > entry["expires_at"]:
+        _reset_tokens.pop(req.token, None)
+        raise HTTPException(400, "Reset link has expired. Please start again.")
+
+    if len(req.new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
+
+    user = db.query(models.User).filter(models.User.id == entry["user_id"]).first()
+    if not user:
+        raise HTTPException(400, "User not found.")
+
+    user.hashed_password = hash_password(req.new_password)
+    db.commit()
+    _reset_tokens.pop(req.token, None)
+    return {"message": "Password updated successfully. You can now sign in."}
 
 
 @router.get("/org/{slug}")

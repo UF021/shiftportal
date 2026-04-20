@@ -28,7 +28,9 @@ export default api
 export const login        = (email, password) => api.post('/auth/login', { email, password })
 export const register     = data              => api.post('/auth/register', data)
 export const getMe        = ()               => api.get('/auth/me')
-export const getOrgPublic = slug             => api.get(`/auth/org/${slug}`)
+export const getOrgPublic    = slug             => api.get(`/auth/org/${slug}`)
+export const verifyIdentity  = data             => api.post('/auth/verify-identity', data)
+export const resetPassword   = data             => api.post('/auth/reset-password', data)
 
 // Staff
 export const getAllStaff      = ()           => api.get('/staff/all')
