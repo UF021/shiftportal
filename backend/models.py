@@ -407,6 +407,7 @@ class JobApplication(Base):
     immigration_doc_filename = Column(String(200), nullable=True)
 
     # Work details
+    area_of_employment       = Column(String(300), nullable=True)
     commute_method           = Column(String(200), nullable=False)
     employment_history       = Column(Text, nullable=False)
 

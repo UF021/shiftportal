@@ -18,7 +18,7 @@ const TITLES    = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Other']
 const COMMUTES  = ['Own transport — car/motorbike', 'Public transport', 'Walk / cycle', 'Other']
 
 const EMPTY = {
-  title: 'Mr', first_name: '', last_name: '', date_of_birth: '',
+  title: 'Mr', first_name: '', last_name: '', area_of_employment: '', date_of_birth: '',
   email: '', phone: '', address: '',
   ni_number: '', sia_licence: '', sia_expiry: '', commute_method: '',
   employment_history: '',
@@ -96,6 +96,17 @@ export default function ApplyPage() {
   const [busy,    setBusy]    = useState(false)
   const [done,    setDone]    = useState(null)   // { application_id, reference }
 
+  // CAPTCHA state for final step
+  const [captchaA,   setCaptchaA]   = useState(() => Math.floor(Math.random() * 12) + 1)
+  const [captchaB,   setCaptchaB]   = useState(() => Math.floor(Math.random() * 12) + 1)
+  const [captchaAns, setCaptchaAns] = useState('')
+
+  function refreshCaptcha() {
+    setCaptchaA(Math.floor(Math.random() * 12) + 1)
+    setCaptchaB(Math.floor(Math.random() * 12) + 1)
+    setCaptchaAns('')
+  }
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   function handleSia(e) {
@@ -107,8 +118,8 @@ export default function ApplyPage() {
   function validate() {
     setErr('')
     if (step === 0) {
-      const { title, first_name, last_name, date_of_birth, email, phone, address } = form
-      if (!title || !first_name || !last_name || !date_of_birth || !email || !phone || !address)
+      const { title, first_name, last_name, area_of_employment, date_of_birth, email, phone, address } = form
+      if (!title || !first_name || !last_name || !area_of_employment || !date_of_birth || !email || !phone || !address)
         return setErr('Please fill in all fields.'), false
     }
     if (step === 1) {
@@ -142,6 +153,11 @@ export default function ApplyPage() {
         return setErr('Please confirm that all information provided is accurate.'), false
       if (!form.consent_references)
         return setErr('Please confirm consent to contact previous employers for references.'), false
+      const ans = parseInt(captchaAns, 10)
+      if (isNaN(ans) || ans !== captchaA + captchaB) {
+        refreshCaptcha()
+        return setErr('Incorrect answer to the security question. Please try again.'), false
+      }
     }
     return true
   }
@@ -220,6 +236,17 @@ export default function ApplyPage() {
             <FInput label="First Name *" value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="First name(s)" />
           </div>
           <FInput label="Last Name *" value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Last name" />
+          <div style={{ marginBottom:16 }}>
+            <Lbl>In which area do you seek employment? *</Lbl>
+            <input
+              type="text"
+              value={form.area_of_employment}
+              onChange={e => set('area_of_employment', e.target.value)}
+              placeholder="e.g. London, Manchester, Scotland, Wales…"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', boxSizing:'border-box' }}
+            />
+            <div style={{ fontSize:11, color:'#8a9a8a', marginTop:4 }}>Enter the region or city where you would like to work</div>
+          </div>
           <FInput label="Date of Birth *" type="date" value={form.date_of_birth} onChange={e => set('date_of_birth', e.target.value)} />
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <FInput label="Email Address *" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" />
@@ -336,6 +363,31 @@ export default function ApplyPage() {
                 <span style={{ fontSize:13, lineHeight:1.6, color:'#1a2a1a' }}>{label}</span>
               </div>
             ))}
+          </div>
+
+          {/* Human verification */}
+          <div style={{ marginTop:20, background:'#f0f8f0', border:'1.5px solid #c0e0c0', borderRadius:10, padding:'16px 18px' }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'#2e7d32', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:10 }}>
+              🔒 Security Check — confirm you are human
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
+              <span style={{ fontSize:15, color:'#1a2a1a', fontWeight:600 }}>
+                What is {captchaA} + {captchaB}?
+              </span>
+              <input
+                type="number"
+                value={captchaAns}
+                onChange={e => setCaptchaAns(e.target.value)}
+                placeholder="?"
+                min={0} max={99}
+                style={{
+                  width:72, padding:'10px 12px', borderRadius:8,
+                  border:'1.5px solid #b0d0b0', background:'#fff',
+                  fontFamily:'DM Mono,monospace', fontSize:16, fontWeight:700,
+                  textAlign:'center', outline:'none', boxSizing:'border-box',
+                }}
+              />
+            </div>
           </div>
         </>}
 

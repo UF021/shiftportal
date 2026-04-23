@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Ikan Facilities Management Ltd — Specialist manned security and physical risk management for the cinema industry across England, Scotland, and Wales.">
+<meta name="keywords" content="manned security, cinema security, physical risk management, SIA, security guards, UK">
+<title>Ikan Facilities Management Ltd</title>
+
+<!-- Favicon — geometric mark in brand green -->
+<link rel="icon" type="image/png" href="https://www.ikanfm.co.uk/wp-content/uploads/2018/02/Ikan-Logo.png">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green:     #6abf3f;
+    --green-d:   #4a9a25;
+    --green-dim: rgba(106,191,63,.12);
+    --navy:      #0f1a0f;
+    --navy2:     #162216;
+    --dark:      #1a1a1a;
+    --text:      #1a2a1a;
+    --muted:     #5a6e5a;
+    --border:    #d8e8d0;
+    --light:     #f4f8f2;
+    --white:     #ffffff;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: var(--white);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ─── TOPBAR ─────────────────────────────── */
+  .topbar {
+    background: var(--navy);
+    color: rgba(255,255,255,.6);
+    font-size: 12px;
+    padding: 8px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .topbar a { color: var(--green); text-decoration: none; }
+
+  /* ─── NAV ────────────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 200;
+    background: rgba(255,255,255,.97);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72px;
+    box-shadow: 0 1px 12px rgba(0,0,0,.06);
+  }
+  .logo {
+    display: flex; align-items: center;
+    text-decoration: none; cursor: pointer;
+  }
+  .nav-links {
+    display: flex; align-items: center; gap: 32px;
+  }
+  .nav-links a {
+    font-size: 14px; font-weight: 500; color: var(--muted);
+    text-decoration: none; transition: color .2s;
+    position: relative;
+  }
+  .nav-links a::after {
+    content: ''; position: absolute; bottom: -4px; left: 0; right: 0;
+    height: 2px; background: var(--green); border-radius: 2px;
+    transform: scaleX(0); transition: transform .2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-links a:hover::after, .nav-links a.active::after { transform: scaleX(1); }
+  .nav-links a.active { color: var(--text); font-weight: 600; }
+  .nav-portal {
+    background: var(--green); color: #fff;
+    padding: 9px 20px; border-radius: 8px;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    transition: background .2s, transform .2s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .nav-portal:hover { background: var(--green-d); transform: translateY(-1px); }
+  .hamburger {
+    display: none; flex-direction: column; gap: 5px;
+    cursor: pointer; padding: 6px; background: none; border: none;
+  }
+  .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: all .25s; }
+  .mobile-drawer {
+    display: none; position: fixed; top: 72px; left: 0; right: 0;
+    background: var(--white); border-bottom: 1px solid var(--border);
+    padding: 12px 24px 24px; z-index: 199; flex-direction: column; gap: 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,.1);
+  }
+  .mobile-drawer.open { display: flex; }
+  .mobile-drawer a {
+    display: block; font-size: 16px; color: var(--text); text-decoration: none;
+    padding: 14px 0; border-bottom: 1px solid var(--border); font-weight: 500;
+  }
+  .mobile-drawer a:last-child { border-bottom: none; }
+  .mobile-drawer .nav-portal { margin-top: 16px; text-align: center; justify-content: center; }
+
+  /* ─── PAGE SYSTEM ────────────────────────── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ─── HERO ───────────────────────────────── */
+  .hero {
+    position: relative; overflow: hidden;
+    min-height: 92vh;
+    display: flex; align-items: center;
+    background: var(--navy);
+  }
+  .hero-bg {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(135deg, rgba(15,26,15,.97) 0%, rgba(15,26,15,.8) 60%, rgba(106,191,63,.15) 100%),
+      url('https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600&q=80') center/cover no-repeat;
+  }
+  .hero-geo {
+    position: absolute; right: -80px; top: 50%; transform: translateY(-50%);
+    opacity: .06;
+  }
+  .hero-content {
+    position: relative; z-index: 2;
+    padding: 80px 40px 80px;
+    max-width: 760px;
+  }
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(106,191,63,.15); border: 1px solid rgba(106,191,63,.35);
+    color: var(--green); font-size: 12px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: 6px 14px; border-radius: 30px; margin-bottom: 24px;
+  }
+  .hero-eyebrow::before { content: '●'; font-size: 8px; }
+  .hero h1 {
+    font-size: clamp(36px, 5.5vw, 66px);
+    font-weight: 900; line-height: 1.05; letter-spacing: -.03em;
+    color: #fff; margin-bottom: 22px;
+  }
+  .hero h1 em { font-style: normal; color: var(--green); }
+  .hero-sub {
+    font-size: 18px; color: rgba(255,255,255,.65);
+    max-width: 560px; line-height: 1.7; margin-bottom: 36px;
+  }
+  .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn-green {
+    background: var(--green); color: #fff; border: none; border-radius: 8px;
+    padding: 14px 28px; font-size: 15px; font-weight: 700;
+    text-decoration: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .2s, transform .2s;
+    box-shadow: 0 4px 20px rgba(106,191,63,.35);
+  }
+  .btn-green:hover { background: var(--green-d); transform: translateY(-2px); }
+  .btn-ghost {
+    background: transparent; color: rgba(255,255,255,.8);
+    border: 1px solid rgba(255,255,255,.25); border-radius: 8px;
+    padding: 14px 28px; font-size: 15px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: all .2s;
+  }
+  .btn-ghost:hover { border-color: rgba(255,255,255,.6); color: #fff; }
+
+  /* Hero stats */
+  .hero-stats {
+    display: flex; gap: 0; margin-top: 56px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px; overflow: hidden;
+    background: rgba(255,255,255,.04); backdrop-filter: blur(8px);
+    max-width: 520px;
+  }
+  .hs-cell {
+    flex: 1; padding: 20px 16px; text-align: center;
+    border-right: 1px solid rgba(255,255,255,.1);
+  }
+  .hs-cell:last-child { border-right: none; }
+  .hs-num { font-size: 26px; font-weight: 800; color: var(--green); font-family: 'Courier New', monospace; }
+  .hs-lbl { font-size: 10px; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
+
+  /* ─── TRUST STRIP ────────────────────────── */
+  .trust-strip {
+    background: var(--light); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    padding: 28px 40px;
+    display: flex; align-items: center; justify-content: center; gap: 48px; flex-wrap: wrap;
+  }
+  .trust-item {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; color: var(--muted);
+  }
+  .trust-item .ti-icon { font-size: 20px; }
+  .trust-item .ti-label span { display: block; font-size: 11px; font-weight: 400; color: #9aaa9a; }
+
+  /* ─── SECTIONS ───────────────────────────── */
+  .section { padding: 88px 40px; max-width: 1100px; margin: 0 auto; }
+  .section-full { padding: 88px 0; }
+  .eyebrow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--green); margin-bottom: 8px; }
+  .section-heading { font-size: clamp(28px, 4vw, 42px); font-weight: 800; letter-spacing: -.02em; color: var(--navy); margin-bottom: 14px; line-height: 1.15; }
+  .section-sub { font-size: 16px; color: var(--muted); max-width: 600px; line-height: 1.7; margin-bottom: 48px; }
+  .divider { height: 1px; background: var(--border); margin: 0 40px; }
+
+  /* ─── SERVICES GRID ──────────────────────── */
+  .services-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .service-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px;
+    transition: border-color .25s, transform .25s, box-shadow .25s;
+  }
+  .service-card:hover {
+    border-color: var(--green); transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(106,191,63,.12);
+  }
+  .sc-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: var(--green-dim); border: 1px solid rgba(106,191,63,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; margin-bottom: 16px;
+  }
+  .service-card h3 { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+  .service-card p  { font-size: 13px; color: var(--muted); line-height: 1.65; }
+
+  /* ─── ABOUT SPLIT ────────────────────────── */
+  .about-split {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+  }
+  .about-img {
+    border-radius: 20px; overflow: hidden;
+    position: relative; aspect-ratio: 4/3;
+    box-shadow: 0 16px 64px rgba(0,0,0,.12);
+  }
+  .about-img img { width: 100%; height: 100%; object-fit: cover; }
+  .about-img::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
+    background: linear-gradient(to top, rgba(15,26,15,.7), transparent);
+    border-radius: 0 0 20px 20px;
+  }
+  .about-badge {
+    position: absolute; bottom: 20px; left: 20px; z-index: 1;
+    background: rgba(106,191,63,.95); color: #fff;
+    font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 8px;
+  }
+  .about-text { }
+  .about-text p { font-size: 15px; color: #3a4e3a; line-height: 1.8; margin-bottom: 18px; }
+  .about-highlights { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+  .ah-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px 16px;
+    background: var(--light); border-radius: 10px; border: 1px solid var(--border);
+  }
+  .ah-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .ah-item h4 { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
+  .ah-item p  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ─── COVERAGE ───────────────────────────── */
+  .coverage-strip {
+    background: var(--navy);
+    padding: 64px 40px; text-align: center;
+  }
+  .coverage-strip h2 { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+  .coverage-strip p  { font-size: 15px; color: rgba(255,255,255,.55); margin-bottom: 40px; }
+  .nations-row { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
+  .nation-card {
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 14px; padding: 24px 32px; text-align: center; min-width: 160px;
+    transition: background .25s, border-color .25s;
+  }
+  .nation-card:hover { background: rgba(106,191,63,.12); border-color: rgba(106,191,63,.4); }
+  .nation-flag { font-size: 36px; margin-bottom: 10px; }
+  .nation-name { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .nation-cities { font-size: 12px; color: rgba(255,255,255,.45); line-height: 1.5; }
+
+  /* ─── CONTACT ────────────────────────────── */
+  .contact-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 48px; align-items: start; }
+  .contact-info h3 { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 20px; }
+  .addr-block {
+    background: var(--light); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-bottom: 20px;
+  }
+  .addr-block .addr-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--green); margin-bottom: 10px;
+  }
+  .addr-block address {
+    font-style: normal; font-size: 14px; color: var(--text); line-height: 1.8;
+  }
+  .contact-link-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px; color: var(--text);
+  }
+  .contact-link-row:last-child { border-bottom: none; }
+  .contact-link-row .cl-icon { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
+  .contact-link-row a { color: var(--green); text-decoration: none; }
+  .portal-card {
+    background: var(--navy); border-radius: 14px; padding: 22px;
+    margin-top: 20px; display: flex; align-items: center; gap: 14px;
+  }
+  .pc-icon { font-size: 28px; flex-shrink: 0; }
+  .pc-text h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+  .pc-text p  { font-size: 12px; color: rgba(255,255,255,.5); margin-bottom: 8px; }
+  .pc-btn {
+    display: inline-block; background: var(--green); color: #fff;
+    padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    text-decoration: none;
+  }
+
+  /* ─── CONTACT FORM ───────────────────────── */
+  .contact-form {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.06);
+  }
+  .contact-form h3 { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+  .contact-form p.form-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .field label .req { color: #e05555; margin-left: 2px; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 11px 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 14px; color: var(--text);
+    background: var(--light); outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(106,191,63,.12);
+    background: #fff;
+  }
+  .field textarea { resize: vertical; min-height: 110px; }
+  /* Honeypot */
+  .hp-field { position: absolute; left: -9999px; top: -9999px; opacity: 0; height: 0; }
+  /* CAPTCHA */
+  .captcha-row {
+    background: var(--light); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .captcha-q { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+  .captcha-row input {
+    width: 70px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 15px; font-weight: 700; text-align: center;
+    background: #fff; font-family: 'Courier New', monospace;
+  }
+  .form-err {
+    background: #fde8e8; border: 1px solid #e08080; border-radius: 8px;
+    padding: 10px 14px; font-size: 13px; color: #a02020; margin-bottom: 14px;
+    display: none;
+  }
+  .form-ok {
+    background: #e8f8e0; border: 1px solid #90d050; border-radius: 8px;
+    padding: 16px 20px; font-size: 14px; color: #2e5a10; margin-bottom: 14px;
+    display: none; text-align: center; line-height: 1.6;
+  }
+  .form-ok strong { display: block; font-size: 16px; margin-bottom: 4px; }
+  .submit-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 8px;
+    background: var(--green); color: #fff;
+    font-family: inherit; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: background .2s, transform .2s;
+    box-shadow: 0 4px 16px rgba(106,191,63,.3);
+  }
+  .submit-btn:hover:not(:disabled) { background: var(--green-d); transform: translateY(-1px); }
+  .submit-btn:disabled { opacity: .7; cursor: default; }
+  .form-note { font-size: 11px; color: var(--muted); text-align: center; margin-top: 10px; }
+
+  /* ─── FOOTER ─────────────────────────────── */
+  .footer {
+    background: var(--navy);
+    padding: 56px 40px 32px;
+  }
+  .footer-grid {
+    display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 48px;
+    max-width: 1100px; margin: 0 auto 40px;
+  }
+  .footer-brand .fb-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .footer-brand .fb-name { font-size: 14px; font-weight: 700; color: #e8f0e0; line-height: 1.2; }
+  .footer-brand p { font-size: 13px; color: rgba(255,255,255,.4); line-height: 1.7; max-width: 300px; }
+  .footer-col h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--green); margin-bottom: 14px; }
+  .footer-col ul { list-style: none; }
+  .footer-col ul li { margin-bottom: 8px; }
+  .footer-col ul li a { font-size: 13px; color: rgba(255,255,255,.45); text-decoration: none; transition: color .2s; }
+  .footer-col ul li a:hover { color: var(--green); }
+  .footer-col ul li span { font-size: 13px; color: rgba(255,255,255,.45); }
+  .footer-bottom {
+    max-width: 1100px; margin: 0 auto;
+    border-top: 1px solid rgba(255,255,255,.08);
+    padding-top: 24px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+    font-size: 12px; color: rgba(255,255,255,.3);
+  }
+  .footer-bottom a { color: rgba(255,255,255,.45); text-decoration: none; }
+  .sia-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    padding: 6px 12px; border-radius: 6px; font-size: 11px; color: rgba(255,255,255,.45);
+  }
+
+  /* ─── MOBILE ─────────────────────────────── */
+  @media (max-width: 900px) {
+    .services-grid { grid-template-columns: 1fr 1fr; }
+    .about-split   { grid-template-columns: 1fr; gap: 36px; }
+    .about-img     { aspect-ratio: 16/9; }
+    .contact-grid  { grid-template-columns: 1fr; gap: 32px; }
+    .footer-grid   { grid-template-columns: 1fr 1fr; }
+    .careers-reqs  { grid-template-columns: 1fr !important; gap: 32px !important; }
+    .careers-steps { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media (max-width: 640px) {
+    .topbar { display: none; }
+    nav { padding: 0 20px; height: 64px; }
+    .nav-links, nav > .nav-portal { display: none; }
+    .hamburger { display: flex; }
+    .hero-content { padding: 60px 20px 60px; }
+    .hero h1 { font-size: 34px; }
+    .hero-sub { font-size: 15px; }
+    .hero-btns { flex-direction: column; }
+    .hero-btns a { width: 100%; text-align: center; justify-content: center; }
+    .hero-stats { max-width: 100%; }
+    .hs-cell { padding: 16px 10px; }
+    .hs-num { font-size: 22px; }
+    .trust-strip { padding: 20px; gap: 20px; }
+    .section { padding: 56px 20px; }
+    .section-full { padding: 56px 0; }
+    .coverage-strip { padding: 48px 20px; }
+    .services-grid  { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .footer { padding: 40px 20px 24px; }
+    .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+    .footer-bottom { flex-direction: column; text-align: center; }
+    .nations-row { gap: 12px; }
+    .nation-card { padding: 18px 20px; min-width: 130px; }
+    .divider { margin: 0 20px; }
+    .careers-steps { grid-template-columns: 1fr 1fr !important; }
+    .careers-reqs  { grid-template-columns: 1fr !important; gap: 32px !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <span>Specialist Security for the Cinema Industry</span>
+  <span>
+    Staff Login:
+    <a href="https://portal.ikanfm.co.uk/login" target="_blank">portal.ikanfm.co.uk →</a>
+  </span>
+</div>
+
+<!-- ── Nav ── -->
+<nav id="mainNav">
+  <a class="logo" onclick="showPage('home')">
+    <img src="https://www.ikanfm.co.uk/wp-content/uploads/2018/02/Ikan-Logo.png" alt="Ikan Facilities Management" style="height:52px;object-fit:contain;">
+  </a>
+  <div class="nav-links">
+    <a href="#" onclick="showPage('home')"    id="nav-home"    class="active">Home</a>
+    <a href="#" onclick="showPage('about')"   id="nav-about">About Us</a>
+    <a href="#" onclick="showPage('careers')" id="nav-careers">Careers</a>
+    <a href="#" onclick="showPage('contact')" id="nav-contact">Contact</a>
+  </div>
+  <a href="https://portal.ikanfm.co.uk/login" target="_blank" class="nav-portal">
+    🔐 Staff Login
+  </a>
+  <button class="hamburger" id="hamburger" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile drawer -->
+<div class="mobile-drawer" id="mobileDrawer">
+  <a href="#" onclick="showPage('home');closeDrawer()">Home</a>
+  <a href="#" onclick="showPage('about');closeDrawer()">About Us</a>
+  <a href="#" onclick="showPage('careers');closeDrawer()">Careers</a>
+  <a href="#" onclick="showPage('contact');closeDrawer()">Contact</a>
+  <a href="https://portal.ikanfm.co.uk/login" target="_blank" class="nav-portal" onclick="closeDrawer()">🔐 Staff Login</a>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: HOME
+════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-bg"></div>
+    <!-- Geometric background decoration -->
+    <div class="hero-geo">
+      <svg viewBox="0 0 600 600" width="600" height="600" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="80,300 200,60 320,300 200,540"  fill="#6abf3f" opacity=".4"/>
+        <polygon points="180,300 300,60 420,300 300,540" fill="#6abf3f" opacity=".28"/>
+        <polygon points="130,460 250,220 370,460"        fill="#6abf3f" opacity=".18"/>
+        <polygon points="240,300 360,60 480,300 360,540" fill="#6abf3f" opacity=".14"/>
+      </svg>
+    </div>
+
+    <div class="hero-content">
+      <div class="hero-eyebrow">Manned Security Specialists</div>
+      <h1>
+        Protecting <em>Cinema</em><br>
+        Across the Nation
+      </h1>
+      <p class="hero-sub">
+        The UK's single largest provider of manned security to the cinema industry. Serving clients across England, Scotland, and Wales with over two decades of experience.
+      </p>
+      <div class="hero-btns">
+        <a href="#" onclick="showPage('contact')" class="btn-green">Get in Touch →</a>
+        <a href="#" onclick="showPage('about')"   class="btn-ghost">Our Story</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hs-cell">
+          <div class="hs-num">20+</div>
+          <div class="hs-lbl">Years Experience</div>
+        </div>
+        <div class="hs-cell">
+          <div class="hs-num">3</div>
+          <div class="hs-lbl">Nations</div>
+        </div>
+        <div class="hs-cell">
+          <div class="hs-num">No.1</div>
+          <div class="hs-lbl">Cinema Provider</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trust strip -->
+  <div class="trust-strip">
+    <div class="trust-item">
+      <div class="ti-icon">🎫</div>
+      <div class="ti-label">Cinema Industry Specialists <span>Dedicated sector expertise</span></div>
+    </div>
+    <div class="trust-item">
+      <div class="ti-icon">🛡️</div>
+      <div class="ti-label">SIA Licensed Officers <span>Fully accredited workforce</span></div>
+    </div>
+    <div class="trust-item">
+      <div class="ti-icon">🇬🇧</div>
+      <div class="ti-label">Nationwide Coverage <span>England, Scotland & Wales</span></div>
+    </div>
+    <div class="trust-item">
+      <div class="ti-icon">⚡</div>
+      <div class="ti-label">Rapid Response <span>Agile management structure</span></div>
+    </div>
+  </div>
+
+  <!-- Services -->
+  <div class="section">
+    <div class="eyebrow">What We Do</div>
+    <div class="section-heading">Comprehensive Security Solutions</div>
+    <p class="section-sub">From day-to-day manned security to complex physical risk management, we deliver services precisely calibrated to the demands of the cinema environment.</p>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="sc-icon">👮</div>
+        <h3>Manned Security</h3>
+        <p>Professionally trained, SIA-licensed security officers deployed at cinema entrances, screens, and public areas. Consistent presence, consistent standards.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">🔍</div>
+        <h3>Physical Risk Management</h3>
+        <p>Structured risk assessments and mitigation strategies tailored to cinema venues. We identify vulnerabilities and implement proactive security protocols.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">🎬</div>
+        <h3>Cinema Expertise</h3>
+        <p>Our officers understand the unique operational rhythms of a cinema — peak screening times, late-night events, premieres, and high-footfall weekends.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">🚨</div>
+        <h3>Incident Management</h3>
+        <p>Clear escalation procedures and trained first-response capability. Our teams act decisively under pressure while maintaining a welcoming public environment.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">📋</div>
+        <h3>Compliance & Reporting</h3>
+        <p>Detailed incident logs, shift reports, and compliance documentation. Everything your management team and insurers need, delivered without chasing.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">🏢</div>
+        <h3>Multi-Site Management</h3>
+        <p>From single-screen independents to national multiplex chains, our streamlined management structure scales efficiently across every location.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Coverage -->
+  <div class="coverage-strip">
+    <div class="eyebrow" style="color:var(--green);margin-bottom:10px">Where We Operate</div>
+    <h2>England, Scotland & Wales</h2>
+    <p>Cinema venues of every size, from city-centre multiplexes to regional independents</p>
+    <div class="nations-row">
+      <div class="nation-card">
+        <div class="nation-flag">🏴󠁧󠁢󠁥󠁮󠁧󠁿</div>
+        <div class="nation-name">England</div>
+        <div class="nation-cities">London · Manchester<br>Birmingham · Leeds<br>Liverpool & more</div>
+      </div>
+      <div class="nation-card">
+        <div class="nation-flag">🏴󠁧󠁢󠁳󠁣󠁴󠁿</div>
+        <div class="nation-name">Scotland</div>
+        <div class="nation-cities">Edinburgh · Glasgow<br>Aberdeen · Dundee<br>and surrounding areas</div>
+      </div>
+      <div class="nation-card">
+        <div class="nation-flag">🏴󠁧󠁢󠁷󠁬󠁳󠁿</div>
+        <div class="nation-name">Wales</div>
+        <div class="nation-cities">Cardiff · Swansea<br>Newport · Wrexham<br>and surrounding areas</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- CTA band -->
+  <div style="background:var(--light);padding:72px 40px;text-align:center">
+    <div style="max-width:580px;margin:0 auto">
+      <div class="eyebrow" style="text-align:center">Work With Us</div>
+      <div class="section-heading" style="margin-bottom:12px">Ready to secure your venue?</div>
+      <p style="font-size:16px;color:var(--muted);margin-bottom:28px;line-height:1.7">
+        Whether you operate a single screen or a national chain, our team can design a manned security solution around your needs. Get in touch today.
+      </p>
+      <a href="#" onclick="showPage('contact')" class="btn-green" style="font-size:16px;padding:15px 32px">
+        Start a Conversation →
+      </a>
+    </div>
+  </div>
+
+</div><!-- /page-home -->
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: ABOUT
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-about">
+
+  <!-- Sub-hero -->
+  <div style="background:var(--navy);padding:72px 40px;text-align:center">
+    <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:16px">About Ikan FM</div>
+    <h1 style="font-size:clamp(32px,5vw,54px);font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom:14px">
+      Nearly Two Decades of<br>Specialist Security
+    </h1>
+    <p style="font-size:17px;color:rgba(255,255,255,.55);max-width:580px;margin:0 auto;line-height:1.7">
+      Built from the ground up to serve the cinema industry — and proud to remain its single largest manned security provider.
+    </p>
+  </div>
+
+  <!-- About split -->
+  <div class="section">
+    <div class="about-split">
+      <div class="about-img">
+        <img
+          src="https://images.unsplash.com/photo-1524985069026-dd778a71c7b4?w=800&q=80"
+          alt="Professional security officers"
+          loading="lazy"
+        />
+        <div class="about-badge">SIA Licensed · Fully Vetted</div>
+      </div>
+      <div class="about-text">
+        <div class="eyebrow">Our Story</div>
+        <div class="section-heading" style="margin-bottom:20px">Who We Are</div>
+        <p>
+          Ikan Facilities Management specialises in providing manned security and physical risk management services primarily to the cinema industry. With over two decades of industry experience and clients in England, Scotland, and Wales, we are the single largest provider of manned security to the cinema industry.
+        </p>
+        <p>
+          We know what our clients want and we aim to deliver an effective, efficient, and reliable service. Our teams are key to our service delivery and we focus on having a streamlined management structure to improve efficiency and deliver a more agile service.
+        </p>
+        <div class="about-highlights">
+          <div class="ah-item">
+            <div class="ah-icon">🎯</div>
+            <div>
+              <h4>Sector Focused</h4>
+              <p>We don't spread ourselves thin across every industry. Our expertise is the cinema sector — and that depth of specialisation shows in our service quality.</p>
+            </div>
+          </div>
+          <div class="ah-item">
+            <div class="ah-icon">⚡</div>
+            <div>
+              <h4>Streamlined Structure</h4>
+              <p>A lean management layer means decisions are made fast, rosters are filled quickly, and issues are resolved without layers of bureaucracy.</p>
+            </div>
+          </div>
+          <div class="ah-item">
+            <div class="ah-icon">🤝</div>
+            <div>
+              <h4>Long-Term Partnerships</h4>
+              <p>Our client relationships span years, not months. We invest in understanding each venue and building relationships with the teams that run them.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Values -->
+  <div class="section" style="text-align:center">
+    <div class="eyebrow">How We Work</div>
+    <div class="section-heading" style="margin-bottom:12px">Effective. Efficient. Reliable.</div>
+    <p class="section-sub" style="margin:0 auto 48px">Three words we hold ourselves to every single day — from how we deploy officers to how we communicate with clients.</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+      <div style="background:var(--light);border:1px solid var(--border);border-radius:16px;padding:32px 24px">
+        <div style="font-size:40px;margin-bottom:14px">⚖️</div>
+        <h3 style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:10px">Effective</h3>
+        <p style="font-size:14px;color:var(--muted);line-height:1.65">Our security solutions are designed to actually work — not just look good on paper. We measure success by the safety and satisfaction of your venue and its visitors.</p>
+      </div>
+      <div style="background:var(--navy);border-radius:16px;padding:32px 24px">
+        <div style="font-size:40px;margin-bottom:14px">🚀</div>
+        <h3 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:10px">Efficient</h3>
+        <p style="font-size:14px;color:rgba(255,255,255,.5);line-height:1.65">A streamlined management structure means no wasted time or resource. Decisions move quickly, cover is arranged without delay, and your account is never left waiting.</p>
+      </div>
+      <div style="background:var(--light);border:1px solid var(--border);border-radius:16px;padding:32px 24px">
+        <div style="font-size:40px;margin-bottom:14px">🛡️</div>
+        <h3 style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:10px">Reliable</h3>
+        <p style="font-size:14px;color:var(--muted);line-height:1.65">You can count on us to show up — on time, in uniform, prepared. Our officers are managed through our own workforce platform to ensure consistency at every shift.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- CTA -->
+  <div style="background:var(--navy);padding:72px 40px;text-align:center">
+    <div style="max-width:540px;margin:0 auto">
+      <div class="eyebrow" style="color:var(--green);margin-bottom:12px;text-align:center">Join Our Team or Engage Our Services</div>
+      <h2 style="font-size:32px;font-weight:800;color:#fff;margin-bottom:12px">Let's talk</h2>
+      <p style="font-size:15px;color:rgba(255,255,255,.5);margin-bottom:28px">Whether you're a cinema operator looking for a dependable security partner, or a professional seeking a career in the industry, we'd love to hear from you.</p>
+      <a href="#" onclick="showPage('contact')" class="btn-green">Get in Touch →</a>
+    </div>
+  </div>
+
+</div><!-- /page-about -->
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: CONTACT
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-contact">
+
+  <!-- Sub-hero -->
+  <div style="background:var(--navy);padding:72px 40px;text-align:center">
+    <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:16px">Contact Us</div>
+    <h1 style="font-size:clamp(30px,5vw,52px);font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom:12px">We'd Love to Hear From You</h1>
+    <p style="font-size:16px;color:rgba(255,255,255,.5);max-width:520px;margin:0 auto">
+      Whether you're an existing client, a prospective partner, or looking to join our team — send us a message and we'll be in touch shortly.
+    </p>
+  </div>
+
+  <!-- Contact grid -->
+  <div class="section">
+    <div class="contact-grid">
+
+      <!-- Left: info -->
+      <div class="contact-info">
+        <h3>Our Office</h3>
+        <div class="addr-block">
+          <div class="addr-label">📍 Registered Address</div>
+          <address>
+            Ikan Facilities Management Ltd<br>
+            Regus House<br>
+            Fairbourne Drive<br>
+            Atterbury<br>
+            Milton Keynes<br>
+            MK10 9RG
+          </address>
+        </div>
+        <div class="contact-link-row">
+          <span class="cl-icon">📧</span>
+          <div>Email us at <a href="mailto:info@ikanfm.co.uk">info@ikanfm.co.uk</a></div>
+        </div>
+        <div class="contact-link-row">
+          <span class="cl-icon">🌐</span>
+          <div><a href="http://www.ikanfm.co.uk" target="_blank">www.ikanfm.co.uk</a></div>
+        </div>
+        <div class="contact-link-row">
+          <span class="cl-icon">🏢</span>
+          <div>Company No. registered in England & Wales</div>
+        </div>
+
+        <!-- Portal card -->
+        <div class="portal-card">
+          <div class="pc-icon">🔐</div>
+          <div class="pc-text">
+            <h4>Staff & Admin Login</h4>
+            <p>Access the MyPortal workforce management platform</p>
+            <a href="https://portal.ikanfm.co.uk/login" target="_blank" class="pc-btn">Go to Portal →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: form -->
+      <div class="contact-form">
+        <h3>Send an Enquiry</h3>
+        <p class="form-sub">All fields marked <span style="color:#e05555">*</span> are required. We typically respond within one business day.</p>
+
+        <div id="formErr" class="form-err"></div>
+        <div id="formOk"  class="form-ok">
+          <strong>✅ Message sent successfully</strong>
+          Thank you for getting in touch. A member of our team will respond to your enquiry within one business day.
+        </div>
+
+        <form id="contactForm" novalidate>
+          <!-- Honeypot (hidden from real users, bots fill it) -->
+          <div class="hp-field" aria-hidden="true">
+            <label for="_hp">Leave blank</label>
+            <input type="text" id="_hp" name="_hp" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label>Full Name <span class="req">*</span></label>
+              <input type="text" id="f-name" placeholder="Jane Smith" autocomplete="name" maxlength="200">
+            </div>
+            <div class="field">
+              <label>Email Address <span class="req">*</span></label>
+              <input type="email" id="f-email" placeholder="jane@company.com" autocomplete="email" maxlength="255">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label>Phone Number</label>
+              <input type="tel" id="f-phone" placeholder="07700 900000" autocomplete="tel" maxlength="50">
+            </div>
+            <div class="field">
+              <label>Company / Organisation</label>
+              <input type="text" id="f-company" placeholder="Cineworld" maxlength="200">
+            </div>
+          </div>
+          <div class="field">
+            <label>Subject <span class="req">*</span></label>
+            <input type="text" id="f-subject" placeholder="e.g. Security contract enquiry" maxlength="300">
+          </div>
+          <div class="field">
+            <label>Message <span class="req">*</span></label>
+            <textarea id="f-message" placeholder="Tell us about your requirements…" maxlength="4000"></textarea>
+          </div>
+
+          <!-- Math CAPTCHA -->
+          <div class="captcha-row">
+            <div class="captcha-q" id="captchaQ">Security check: loading…</div>
+            <input type="number" id="captchaAns" placeholder="?" min="0" max="99" style="outline:none">
+          </div>
+
+          <button type="submit" class="submit-btn" id="submitBtn">Send Message →</button>
+          <p class="form-note">🔒 Spam-protected · We never share your details</p>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /page-contact -->
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: CAREERS
+════════════════════════════════════════════════════════ -->
+<div class="page" id="page-careers">
+
+  <!-- Hero -->
+  <div style="background:var(--navy);padding:80px 40px 64px;text-align:center;position:relative;overflow:hidden;">
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(15,26,15,.97),rgba(106,191,63,.12));"></div>
+    <div style="position:relative;z-index:2;max-width:700px;margin:0 auto;">
+      <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:20px;">Join Our Team</div>
+      <h1 style="font-size:clamp(32px,5vw,56px);font-weight:900;color:#fff;line-height:1.1;letter-spacing:-.03em;margin-bottom:18px;">
+        Build a Career in <em style="color:var(--green);font-style:normal;">Security</em>
+      </h1>
+      <p style="font-size:17px;color:rgba(255,255,255,.65);line-height:1.7;max-width:560px;margin:0 auto 32px;">
+        Ikan Facilities Management is always looking for professional, dedicated individuals to join our growing team of security specialists across the UK.
+      </p>
+      <a href="https://portal.ikanfm.co.uk/apply/ikan-fm" target="_blank" class="btn-green" style="font-size:16px;padding:15px 36px;">
+        Apply Now →
+      </a>
+    </div>
+  </div>
+
+  <!-- Why join us -->
+  <div class="section">
+    <div class="eyebrow">Why Ikan FM</div>
+    <h2 class="section-heading">What we offer</h2>
+    <p class="section-sub">We invest in our people. When you join Ikan, you join a team that values professionalism, reliability, and growth.</p>
+
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="sc-icon">💷</div>
+        <h3>Competitive Pay</h3>
+        <p>We offer competitive hourly rates, with regular reviews based on performance and tenure. Paid accurately and on time, every time.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">📅</div>
+        <h3>Flexible Shifts</h3>
+        <p>Evening, weekend, and mixed-schedule positions available. We work around your availability and help you achieve the right work-life balance.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">🎓</div>
+        <h3>Career Development</h3>
+        <p>Whether you're new to the industry or an experienced officer, we provide guidance, on-the-job learning, and progression pathways.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">🛡️</div>
+        <h3>SIA Licence Support</h3>
+        <p>We actively support our staff in maintaining and renewing their SIA licences, ensuring you stay compliant and employable.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">📍</div>
+        <h3>UK-Wide Locations</h3>
+        <p>Positions available at cinema venues across England, Scotland, and Wales — find a role close to home.</p>
+      </div>
+      <div class="service-card">
+        <div class="sc-icon">🤝</div>
+        <h3>Supportive Culture</h3>
+        <p>Our management team is approachable and responsive. We take pride in treating every team member with respect and fairness.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Requirements -->
+  <div class="section">
+    <div class="careers-reqs" style="display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;">
+      <div>
+        <div class="eyebrow">Requirements</div>
+        <h2 class="section-heading">What we look for</h2>
+        <p style="font-size:15px;color:var(--muted);line-height:1.75;margin-bottom:28px;">
+          We welcome applications from individuals who take pride in their work and are committed to delivering excellent customer-facing security services.
+        </p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:14px;">
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:14px;color:var(--muted);">
+            <span style="color:var(--green);font-size:18px;line-height:1;">✓</span>
+            <span>Valid <strong style="color:var(--text);">SIA Door Supervisor or Security Guard licence</strong> (or willingness to obtain one)</span>
+          </li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:14px;color:var(--muted);">
+            <span style="color:var(--green);font-size:18px;line-height:1;">✓</span>
+            <span>Right to work in the United Kingdom</span>
+          </li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:14px;color:var(--muted);">
+            <span style="color:var(--green);font-size:18px;line-height:1;">✓</span>
+            <span>Professional appearance and strong communication skills</span>
+          </li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:14px;color:var(--muted);">
+            <span style="color:var(--green);font-size:18px;line-height:1;">✓</span>
+            <span>Reliable and punctual — our clients depend on consistent coverage</span>
+          </li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:14px;color:var(--muted);">
+            <span style="color:var(--green);font-size:18px;line-height:1;">✓</span>
+            <span>Ability to work evenings and weekends (cinema hours)</span>
+          </li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:14px;color:var(--muted);">
+            <span style="color:var(--green);font-size:18px;line-height:1;">✓</span>
+            <span>DBS check clearance (we can advise on this)</span>
+          </li>
+        </ul>
+      </div>
+      <div style="background:var(--light);border:1px solid var(--border);border-radius:20px;padding:40px;">
+        <div style="font-size:32px;margin-bottom:12px;">🎬</div>
+        <h3 style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:12px;">Cinema Security Specialists</h3>
+        <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:20px;">
+          Our work is focused on the cinema industry — a unique environment that requires officers who are customer-friendly, calm under pressure, and experienced in managing public spaces.
+        </p>
+        <p style="font-size:14px;color:var(--muted);line-height:1.7;">
+          If you have experience in retail, hospitality, or event security, your skills will translate well to our roles.
+        </p>
+        <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px;">Ready to apply?</div>
+          <a href="https://portal.ikanfm.co.uk/apply/ikan-fm" target="_blank" class="btn-green" style="font-size:14px;padding:12px 24px;">Complete Application Form →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Application process -->
+  <div class="section">
+    <div style="text-align:center;max-width:680px;margin:0 auto 56px;">
+      <div class="eyebrow">How it works</div>
+      <h2 class="section-heading">The application process</h2>
+      <p class="section-sub" style="margin-bottom:0;">Simple and straightforward — we respect your time.</p>
+    </div>
+    <div class="careers-steps" style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:900px;margin:0 auto;text-align:center;">
+      <div style="padding:28px 20px;background:var(--light);border:1px solid var(--border);border-radius:16px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">1</div>
+        <h4 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;">Apply Online</h4>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Complete our online application form with your details and work history.</p>
+      </div>
+      <div style="padding:28px 20px;background:var(--light);border:1px solid var(--border);border-radius:16px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">2</div>
+        <h4 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;">HR Review</h4>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Our HR team reviews your application and checks your SIA licence validity.</p>
+      </div>
+      <div style="padding:28px 20px;background:var(--light);border:1px solid var(--border);border-radius:16px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">3</div>
+        <h4 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;">Interview</h4>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">A brief conversation (in person or by phone) to learn more about you.</p>
+      </div>
+      <div style="padding:28px 20px;background:var(--light);border:1px solid var(--border);border-radius:16px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--green);color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">4</div>
+        <h4 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;">Welcome Aboard</h4>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Receive your offer, complete onboarding, and start your first shift.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA band -->
+  <div style="background:var(--green);padding:64px 40px;text-align:center;">
+    <h2 style="font-size:32px;font-weight:800;color:#fff;margin-bottom:12px;">Ready to take the next step?</h2>
+    <p style="font-size:16px;color:rgba(255,255,255,.8);margin-bottom:28px;max-width:500px;margin-left:auto;margin-right:auto;">Submit your application today and a member of our team will be in touch within 5 working days.</p>
+    <a href="https://portal.ikanfm.co.uk/apply/ikan-fm" target="_blank"
+       style="display:inline-block;background:#fff;color:var(--green);padding:15px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;transition:transform .2s;"
+       onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+      Apply for a Position →
+    </a>
+  </div>
+
+</div><!-- /page-careers -->
+
+<!-- ── Footer ── -->
+<footer class="footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="fb-logo">
+        <img src="https://www.ikanfm.co.uk/wp-content/uploads/2018/02/Ikan-Logo.png" alt="Ikan Facilities Management" style="height:44px;object-fit:contain;filter:brightness(0) invert(1);">
+      </div>
+      <p>The UK's specialist in manned security and physical risk management for the cinema industry. Serving clients across England, Scotland, and Wales.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Navigation</h4>
+      <ul>
+        <li><a href="#" onclick="showPage('home')">Home</a></li>
+        <li><a href="#" onclick="showPage('about')">About Us</a></li>
+        <li><a href="#" onclick="showPage('careers')">Careers</a></li>
+        <li><a href="#" onclick="showPage('contact')">Contact Us</a></li>
+        <li><a href="https://portal.ikanfm.co.uk/login" target="_blank">Staff Login</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul>
+        <li><span>Regus House, Fairbourne Drive</span></li>
+        <li><span>Atterbury, Milton Keynes</span></li>
+        <li><span>MK10 9RG</span></li>
+        <li style="margin-top:8px"><a href="mailto:info@ikanfm.co.uk">info@ikanfm.co.uk</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 Ikan Facilities Management Ltd. All rights reserved. Registered in England & Wales.</span>
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="https://portal.ikanfm.co.uk/login" target="_blank">Staff Portal</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════════════════════════════════════ JS ═══ -->
+<script>
+  // ── Page timestamp (for timing bot detection) ──
+  const PAGE_LOAD_MS = Date.now()
+
+  // ── CAPTCHA ──
+  let captchaA, captchaB
+  function refreshCaptcha() {
+    captchaA = Math.floor(Math.random() * 12) + 1
+    captchaB = Math.floor(Math.random() * 12) + 1
+    document.getElementById('captchaQ').textContent =
+      `Security check: What is ${captchaA} + ${captchaB}?`
+    const inp = document.getElementById('captchaAns')
+    if (inp) inp.value = ''
+  }
+  refreshCaptcha()
+
+  // ── Navigation ──
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+    document.getElementById('page-' + id).classList.add('active')
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'))
+    const link = document.getElementById('nav-' + id)
+    if (link) link.classList.add('active')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // Reset form state when navigating to contact
+    if (id === 'contact') {
+      document.getElementById('formErr').style.display = 'none'
+      document.getElementById('formOk').style.display  = 'none'
+      refreshCaptcha()
+    }
+    return false
+  }
+
+  // ── Mobile drawer ──
+  const hbg    = document.getElementById('hamburger')
+  const drawer = document.getElementById('mobileDrawer')
+  hbg.addEventListener('click', () => drawer.classList.toggle('open'))
+  function closeDrawer() { drawer.classList.remove('open') }
+  document.addEventListener('click', e => {
+    if (!hbg.contains(e.target) && !drawer.contains(e.target)) closeDrawer()
+  })
+
+  // ── Contact form submit ──
+  document.getElementById('contactForm').addEventListener('submit', async function(e) {
+    e.preventDefault()
+    const errEl = document.getElementById('formErr')
+    const okEl  = document.getElementById('formOk')
+    const btn   = document.getElementById('submitBtn')
+    errEl.style.display = 'none'
+    okEl.style.display  = 'none'
+
+    // Collect values
+    const hp      = document.getElementById('_hp').value
+    const name    = document.getElementById('f-name').value.trim()
+    const email   = document.getElementById('f-email').value.trim()
+    const phone   = document.getElementById('f-phone').value.trim()
+    const company = document.getElementById('f-company').value.trim()
+    const subject = document.getElementById('f-subject').value.trim()
+    const message = document.getElementById('f-message').value.trim()
+    const ans     = parseInt(document.getElementById('captchaAns').value, 10)
+
+    // Client-side validation
+    if (!name)    return showErr('Please enter your full name.')
+    if (!email || !email.includes('@')) return showErr('Please enter a valid email address.')
+    if (!subject) return showErr('Please enter a subject.')
+    if (!message || message.length < 10) return showErr('Please enter a message (at least 10 characters).')
+    if (isNaN(ans)) return showErr('Please answer the security question.')
+    if (ans !== captchaA + captchaB) {
+      refreshCaptcha()
+      return showErr('Incorrect answer to the security question. Please try again.')
+    }
+
+    // Timing check (client-side mirror of server check)
+    const elapsed = Date.now() - PAGE_LOAD_MS
+    if (elapsed < 4000) {
+      return showErr('Please take a moment to review your message before sending.')
+    }
+
+    btn.disabled = true
+    btn.textContent = 'Sending…'
+
+    try {
+      const res = await fetch('https://portal.ikanfm.co.uk/api/contact/ikan-fm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hp, ts: PAGE_LOAD_MS,
+          ans, q: `${captchaA}+${captchaB}`,
+          name, email, phone, company, subject, message,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        okEl.style.display = 'block'
+        document.getElementById('contactForm').reset()
+        refreshCaptcha()
+      } else {
+        showErr(data.detail || 'Something went wrong. Please try again or email us directly.')
+        refreshCaptcha()
+      }
+    } catch {
+      showErr('Could not reach the server. Please email us directly at info@ikanfm.co.uk')
+      refreshCaptcha()
+    } finally {
+      btn.disabled = false
+      btn.textContent = 'Send Message →'
+    }
+
+    function showErr(msg) {
+      errEl.textContent = '⚠ ' + msg
+      errEl.style.display = 'block'
+      errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  })
+</script>
+</body>
+</html>

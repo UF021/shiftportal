@@ -92,6 +92,8 @@ async def submit_application(
     sia_licence:        str = Form(...),
     sia_expiry:         str = Form(...),
     commute_method:     str = Form(...),
+    # Area of employment
+    area_of_employment: Optional[str] = Form(None),
     # Work history
     employment_history: str = Form(...),
     # Immigration
@@ -144,6 +146,7 @@ async def submit_application(
         right_to_work            = right_to_work.lower() == "true",
         immigration_doc_data     = imm_data,
         immigration_doc_filename = imm_filename,
+        area_of_employment       = (area_of_employment or '').strip() or None,
         commute_method           = commute_method.strip(),
         employment_history       = employment_history.strip(),
         nok_name                 = nok_name.strip(),

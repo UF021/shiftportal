@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyPortal — What We Just Built</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .hero {
+    background: linear-gradient(135deg, #0f1923 0%, #1a3a1a 50%, #6abf3f22 100%);
+    border-bottom: 1px solid #21262d;
+    padding: 56px 40px 48px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: #6abf3f11;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -40px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: #6abf3f09;
+  }
+  .badge {
+    display: inline-block;
+    background: #6abf3f22;
+    border: 1px solid #6abf3f55;
+    color: #6abf3f;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #fff 30%, #6abf3f);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    font-size: 17px;
+    color: #8b949e;
+    max-width: 620px;
+    margin: 0 auto 28px;
+    line-height: 1.6;
+  }
+  .date-stamp {
+    font-size: 12px;
+    color: #484f58;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 48px 32px; }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #6abf3f;
+    margin-bottom: 6px;
+  }
+  .section-heading {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+  .section-sub {
+    font-size: 14px;
+    color: #8b949e;
+    margin-bottom: 36px;
+    line-height: 1.6;
+  }
+
+  /* ── SaaS Architecture ── */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .arch-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+  }
+  .arch-card .layer-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #6abf3f;
+    margin-bottom: 10px;
+  }
+  .arch-card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #fff;
+  }
+  .arch-card p {
+    font-size: 12px;
+    color: #8b949e;
+    line-height: 1.6;
+  }
+  .arch-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .tech-pill {
+    display: inline-block;
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin: 2px 2px 0 0;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ── Feature divider ── */
+  .feature-divider {
+    border: none;
+    border-top: 1px solid #21262d;
+    margin: 48px 0;
+  }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 32px;
+  }
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 140px;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -14px;
+    top: 28px;
+    font-size: 20px;
+    color: #6abf3f;
+    z-index: 2;
+  }
+  .flow-node {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 12px;
+    border: 2px solid;
+  }
+  .flow-node.green  { background: #1a3a1a; border-color: #6abf3f; }
+  .flow-node.blue   { background: #0d2340; border-color: #58a6ff; }
+  .flow-node.amber  { background: #3a2800; border-color: #f0a030; }
+  .flow-node.red    { background: #3a0d0d; border-color: #e05555; }
+  .flow-node.purple { background: #2a1a40; border-color: #a78bfa; }
+  .flow-node.teal   { background: #0d3030; border-color: #2dd4bf; }
+  .flow-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #e6edf3;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .flow-sub {
+    font-size: 10px;
+    color: #8b949e;
+    text-align: center;
+    line-height: 1.5;
+    max-width: 120px;
+  }
+
+  /* ── Screen mockups ── */
+  .mockup-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  .mockup {
+    background: #f5f7f5;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+    border: 1px solid #30363d;
+  }
+  .mockup-bar {
+    background: #fff;
+    border-bottom: 1px solid #e8eee8;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot.r { background: #ff5f57; }
+  .dot.y { background: #febc2e; }
+  .dot.g { background: #28c840; }
+  .mockup-url {
+    flex: 1;
+    text-align: center;
+    font-size: 10px;
+    color: #8b949e;
+    font-family: 'Courier New', monospace;
+  }
+  .mockup-body {
+    padding: 18px 16px;
+    background: #f5f7f5;
+  }
+  .m-logo {
+    font-size: 10px;
+    font-weight: 800;
+    color: #6abf3f;
+    margin-bottom: 12px;
+    letter-spacing: .05em;
+  }
+  .m-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a2a1a;
+    margin-bottom: 4px;
+  }
+  .m-sub {
+    font-size: 10px;
+    color: #6a8a6a;
+    margin-bottom: 14px;
+  }
+  .m-input {
+    background: #f8fbf8;
+    border: 1px solid #d0ddd0;
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-size: 10px;
+    color: #6a8a6a;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .m-btn {
+    width: 100%;
+    padding: 9px;
+    background: #6abf3f;
+    color: #fff;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 8px;
+  }
+  .m-step-badge {
+    display: inline-block;
+    background: #6abf3f22;
+    color: #6abf3f;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .m-success {
+    text-align: center;
+    padding: 12px 0;
+  }
+  .m-success .big { font-size: 28px; margin-bottom: 8px; }
+  .m-success .st { font-size: 12px; font-weight: 700; color: #1a2a1a; margin-bottom: 4px; }
+  .m-success .ss { font-size: 10px; color: #6a8a6a; }
+
+  /* ── Detail cards ── */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .detail-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .detail-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .detail-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .detail-card ul li {
+    font-size: 12px;
+    color: #8b949e;
+    padding: 5px 0;
+    border-bottom: 1px solid #21262d;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.5;
+  }
+  .detail-card ul li:last-child { border-bottom: none; }
+  .check { color: #6abf3f; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── HR Shift mockup ── */
+  .shift-mockup {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 32px;
+    box-shadow: 0 4px 32px rgba(0,0,0,.4);
+  }
+  .sm-bar {
+    background: #0d1117;
+    border-bottom: 1px solid #21262d;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .sm-nav { font-size: 12px; color: #8b949e; }
+  .sm-nav .active { color: #6abf3f; font-weight: 700; }
+  .sm-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    padding: 28px;
+  }
+  .sm-form { }
+  .sm-form h3 { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  .sm-form p { font-size: 12px; color: #8b949e; margin-bottom: 20px; }
+  .sm-field {
+    margin-bottom: 14px;
+  }
+  .sm-field label {
+    display: block;
+    font-size: 11px;
+    color: #8b949e;
+    margin-bottom: 5px;
+  }
+  .sm-field label .req { color: #e05555; }
+  .sm-input-box {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #e6edf3;
+    font-family: 'Courier New', monospace;
+    width: 100%;
+  }
+  .sm-input-box.new-field {
+    border-color: #6abf3f;
+    background: #0d1a0d;
+  }
+  .new-tag {
+    display: inline-block;
+    background: #6abf3f22;
+    color: #6abf3f;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 6px;
+    margin-left: 6px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .sm-check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #8b949e;
+    margin-bottom: 14px;
+  }
+  .sm-check-row input { accent-color: #6abf3f; }
+  .sm-duration-pill {
+    background: #1a3a1a;
+    border: 1px solid #6abf3f44;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #6abf3f;
+    margin-bottom: 14px;
+  }
+  .sm-preview { }
+  .sm-preview h4 { font-size: 13px; font-weight: 700; color: #8b949e; margin-bottom: 14px; text-transform: uppercase; letter-spacing: .08em; }
+  .sm-preview-card {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .sm-preview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 12px;
+    border-bottom: 1px solid #21262d;
+  }
+  .sm-preview-row:last-child { border-bottom: none; }
+  .sm-preview-row .k { color: #8b949e; }
+  .sm-preview-row .v { color: #e6edf3; font-family: 'Courier New', monospace; }
+  .sm-preview-row .v.green { color: #6abf3f; }
+  .sm-btn {
+    width: 100%;
+    padding: 12px;
+    background: #6abf3f;
+    color: #fff;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+
+  /* ── Security callouts ── */
+  .callout-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 48px;
+  }
+  .callout {
+    border-radius: 10px;
+    padding: 18px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .callout.green { background: #1a3a1a; border: 1px solid #6abf3f44; }
+  .callout.amber { background: #2a1e00; border: 1px solid #f0a03044; }
+  .callout.blue  { background: #0d2040; border: 1px solid #58a6ff44; }
+  .callout h4 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .callout.green h4 { color: #6abf3f; }
+  .callout.amber h4 { color: #f0a030; }
+  .callout.blue  h4 { color: #58a6ff; }
+  .callout p { color: #8b949e; }
+
+  /* ── API table ── */
+  .api-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 48px;
+    font-size: 13px;
+  }
+  .api-table th {
+    background: #161b22;
+    color: #8b949e;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid #21262d;
+  }
+  .api-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid #21262d;
+    color: #e6edf3;
+    vertical-align: middle;
+  }
+  .api-table tr:hover td { background: #161b22; }
+  .method {
+    display: inline-block;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .method.post { background: #1e3a1e; color: #6abf3f; }
+  .method.get  { background: #0d2040; color: #58a6ff; }
+  .endpoint-path { font-family: 'Courier New', monospace; color: #8b949e; font-size: 12px; }
+  .status-chip {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .status-chip.new { background: #6abf3f22; color: #6abf3f; }
+  .status-chip.ext { background: #30363d; color: #8b949e; }
+
+  /* ── Summary strip ── */
+  .summary-strip {
+    background: linear-gradient(135deg, #1a3a1a, #0f2a0f);
+    border: 1px solid #6abf3f33;
+    border-radius: 16px;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-size: 36px;
+    font-weight: 800;
+    color: #6abf3f;
+    font-family: 'Courier New', monospace;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-label { font-size: 12px; color: #8b949e; }
+
+  /* ── Token flow ── */
+  .token-flow {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .tf-comment { color: #484f58; }
+  .tf-key     { color: #58a6ff; }
+  .tf-val     { color: #6abf3f; }
+  .tf-str     { color: #a5d6ff; }
+  .tf-brace   { color: #e6edf3; }
+
+  /* ── Footer ── */
+  footer {
+    background: #0d1117;
+    border-top: 1px solid #21262d;
+    padding: 28px 40px;
+    text-align: center;
+    font-size: 12px;
+    color: #484f58;
+  }
+  footer span { color: #6abf3f; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════ HERO ══════════════════════ -->
+<div class="hero">
+  <div class="badge">Build Report · 21 April 2026</div>
+  <h1>MyPortal — What We Just Built</h1>
+  <p>Two production features shipped to the ShiftPortal SaaS platform — a complete Forgot Password self-service flow and full clock-out support in HR manual shift entry.</p>
+  <div class="date-stamp">commit 472c6d3 · branch main · pushed to origin</div>
+</div>
+
+<div class="container">
+
+  <!-- ══════════════════════ WHAT IS MYPORTAL ══════════════════════ -->
+  <div class="section-title">Platform Overview</div>
+  <div class="section-heading">What is MyPortal?</div>
+  <div class="section-sub">
+    MyPortal (ShiftPortal) is a multi-tenant SaaS workforce management platform built for security firms. Each organisation gets its own branded portal, staff login, QR clock-in system, HR dashboard, and document management — all under one platform.
+  </div>
+
+  <div class="arch-grid">
+    <div class="arch-card">
+      <span class="arch-icon">📱</span>
+      <div class="layer-label">Frontend</div>
+      <h3>React SPA</h3>
+      <p>Mobile-first staff portal, HR dashboard, and public QR clock-in pages. Branded per organisation with dynamic colours and logos.</p>
+      <div style="margin-top:12px">
+        <span class="tech-pill">React 18</span>
+        <span class="tech-pill">React Router v6</span>
+        <span class="tech-pill">Axios</span>
+        <span class="tech-pill">Vite</span>
+      </div>
+    </div>
+    <div class="arch-card">
+      <span class="arch-icon">⚙️</span>
+      <div class="layer-label">Backend</div>
+      <h3>FastAPI + SQLAlchemy</h3>
+      <p>REST API with JWT auth, role-based guards (staff / hr / superadmin), QR clock events, and shift management routers.</p>
+      <div style="margin-top:12px">
+        <span class="tech-pill">FastAPI</span>
+        <span class="tech-pill">Pydantic v2</span>
+        <span class="tech-pill">SQLAlchemy</span>
+        <span class="tech-pill">pytz</span>
+        <span class="tech-pill">bcrypt</span>
+      </div>
+    </div>
+    <div class="arch-card">
+      <span class="arch-icon">🗄️</span>
+      <div class="layer-label">Infrastructure</div>
+      <h3>Railway · Postgres</h3>
+      <p>Deployed on Railway with a managed Postgres database. Multi-tenant row-level isolation by <code style="font-size:11px;color:#6abf3f">organisation_id</code>. UK timezone throughout.</p>
+      <div style="margin-top:12px">
+        <span class="tech-pill">Railway</span>
+        <span class="tech-pill">PostgreSQL</span>
+        <span class="tech-pill">Europe/London TZ</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="feature-divider">
+
+  <!-- ══════════════════════ SUMMARY STATS ══════════════════════ -->
+  <div class="summary-strip">
+    <div class="stat-item">
+      <div class="stat-num">6</div>
+      <div class="stat-label">Files changed</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">311</div>
+      <div class="stat-label">Lines added</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">2</div>
+      <div class="stat-label">New API endpoints</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">1</div>
+      <div class="stat-label">New page created</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ FEATURE 1: FORGOT PASSWORD ══════════════════════ -->
+  <div class="section-title">Feature 1</div>
+  <div class="section-heading">🔐 Forgot Password — Self-Service Reset</div>
+  <div class="section-sub">
+    Staff can now reset their own password without involving HR. Identity is verified using email address and date of birth — two pieces of information only the genuine employee would know. The reset link is a short-lived UUID token valid for 15 minutes, then destroyed.
+  </div>
+
+  <!-- Flow -->
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-node green">🔗</div>
+      <div class="flow-label">Login Page</div>
+      <div class="flow-sub">"Forgot Password?" link goes to /forgot-password/:slug</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-node blue">👤</div>
+      <div class="flow-label">Verify Identity</div>
+      <div class="flow-sub">Staff enters email + date of birth</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-node purple">🔍</div>
+      <div class="flow-label">Backend Check</div>
+      <div class="flow-sub">Email, DOB, org_slug and active status verified</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-node teal">🎟️</div>
+      <div class="flow-label">Token Issued</div>
+      <div class="flow-sub">UUID4 token stored in-memory, 15-min expiry</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-node amber">🔑</div>
+      <div class="flow-label">Set Password</div>
+      <div class="flow-sub">New password + confirm, min 8 chars, show/hide toggles</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-node green">✅</div>
+      <div class="flow-label">Done</div>
+      <div class="flow-sub">Password updated, token destroyed, redirect to Sign In</div>
+    </div>
+  </div>
+
+  <!-- Screen mockups -->
+  <div class="mockup-row">
+
+    <!-- Step 1 -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <div class="mockup-url">myportal.app/forgot-password/ikan-fm</div>
+      </div>
+      <div class="mockup-body">
+        <div class="m-logo">● MYPORTAL</div>
+        <div class="m-step-badge">Step 1 of 3 — Verify Identity</div>
+        <div class="m-title">Reset Password</div>
+        <div class="m-sub">Enter your registered email and date of birth</div>
+        <div class="m-input">👤 <span>jane.smith@ikan-fm.co.uk</span></div>
+        <div class="m-input" style="font-family:'Courier New',monospace">🎂 <span>1990-06-15</span></div>
+        <div class="m-btn">Verify Identity</div>
+        <div style="text-align:center;margin-top:12px;font-size:10px;color:#6abf3f">← Back to Sign In</div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <div class="mockup-url">myportal.app/forgot-password/ikan-fm</div>
+      </div>
+      <div class="mockup-body">
+        <div class="m-logo">● MYPORTAL</div>
+        <div class="m-step-badge">Step 2 of 3 — Set New Password</div>
+        <div class="m-title">Set New Password</div>
+        <div class="m-sub">Minimum 8 characters required</div>
+        <div class="m-input">🔑 <span style="color:#1a2a1a">••••••••••••</span> <span style="margin-left:auto">👁️</span></div>
+        <div class="m-input">🔑 <span style="color:#1a2a1a">••••••••••••</span> <span style="margin-left:auto">👁️</span></div>
+        <div style="font-size:10px;color:#2e7d32;margin-bottom:6px">✓ Passwords match</div>
+        <div class="m-btn">Set New Password</div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <div class="mockup-url">myportal.app/forgot-password/ikan-fm</div>
+      </div>
+      <div class="mockup-body">
+        <div class="m-logo">● MYPORTAL</div>
+        <div class="m-success">
+          <div class="big">✅</div>
+          <div class="st">Password Updated</div>
+          <div class="ss">Your password has been reset successfully. You can now sign in with your new password.</div>
+          <div class="m-btn" style="margin-top:16px">Sign In →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail cards -->
+  <div class="detail-grid">
+    <div class="detail-card">
+      <h4>🔒 Security Design</h4>
+      <ul>
+        <li><span class="check">✓</span> Generic error message — never reveals if an email exists (anti-enumeration)</li>
+        <li><span class="check">✓</span> Token is UUID4 (128-bit entropy), impossible to guess</li>
+        <li><span class="check">✓</span> Token destroyed immediately after use — cannot be replayed</li>
+        <li><span class="check">✓</span> 15-minute expiry — expired tokens auto-rejected</li>
+        <li><span class="check">✓</span> Password hashed with bcrypt before storage</li>
+        <li><span class="check">✓</span> Org-scoped: can only reset within the correct organisation</li>
+        <li><span class="check">✓</span> Only active accounts can reset (inactive staff blocked)</li>
+      </ul>
+    </div>
+    <div class="detail-card">
+      <h4>🎛️ UX Design</h4>
+      <ul>
+        <li><span class="check">✓</span> 3-step wizard — clear progress, no confusion</li>
+        <li><span class="check">✓</span> Show/hide toggles on both password fields independently</li>
+        <li><span class="check">✓</span> Live mismatch warning before the user submits</li>
+        <li><span class="check">✓</span> Branded per organisation — correct logo and colour throughout</li>
+        <li><span class="check">✓</span> Slug-aware routing: /forgot-password/ikan-fm or any org slug</li>
+        <li><span class="check">✓</span> Success screen with direct "Sign In →" button</li>
+        <li><span class="check">✓</span> "Back to Sign In" escape hatch on step 1</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Token lifecycle diagram -->
+  <div class="token-flow">
+    <div class="tf-comment">// Token lifecycle — in-memory store (server restart clears all tokens)</div>
+    <br>
+    <div><span class="tf-key">POST</span> <span class="tf-str">/auth/verify-identity</span>  <span class="tf-comment">← email + dob + org_slug</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-brace">{</span></div>
+    <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="tf-key">"token"</span>: <span class="tf-brace">{</span></div>
+    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tf-key">user_id</span>:    <span class="tf-val">42</span><span class="tf-brace">,</span></div>
+    <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tf-key">expires_at</span>: <span class="tf-str">"2026-04-21T15:30:00Z"</span>  <span class="tf-comment">← now + 15 min</span></div>
+    <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="tf-brace">}</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-brace">}</span></div>
+    <br>
+    <div><span class="tf-key">POST</span> <span class="tf-str">/auth/reset-password</span>  <span class="tf-comment">← token + new_password</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-comment">// 1. Look up token → find user_id</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-comment">// 2. Check expires_at > now → reject if expired</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-comment">// 3. Hash new password with bcrypt</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-comment">// 4. Write hashed_password to DB</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-comment">// 5. Delete token from store → cannot reuse</span></div>
+    <div>&nbsp;&nbsp;<span class="tf-val">→ 200 "Password updated successfully."</span></div>
+  </div>
+
+  <hr class="feature-divider">
+
+  <!-- ══════════════════════ FEATURE 2: HR MANUAL SHIFT ══════════════════════ -->
+  <div class="section-title">Feature 2</div>
+  <div class="section-heading">🕐 Clock-Out Time in HR Manual Shift Entry</div>
+  <div class="section-sub">
+    HR managers can now record a complete shift — both clock-in and clock-out — in a single manual entry. Before this, HR could only create a clock-in and had to wait for a separate clock-out entry. Useful for bulk imports, scanner outages, or correcting missed events.
+  </div>
+
+  <!-- HR Shift mockup -->
+  <div class="shift-mockup">
+    <div class="sm-bar">
+      <span style="font-size:18px">🏢</span>
+      <div class="sm-nav">
+        <span>HR Dashboard</span> / <span>Timelogs</span> / <span class="active">Manual Shift Entry</span>
+      </div>
+    </div>
+    <div class="sm-body">
+      <div class="sm-form">
+        <h3>Manual Shift Entry</h3>
+        <p>Create backdated clock-in records — use when QR scanner was offline or for system backup entries</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="sm-field">
+            <label>Staff Member <span class="req">*</span></label>
+            <div class="sm-input-box">Jane Smith</div>
+          </div>
+          <div class="sm-field">
+            <label>Site <span class="req">*</span></label>
+            <div class="sm-input-box">Canary Wharf Gate A</div>
+          </div>
+        </div>
+
+        <div class="sm-field">
+          <label>Date <span class="req">*</span></label>
+          <div class="sm-input-box">2026-04-20</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="sm-field">
+            <label>Clock In Time <span class="req">*</span></label>
+            <div class="sm-input-box">09:15</div>
+          </div>
+          <div class="sm-field">
+            <label>Scheduled Start</label>
+            <div class="sm-input-box">09:00</div>
+          </div>
+        </div>
+
+        <div style="background:#2a1e00;border:1px solid #f0a03044;border-radius:8px;padding:10px 12px;font-size:12px;color:#f0a030;margin-bottom:14px">
+          ⚠ Auto-detected: 15 mins late
+        </div>
+
+        <div class="sm-field">
+          <label>Clock Out Time <span class="new-tag">NEW</span></label>
+          <div class="sm-input-box new-field">17:30</div>
+        </div>
+
+        <div class="sm-check-row">
+          <input type="checkbox" disabled> Overnight shift (clock-out is next day)
+        </div>
+
+        <div class="sm-duration-pill">
+          ⏱ Shift duration: <strong>8h 15m</strong>
+        </div>
+
+        <div class="sm-field">
+          <label>Reason / Notes</label>
+          <div class="sm-input-box" style="height:60px;display:flex;align-items:flex-start;padding-top:10px">QR scanner offline — manual backup entry</div>
+        </div>
+
+        <div style="background:#0d2040;border:1px solid #58a6ff33;border-radius:8px;padding:10px 12px;font-size:11px;color:#8b949e;margin-bottom:14px">
+          ℹ Creates a complete shift record with clock-in and clock-out times.
+        </div>
+
+        <div class="sm-btn">✏ Create Full Shift Entry</div>
+      </div>
+
+      <div class="sm-preview">
+        <h4>What Gets Created</h4>
+
+        <div class="sm-preview-card">
+          <div style="font-size:11px;color:#6abf3f;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">Clock-In Event</div>
+          <div class="sm-preview-row"><span class="k">Type</span><span class="v">clock_in</span></div>
+          <div class="sm-preview-row"><span class="k">Staff</span><span class="v">Jane Smith</span></div>
+          <div class="sm-preview-row"><span class="k">Site</span><span class="v">Canary Wharf</span></div>
+          <div class="sm-preview-row"><span class="k">Date</span><span class="v">2026-04-20</span></div>
+          <div class="sm-preview-row"><span class="k">Time</span><span class="v">09:15</span></div>
+          <div class="sm-preview-row"><span class="k">Scheduled</span><span class="v">09:00</span></div>
+          <div class="sm-preview-row"><span class="k">Lateness</span><span class="v" style="color:#f0a030">15 min late</span></div>
+          <div class="sm-preview-row"><span class="k">is_manual</span><span class="v green">true</span></div>
+        </div>
+
+        <div class="sm-preview-card">
+          <div style="font-size:11px;color:#58a6ff;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">Clock-Out Event <span class="new-tag">NEW</span></div>
+          <div class="sm-preview-row"><span class="k">Type</span><span class="v">clock_out</span></div>
+          <div class="sm-preview-row"><span class="k">Time</span><span class="v">17:30</span></div>
+          <div class="sm-preview-row"><span class="k">Shift duration</span><span class="v green">8h 15m</span></div>
+          <div class="sm-preview-row"><span class="k">Overnight</span><span class="v">false</span></div>
+          <div class="sm-preview-row"><span class="k">is_manual</span><span class="v green">true</span></div>
+        </div>
+
+        <div style="font-size:11px;color:#8b949e;line-height:1.6;margin-top:4px">
+          Both events appear instantly in HR Timelogs with a <span style="background:#1565c020;color:#58a6ff;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700">✏️ Manual</span> badge.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overnight logic -->
+  <div class="detail-grid">
+    <div class="detail-card">
+      <h4>🌙 Overnight Auto-Detection</h4>
+      <ul>
+        <li><span class="check">✓</span> If clock-out time ≤ clock-in time, the backend auto-adds 24h — no manual checkbox needed for standard overnight shifts</li>
+        <li><span class="check">✓</span> "Overnight shift" checkbox forces the +24h even when times appear valid (e.g. 22:00 in → 06:00 out)</li>
+        <li><span class="check">✓</span> Duration preview in the UI reflects overnight calculation in real time</li>
+        <li><span class="check">✓</span> Same logic as QR clock-out — consistent everywhere</li>
+      </ul>
+    </div>
+    <div class="detail-card">
+      <h4>🎛️ Dynamic UI Behaviour</h4>
+      <ul>
+        <li><span class="check">✓</span> Clock-out field is optional — leaving it blank creates a clock-in only (old behaviour)</li>
+        <li><span class="check">✓</span> Overnight checkbox only appears once a clock-out time is entered</li>
+        <li><span class="check">✓</span> Duration preview only shows when both times are filled</li>
+        <li><span class="check">✓</span> Button label and info note update dynamically: "Create Full Shift Entry" vs "Create Clock-In Entry"</li>
+        <li><span class="check">✓</span> After submit, clock-out and overnight fields reset to blank</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="feature-divider">
+
+  <!-- ══════════════════════ API REFERENCE ══════════════════════ -->
+  <div class="section-title">API Reference</div>
+  <div class="section-heading">Endpoints Changed or Added</div>
+  <div class="section-sub">All endpoints are tenant-scoped. Auth endpoints are public; clock endpoints require HR JWT.</div>
+
+  <table class="api-table">
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Endpoint</th>
+        <th>Description</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="method post">POST</span></td>
+        <td class="endpoint-path">/auth/verify-identity</td>
+        <td>Verify email + DOB, return 15-min reset token</td>
+        <td><span class="status-chip new">NEW</span></td>
+      </tr>
+      <tr>
+        <td><span class="method post">POST</span></td>
+        <td class="endpoint-path">/auth/reset-password</td>
+        <td>Validate token, hash + save new password, destroy token</td>
+        <td><span class="status-chip new">NEW</span></td>
+      </tr>
+      <tr>
+        <td><span class="method post">POST</span></td>
+        <td class="endpoint-path">/clock/manual</td>
+        <td>Manual shift entry — now accepts clock_out_time + overnight fields</td>
+        <td><span class="status-chip ext">Extended</span></td>
+      </tr>
+      <tr>
+        <td><span class="method get">GET</span></td>
+        <td class="endpoint-path">/auth/org/:slug</td>
+        <td>Fetch org branding — used by ForgotPasswordPage (existing)</td>
+        <td><span class="status-chip ext">Existing</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════ SECURITY CALLOUTS ══════════════════════ -->
+  <div class="callout-grid">
+    <div class="callout green">
+      <h4>✅ No Email Enumeration</h4>
+      <p>Whether the email exists or the DOB is wrong, the same error is returned: <em>"We could not verify your identity."</em> An attacker cannot probe for valid email addresses.</p>
+    </div>
+    <div class="callout amber">
+      <h4>⚠ Token is Single-Use</h4>
+      <p>The UUID4 reset token is deleted from the in-memory store the moment it is used. If a user hits "Set New Password" twice, the second attempt fails — no replay possible.</p>
+    </div>
+    <div class="callout blue">
+      <h4>🔵 Org-Isolated Identity</h4>
+      <p>The <code>/verify-identity</code> call requires <code>org_slug</code>. A valid email+DOB at Organisation A cannot be used to reset a password at Organisation B.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ FILES CHANGED ══════════════════════ -->
+  <div class="section-title">Files Changed</div>
+  <div class="section-heading">What Was Touched</div>
+  <br>
+
+  <div class="detail-grid">
+    <div class="detail-card">
+      <h4>📁 Backend</h4>
+      <ul>
+        <li><span class="check">+</span> <code style="font-size:11px;color:#6abf3f">backend/routers/auth.py</code> — added VerifyIdentityRequest, ResetPasswordRequest models + 2 new POST endpoints + in-memory token store</li>
+      </ul>
+    </div>
+    <div class="detail-card">
+      <h4>📁 Frontend</h4>
+      <ul>
+        <li><span class="check">+</span> <code style="font-size:11px;color:#6abf3f">src/pages/public/ForgotPasswordPage.jsx</code> — new 3-step page</li>
+        <li><span class="check">✎</span> <code style="font-size:11px;color:#8b949e">src/App.jsx</code> — 2 new routes added</li>
+        <li><span class="check">✎</span> <code style="font-size:11px;color:#8b949e">src/api/client.js</code> — verifyIdentity + resetPassword exports</li>
+        <li><span class="check">✎</span> <code style="font-size:11px;color:#8b949e">src/pages/public/LoginPage.jsx</code> — link updated to &lt;Link&gt;</li>
+        <li><span class="check">✎</span> <code style="font-size:11px;color:#8b949e">src/pages/hr/HRManualShift.jsx</code> — clock_out_time, overnight, duration preview</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════ FOOTER ══════════════════════ -->
+<footer>
+  <span>MyPortal</span> · ShiftPortal SaaS · Build report generated 21 April 2026 · commit <span>472c6d3</span>
+</footer>
+
+</body>
+</html>
