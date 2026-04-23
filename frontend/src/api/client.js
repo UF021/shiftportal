@@ -32,6 +32,10 @@ export const getOrgPublic    = slug             => api.get(`/auth/org/${slug}`)
 export const verifyIdentity  = data             => api.post('/auth/verify-identity', data)
 export const resetPassword   = data             => api.post('/auth/reset-password', data)
 
+// Contact enquiries
+export const getContactMessages = ()        => api.get('/contact/')
+export const markContactRead    = id        => api.patch(`/contact/${id}/read`)
+
 // Staff
 export const getAllStaff      = ()           => api.get('/staff/all')
 export const updateStaff      = (id, d)     => api.patch(`/staff/${id}`, d)

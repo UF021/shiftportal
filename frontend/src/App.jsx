@@ -33,6 +33,7 @@ import HRSettings       from './pages/hr/HRSettings'
 import HRQRCodes        from './pages/hr/HRQRCodes'
 import HRClockFailures  from './pages/hr/HRClockFailures'
 import HRMessages       from './pages/hr/HRMessages'
+import HRContacts       from './pages/hr/HRContacts'
 import HRApplications   from './pages/hr/HRApplications'
 import HRGPSCaptures    from './pages/hr/HRGPSCaptures'
 
@@ -110,6 +111,7 @@ export default function App() {
         <Route path="qrcodes"       element={<HRQRCodes />} />
         <Route path="failures"      element={<HRClockFailures />} />
         <Route path="messages"      element={<HRMessages />} />
+        <Route path="contacts"      element={<HRContacts />} />
         <Route path="gps"           element={<HRGPSCaptures />} />
         <Route path="settings"      element={<HRSettings />} />
       </Route>

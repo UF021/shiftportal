@@ -447,6 +447,24 @@ class GPSCapture(Base):
 
 # ── PreRegistration ───────────────────────────────────────────────────────────
 
+class ContactMessage(Base):
+    __tablename__ = 'contact_messages'
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False)
+    name            = Column(String(200), nullable=False)
+    email           = Column(String(255), nullable=False)
+    phone           = Column(String(50),  nullable=True)
+    company         = Column(String(200), nullable=True)
+    subject         = Column(String(300), nullable=False)
+    message         = Column(Text,        nullable=False)
+    ip_address      = Column(String(60),  nullable=True)
+    is_read         = Column(Boolean,     default=False)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    organisation = relationship("Organisation")
+
+
 class PreRegistration(Base):
     __tablename__ = 'pre_registrations'
 

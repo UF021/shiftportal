@@ -14,6 +14,7 @@ const NAV = [
   { path:'/hr/qrcodes',         icon:'📱', label:'QR Codes' },
   { path:'/hr/failures',        icon:'⚠️', label:'Clock Alerts' },
   { path:'/hr/messages',        icon:'💬', label:'Messages' },
+  { path:'/hr/contacts',        icon:'📩', label:'Web Enquiries' },
   { path:'/hr/gps',             icon:'📍', label:'GPS Captures' },
   { path:'/hr/settings',        icon:'⚙️', label:'Settings' },
 ]
