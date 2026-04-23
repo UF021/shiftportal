@@ -1,19 +1,15 @@
-import { useBrand } from '../api/BrandContext'
-
 export default function OrgLogo({ height = 44, dark = true }) {
-  const brand = useBrand()
-  const src = brand.logo_url || '/ikan-logo.png'
-
   return (
     <img
-      src={src}
-      alt={brand.name || 'Ikan Facilities Management'}
+      src="/ikan-logo.png"
+      alt="Ikan Facilities Management"
       style={{
         height,
         objectFit: 'contain',
-        filter: dark ? 'brightness(0) invert(1)' : 'none',
+        background: dark ? '#fff' : 'none',
+        borderRadius: dark ? 6 : 0,
+        padding: dark ? '2px 8px' : 0,
       }}
-      onError={e => { e.target.style.display = 'none' }}
     />
   )
 }
