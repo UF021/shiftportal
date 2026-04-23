@@ -179,6 +179,22 @@ def _calc_lateness(scheduled_start: Optional[str], now: datetime) -> tuple[bool,
     return (True, diff) if diff > 0 else (False, 0)
 
 
+def _effective_start(clock_in_dt: datetime, scheduled_start: Optional[str]) -> datetime:
+    """Return the later of the actual clock-in time and the scheduled start time.
+
+    Rule: staff are not paid for arriving early (effective start = scheduled start),
+    but if they arrive late their paid time starts from when they actually clocked in.
+    """
+    if not scheduled_start:
+        return clock_in_dt
+    try:
+        h, m = map(int, scheduled_start.split(":"))
+    except (ValueError, AttributeError):
+        return clock_in_dt
+    sched_dt = clock_in_dt.replace(hour=h, minute=m, second=0, microsecond=0)
+    return max(clock_in_dt, sched_dt)
+
+
 def _sia_status(expiry: date | None) -> str:
     if not expiry:
         return "unknown"
@@ -575,7 +591,8 @@ def manual_shift(
         clock_out_dt = _localize_uk(body.date.year, body.date.month, body.date.day, out_h, out_m)
         if body.overnight or clock_out_dt <= clock_in_dt:
             clock_out_dt += timedelta(days=1)
-        shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+        eff_start = _effective_start(clock_in_dt, body.scheduled_start)
+        shift_minutes = int((clock_out_dt - eff_start).total_seconds() / 60)
         out_event = models.ClockEvent(
             organisation_id = hr.organisation_id,
             user_id         = body.user_id,
@@ -720,7 +737,8 @@ def edit_shift(
         # Auto overnight: if clock-out <= clock-in, shift crosses midnight
         if clock_out_dt <= clock_in_dt:
             clock_out_dt += timedelta(days=1)
-        shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
+        eff_start = _effective_start(clock_in_dt, body.scheduled_start)
+        shift_minutes = int((clock_out_dt - eff_start).total_seconds() / 60)
         if co:
             # Update existing clock_out
             co.timestamp     = clock_out_dt
@@ -1044,7 +1062,8 @@ def clock_out(
                 now = now.replace(hour=h, minute=m, second=0, microsecond=0)
             except (ValueError, AttributeError):
                 pass
-        shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
+        eff_start = _effective_start(last_in.timestamp, last_in.scheduled_start)
+        shift_minutes = int((now - eff_start).total_seconds() / 60)
         override_notes = (
             f"[OVERRIDE] Manager: {body.manager_name.strip()} | "
             f"Reason: {body.override_reason or 'Not specified'}"
@@ -1081,7 +1100,8 @@ def clock_out(
 
     gps_verified = _check_gps(site, body.gps_lat, body.gps_lng)
     now = _now_uk()
-    shift_minutes = int((now - last_in.timestamp).total_seconds() / 60)
+    eff_start = _effective_start(last_in.timestamp, last_in.scheduled_start)
+    shift_minutes = int((now - eff_start).total_seconds() / 60)
 
     distance_metres = None
     if site.site_lat is not None and body.gps_lat is not None:
