@@ -382,6 +382,7 @@ def all_events(
     db:        Session     = Depends(get_db),
     hr:        models.User = Depends(require_hr),
     staff_id:  Optional[int]  = None,
+    site_id:   Optional[int]  = None,
     from_date: Optional[date] = None,
     to_date:   Optional[date] = None,
 ):
@@ -401,6 +402,8 @@ def all_events(
     )
     if staff_id:
         q = q.filter(models.ClockEvent.user_id == staff_id)
+    if site_id:
+        q = q.filter(models.ClockEvent.site_id == site_id)
     if from_date:
         q = q.filter(models.ClockEvent.timestamp >= datetime(from_date.year, from_date.month, from_date.day, tzinfo=timezone.utc))
     if to_date:

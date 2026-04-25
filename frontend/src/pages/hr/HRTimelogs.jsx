@@ -207,7 +207,7 @@ export function HRTimelogs() {
   const [staff,   setStaff]   = useState([])
   const [hols,    setHols]    = useState([])
   const [sites,   setSites]   = useState([])
-  const [fil,      setFil]      = useState({ staff_id: '', from_date: '', to_date: '' })
+  const [fil,      setFil]      = useState({ staff_id: '', site_id: '', from_date: '', to_date: '' })
   const [mode,     setMode]     = useState('timelogs')
   const [lateOnly, setLateOnly] = useState(false)
 
@@ -239,6 +239,7 @@ export function HRTimelogs() {
   function run() {
     const p = {}
     if (fil.staff_id)  p.staff_id  = fil.staff_id
+    if (fil.site_id)   p.site_id   = fil.site_id
     if (fil.from_date) p.from_date = fil.from_date
     if (fil.to_date)   p.to_date   = fil.to_date
     console.log('[HRTimelogs] run() called with params:', p)
@@ -359,6 +360,13 @@ export function HRTimelogs() {
               style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy-light)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13 }}>
               <option value="">All Staff</option>
               {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
+          </F>
+          <F label="Site">
+            <select value={fil.site_id} onChange={e => setFil(f => ({ ...f, site_id: e.target.value }))}
+              style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy-light)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13 }}>
+              <option value="">All Sites</option>
+              {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </F>
           <F label="From">
