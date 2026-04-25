@@ -391,11 +391,10 @@ export function HRTimelogs() {
 
         {data && (
           <div style={{ display: 'flex', gap: 20, marginBottom: 14, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total shifts: <strong style={{ color: 'var(--green)' }}>{allEntries.length}</strong></span>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>On time: <strong style={{ color: 'var(--green)' }}>{onTimeCount}</strong></span>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Late: <strong style={{ color: lateCount > 0 ? '#e05555' : 'var(--text-muted)', fontWeight: lateCount > 0 ? 700 : 400 }}>{lateCount}</strong></span>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total hours: <strong style={{ color: 'var(--green)', fontFamily: 'DM Mono,monospace' }}>{fmtM(data.total_mins)}</strong></span>
             <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Shifts: <strong style={{ color: 'var(--green)' }}>{entries.length}</strong></span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>On time: <strong style={{ color: 'var(--green)' }}>{entries.filter(e => e.scheduled_start && !e.is_late).length}</strong></span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Late: <strong style={{ color: lateCount > 0 ? '#e05555' : 'var(--text-muted)', fontWeight: lateCount > 0 ? 700 : 400 }}>{entries.filter(e => e.is_late).length}</strong></span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total hours: <strong style={{ color: 'var(--green)', fontFamily: 'DM Mono,monospace' }}>{fmtM(entries.reduce((sum, e) => sum + (e.shift_minutes || 0), 0))}</strong></span>
           </div>
         )}
 
