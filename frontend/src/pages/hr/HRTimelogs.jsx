@@ -4,7 +4,7 @@ import { getAllClockEvents, getAllStaff, getAllHols, getMySites,
          editShift, deleteShift, bulkDeleteShifts } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
-const fmtM = m => m != null ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : '—'
+const fmtM = m => m != null ? `${parseFloat((m / 60).toFixed(2))}h` : '—'
 
 function calcMins(dateStr, inTime, outTime) {
   if (!dateStr || !inTime || !outTime) return null
