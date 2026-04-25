@@ -233,12 +233,14 @@ export function HRTimelogs() {
     getAllStaff().then(r => setStaff(r.data || [])).catch(() => {})
     getAllHols({ status_filter: 'approved' }).then(r => setHols(r.data || [])).catch(() => {})
     getMySites().then(r => setSites(r.data || [])).catch(() => {})
+    // Load all records on mount with no filters
+    getAllClockEvents({}).then(r => setData(r.data)).catch(() => setData({ entries: [], total_mins: 0 }))
   }, [])
 
   function run() {
     const p = {}
-    if (fil.staff_id)  p.staff_id  = fil.staff_id
-    if (fil.site_id)   p.site_id   = fil.site_id
+    if (fil.staff_id)  p.staff_id  = Number(fil.staff_id)
+    if (fil.site_id)   p.site_id   = Number(fil.site_id)
     if (fil.from_date) p.from_date = fil.from_date
     if (fil.to_date)   p.to_date   = fil.to_date
     setSelected(new Set())
@@ -381,12 +383,6 @@ export function HRTimelogs() {
           </button>
         </div>
 
-        {!data && (
-          <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)', fontSize: 14 }}>
-            Select your filters above and click <strong>Search</strong> to view time records.
-          </div>
-        )}
-
         {data && (
           <div style={{ display: 'flex', gap: 20, marginBottom: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total shifts: <strong style={{ color: 'var(--green)' }}>{allEntries.length}</strong></span>
@@ -398,7 +394,7 @@ export function HRTimelogs() {
         )}
 
         {/* Bulk action bar */}
-        {data && selected.size > 0 && (
+        {selected.size > 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12,
             background: 'rgba(224,85,85,.08)', border: '1px solid rgba(224,85,85,.3)',
