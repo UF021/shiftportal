@@ -208,6 +208,7 @@ export function HRTimelogs() {
   const [hols,    setHols]    = useState([])
   const [sites,   setSites]   = useState([])
   const [fil,      setFil]      = useState({ staff_id: '', site_id: '', from_date: '', to_date: '' })
+  const [appliedSiteId, setAppliedSiteId] = useState(null)
   const [mode,     setMode]     = useState('timelogs')
   const [lateOnly, setLateOnly] = useState(false)
 
@@ -234,6 +235,7 @@ export function HRTimelogs() {
     getAllHols({ status_filter: 'approved' }).then(r => setHols(r.data || [])).catch(() => {})
     getMySites().then(r => setSites(r.data || [])).catch(() => {})
     // Load all records on mount with no filters
+    setAppliedSiteId(null)
     getAllClockEvents({}).then(r => setData(r.data)).catch(() => setData({ entries: [], total_mins: 0 }))
   }, [])
 
@@ -243,6 +245,8 @@ export function HRTimelogs() {
     if (fil.site_id)   p.site_id   = Number(fil.site_id)
     if (fil.from_date) p.from_date = fil.from_date
     if (fil.to_date)   p.to_date   = fil.to_date
+    // Track applied site filter for frontend-side filtering
+    setAppliedSiteId(fil.site_id ? Number(fil.site_id) : null)
     setSelected(new Set())
     getAllClockEvents(p)
       .then(r => setData(r.data))
@@ -269,7 +273,9 @@ export function HRTimelogs() {
 
   // ── Selection helpers ────────────────────────────────────────────────────────
 
-  const allEntries = data?.entries || []
+  const allEntries = (data?.entries || []).filter(e =>
+    !appliedSiteId || e.site_id === appliedSiteId
+  )
   const entries = lateOnly ? allEntries.filter(e => e.is_late) : allEntries
   const onTimeCount = allEntries.filter(e => e.scheduled_start && !e.is_late).length
   const lateCount   = allEntries.filter(e => e.is_late).length
