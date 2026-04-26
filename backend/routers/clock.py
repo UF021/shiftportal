@@ -894,6 +894,10 @@ def clock_in(
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been suspended after 3 failed location attempts. Please contact your supervisor.")
 
+    # ── Scheduled start is mandatory for every clock-in ──────────────────────
+    if not body.scheduled_start or not body.scheduled_start.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Scheduled start time is required to clock in")
+
     # ── Prevent double clock-in ───────────────────────────────────────────────
     if _has_open_clock_in(db, user.id):
         raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")

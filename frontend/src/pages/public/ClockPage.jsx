@@ -220,6 +220,10 @@ export default function ClockPage() {
       setOverrideError('Duty Manager full name is required.')
       return
     }
+    if (overrideAction === 'in' && !overrideForm.scheduledStart) {
+      setOverrideError('Scheduled start time is required to clock in.')
+      return
+    }
 
     setSubmitting(true)
     setOverrideError('')
@@ -528,7 +532,9 @@ export default function ClockPage() {
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Scheduled Start</label>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>
+              Scheduled Start {overrideAction === 'in' && <span style={{ color: '#a02020' }}>*</span>}
+            </label>
             <input
               type="time"
               style={{ ...inp, fontSize: 15, fontFamily: 'DM Mono, monospace' }}
