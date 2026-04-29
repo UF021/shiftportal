@@ -160,13 +160,32 @@ export default function HRStaff() {
     setOtherSiteText(unknown.join(', '))
 
     setForm({
+      // Personal
+      title:                 s.title||'',
+      first_name:            s.first_name||'',
+      last_name:             s.last_name||'',
+      date_of_birth:         s.date_of_birth||'',
+      nationality:           s.nationality||'',
+      phone:                 s.phone||'',
+      // Address
+      address_line1:         s.address_line1||'',
+      address_line2:         s.address_line2||'',
+      city:                  s.city||'',
+      postcode:              s.postcode||'',
+      // Employment
       staff_id:              s.staff_id||'TBC',
       employment_start_date: s.employment_start_date||'',
       pay_rate:              !payStr ? '' : isPreset ? payStr : 'other',
       assigned_site_id:      String(s.assigned_site_id||''),
+      right_to_work:         s.right_to_work !== false,
+      // SIA
       ni_number:             s.ni_number||'',
       sia_licence:           s.sia_licence||'',
       sia_expiry:            s.sia_expiry||'',
+      // Next of kin
+      nok_name:              s.nok_name||'',
+      nok_phone:             s.nok_phone||'',
+      nok_relation:          s.nok_relation||'',
     })
   }
 
@@ -178,12 +197,33 @@ export default function HRStaff() {
       const assignedSites = allSiteNames.length ? allSiteNames.join(', ') : null
       const firstSite = sites.find(s => s.name === selSites[0])
       await updateStaff(editing.id, {
-        ...form,
-        pay_rate:             payValue,
-        assigned_site_id:     firstSite ? firstSite.id : (form.assigned_site_id ? parseInt(form.assigned_site_id) : null),
-        assigned_sites:       assignedSites,
+        // Personal
+        title:                 form.title || null,
+        first_name:            form.first_name,
+        last_name:             form.last_name,
+        date_of_birth:         form.date_of_birth || null,
+        nationality:           form.nationality || null,
+        phone:                 form.phone || null,
+        // Address
+        address_line1:         form.address_line1 || null,
+        address_line2:         form.address_line2 || null,
+        city:                  form.city || null,
+        postcode:              form.postcode || null,
+        // Employment
+        staff_id:              form.staff_id,
         employment_start_date: form.employment_start_date || null,
-        sia_expiry:           form.sia_expiry || null,
+        pay_rate:              payValue,
+        assigned_site_id:      firstSite ? firstSite.id : (form.assigned_site_id ? parseInt(form.assigned_site_id) : null),
+        assigned_sites:        assignedSites,
+        right_to_work:         form.right_to_work,
+        // SIA
+        ni_number:             form.ni_number || null,
+        sia_licence:           form.sia_licence || null,
+        sia_expiry:            form.sia_expiry || null,
+        // Next of kin
+        nok_name:              form.nok_name || null,
+        nok_phone:             form.nok_phone || null,
+        nok_relation:          form.nok_relation || null,
       })
       setEdit(null); load()
     } catch(ex) { alert(ex.response?.data?.detail || 'Save failed') }
@@ -304,61 +344,192 @@ export default function HRStaff() {
       {/* Edit modal */}
       {editing && (
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setEdit(null)}>
-          <div className="modal" style={{ width:460 }}>
-            <h3>Edit Staff Details</h3>
-            <p className="sub">{editing.full_name}</p>
-            <div className="field"><label>Staff ID</label>
-              <input value={form.staff_id} onChange={e=>setForm(f=>({...f,staff_id:e.target.value}))} placeholder="e.g. IFM-045 or TBC"/></div>
-            <div className="field"><label>Employment Start Date</label>
-              <input type="date" value={form.employment_start_date} onChange={e=>setForm(f=>({...f,employment_start_date:e.target.value}))}/></div>
-            <div className="field"><label>Pay Rate (£/hr)</label>
-              <select value={form.pay_rate} onChange={e=>setForm(f=>({...f,pay_rate:e.target.value}))}>
-                <option value="">— Select pay rate —</option>
-                {PRESET_PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
-                <option value="other">Other</option>
-              </select>
-              {form.pay_rate === 'other' && (
-                <input type="number" step="0.01" min="0" value={customPay} onChange={e=>setCustomPay(e.target.value)}
-                  placeholder="Enter amount e.g. 14.50"
-                  style={{ marginTop:6, width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none' }} />
-              )}
-            </div>
-            <div className="field"><label>Assigned Sites</label>
-              <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px', maxHeight:200, overflowY:'auto' }}>
-                {sites.map(s => {
-                  const checked = selSites.includes(s.name)
-                  return (
-                    <label key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13 }}>
-                      <input type="checkbox" checked={checked}
-                        onChange={e => setSelSites(prev => e.target.checked ? [...prev, s.name] : prev.filter(n => n !== s.name))}
+          <div className="modal" style={{ width:580, maxHeight:'90vh', overflowY:'auto' }}>
+            <h3>Staff Record</h3>
+            <p className="sub" style={{ marginBottom:20 }}>{editing.email} · Registered {editing.registered_at ? fmtDate(editing.registered_at.slice(0,10)) : '—'}</p>
+
+            {/* ── Section helper ── */}
+            {[
+              {
+                label: 'Personal Information',
+                fields: (
+                  <>
+                    <div style={{ display:'grid', gridTemplateColumns:'80px 1fr 1fr', gap:10, marginBottom:10 }}>
+                      <div className="field" style={{ marginBottom:0 }}><label>Title</label>
+                        <select value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}>
+                          <option value="">—</option>
+                          {['Mr','Mrs','Miss','Ms','Dr','Prof'].map(t=><option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div className="field" style={{ marginBottom:0 }}><label>First Name</label>
+                        <input value={form.first_name} onChange={e=>setForm(f=>({...f,first_name:e.target.value}))} />
+                      </div>
+                      <div className="field" style={{ marginBottom:0 }}><label>Last Name</label>
+                        <input value={form.last_name} onChange={e=>setForm(f=>({...f,last_name:e.target.value}))} />
+                      </div>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                      <div className="field" style={{ marginBottom:0 }}><label>Date of Birth</label>
+                        <input type="date" value={form.date_of_birth} onChange={e=>setForm(f=>({...f,date_of_birth:e.target.value}))} />
+                      </div>
+                      <div className="field" style={{ marginBottom:0 }}><label>Nationality</label>
+                        <input value={form.nationality} onChange={e=>setForm(f=>({...f,nationality:e.target.value}))} placeholder="e.g. British" />
+                      </div>
+                      <div className="field" style={{ marginBottom:0 }}><label>Email (login)</label>
+                        <input value={editing.email} disabled style={{ opacity:.6, cursor:'not-allowed' }} />
+                      </div>
+                      <div className="field" style={{ marginBottom:0 }}><label>Phone</label>
+                        <input value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="e.g. 07700 900000" />
+                      </div>
+                    </div>
+                  </>
+                ),
+              },
+              {
+                label: 'Address',
+                fields: (
+                  <>
+                    <div className="field" style={{ marginBottom:10 }}><label>Address Line 1</label>
+                      <input value={form.address_line1} onChange={e=>setForm(f=>({...f,address_line1:e.target.value}))} placeholder="e.g. 12 High Street" />
+                    </div>
+                    <div className="field" style={{ marginBottom:10 }}><label>Address Line 2</label>
+                      <input value={form.address_line2} onChange={e=>setForm(f=>({...f,address_line2:e.target.value}))} placeholder="Flat / apartment / building (optional)" />
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 140px', gap:10 }}>
+                      <div className="field" style={{ marginBottom:0 }}><label>City / Town</label>
+                        <input value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value}))} placeholder="e.g. London" />
+                      </div>
+                      <div className="field" style={{ marginBottom:0 }}><label>Postcode</label>
+                        <input value={form.postcode} onChange={e=>setForm(f=>({...f,postcode:e.target.value.toUpperCase()}))} style={{ textTransform:'uppercase' }} placeholder="e.g. SW1A 1AA" />
+                      </div>
+                    </div>
+                  </>
+                ),
+              },
+              {
+                label: 'Employment',
+                fields: (
+                  <>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+                      <div className="field" style={{ marginBottom:0 }}><label>Staff ID</label>
+                        <input value={form.staff_id} onChange={e=>setForm(f=>({...f,staff_id:e.target.value}))} placeholder="e.g. IFM-045 or TBC" />
+                      </div>
+                      <div className="field" style={{ marginBottom:0 }}><label>Employment Start Date</label>
+                        <input type="date" value={form.employment_start_date} onChange={e=>setForm(f=>({...f,employment_start_date:e.target.value}))} />
+                      </div>
+                    </div>
+                    <div className="field" style={{ marginBottom:10 }}><label>Pay Rate (£/hr)</label>
+                      <select value={form.pay_rate} onChange={e=>setForm(f=>({...f,pay_rate:e.target.value}))}>
+                        <option value="">— Select pay rate —</option>
+                        {PRESET_PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
+                        <option value="other">Other</option>
+                      </select>
+                      {form.pay_rate === 'other' && (
+                        <input type="number" step="0.01" min="0" value={customPay} onChange={e=>setCustomPay(e.target.value)}
+                          placeholder="Enter amount e.g. 14.50"
+                          style={{ marginTop:6, width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none' }} />
+                      )}
+                    </div>
+                    <div className="field" style={{ marginBottom:10 }}><label>Assigned Sites</label>
+                      <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px', maxHeight:160, overflowY:'auto' }}>
+                        {sites.map(s => {
+                          const checked = selSites.includes(s.name)
+                          return (
+                            <label key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13 }}>
+                              <input type="checkbox" checked={checked}
+                                onChange={e => setSelSites(prev => e.target.checked ? [...prev, s.name] : prev.filter(n => n !== s.name))}
+                                style={{ accentColor:'var(--green)', width:15, height:15 }} />
+                              {s.name}
+                            </label>
+                          )
+                        })}
+                        <label style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13, borderTop:'1px solid var(--border)', marginTop:6, paddingTop:8 }}>
+                          <input type="checkbox" checked={otherSiteOn} onChange={e => setOtherSiteOn(e.target.checked)}
+                            style={{ accentColor:'var(--green)', width:15, height:15 }} />
+                          Other
+                        </label>
+                        {otherSiteOn && (
+                          <input value={otherSiteText} onChange={e => setOtherSiteText(e.target.value)}
+                            placeholder="Enter site name(s), comma-separated"
+                            style={{ marginTop:6, width:'100%', padding:'7px 10px', borderRadius:6, border:'1px solid var(--border)', background:'var(--navy)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', boxSizing:'border-box' }} />
+                        )}
+                      </div>
+                      {(selSites.length > 0 || (otherSiteOn && otherSiteText.trim())) && (
+                        <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
+                          Selected: {[...selSites, ...(otherSiteOn && otherSiteText.trim() ? [otherSiteText.trim()] : [])].join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    <label style={{ display:'flex', alignItems:'center', gap:10, fontSize:13, cursor:'pointer', marginTop:4 }}>
+                      <input type="checkbox" checked={form.right_to_work} onChange={e=>setForm(f=>({...f,right_to_work:e.target.checked}))}
                         style={{ accentColor:'var(--green)', width:15, height:15 }} />
-                      {s.name}
+                      Right to work confirmed
                     </label>
-                  )
-                })}
-                <label style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13, borderTop:'1px solid var(--border)', marginTop:6, paddingTop:8 }}>
-                  <input type="checkbox" checked={otherSiteOn} onChange={e => setOtherSiteOn(e.target.checked)}
-                    style={{ accentColor:'var(--green)', width:15, height:15 }} />
-                  Other
-                </label>
-                {otherSiteOn && (
-                  <input value={otherSiteText} onChange={e => setOtherSiteText(e.target.value)}
-                    placeholder="Enter site name(s), comma-separated"
-                    style={{ marginTop:6, width:'100%', padding:'7px 10px', borderRadius:6, border:'1px solid var(--border)', background:'var(--navy)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', boxSizing:'border-box' }} />
-                )}
-              </div>
-              {selSites.length > 0 || (otherSiteOn && otherSiteText.trim()) ? (
-                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
-                  Selected: {[...selSites, ...(otherSiteOn && otherSiteText.trim() ? [otherSiteText.trim()] : [])].join(', ')}
+                  </>
+                ),
+              },
+              {
+                label: 'SIA & Compliance',
+                fields: (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                    <div className="field" style={{ marginBottom:0 }}><label>NI Number</label>
+                      <input value={form.ni_number} onChange={e=>setForm(f=>({...f,ni_number:e.target.value.toUpperCase()}))} style={{ textTransform:'uppercase' }} placeholder="e.g. AB123456C" />
+                    </div>
+                    <div className="field" style={{ marginBottom:0 }}><label>SIA Licence</label>
+                      <input value={form.sia_licence} onChange={e=>setForm(f=>({...f,sia_licence:e.target.value}))} placeholder="Licence number" />
+                    </div>
+                    <div className="field" style={{ marginBottom:0 }}><label>SIA Expiry</label>
+                      <input type="date" value={form.sia_expiry} onChange={e=>setForm(f=>({...f,sia_expiry:e.target.value}))} />
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                label: 'Next of Kin',
+                fields: (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                    <div className="field" style={{ marginBottom:0 }}><label>Full Name</label>
+                      <input value={form.nok_name} onChange={e=>setForm(f=>({...f,nok_name:e.target.value}))} placeholder="e.g. Jane Smith" />
+                    </div>
+                    <div className="field" style={{ marginBottom:0 }}><label>Phone</label>
+                      <input value={form.nok_phone} onChange={e=>setForm(f=>({...f,nok_phone:e.target.value}))} placeholder="e.g. 07700 900111" />
+                    </div>
+                    <div className="field" style={{ marginBottom:0 }}><label>Relationship</label>
+                      <input value={form.nok_relation} onChange={e=>setForm(f=>({...f,nok_relation:e.target.value}))} placeholder="e.g. Spouse" />
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                label: 'Declarations (read-only)',
+                fields: (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                    {[
+                      ['decl_policy',       'Company policy read & understood'],
+                      ['decl_portal',       'Portal terms accepted'],
+                      ['decl_line_manager', 'Line manager confirmed'],
+                      ['decl_pay_schedule', 'Pay schedule confirmed'],
+                      ['decl_trained',      'Training completed'],
+                      ['decl_accurate',     'Information declared accurate'],
+                      ['decl_contact',      'Contact details confirmed'],
+                    ].map(([key, label]) => (
+                      <div key={key} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, padding:'4px 0' }}>
+                        <span style={{ fontSize:15 }}>{editing[key] ? '✅' : '⬜'}</span>
+                        <span style={{ color: editing[key] ? 'var(--text)' : 'var(--text-muted)' }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+            ].map(({ label, fields }) => (
+              <div key={label} style={{ marginBottom:24 }}>
+                <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:'var(--text-muted)', borderBottom:'1px solid var(--border)', paddingBottom:6, marginBottom:14 }}>
+                  {label}
                 </div>
-              ) : null}
-            </div>
-            <div className="field"><label>NI Number</label>
-              <input value={form.ni_number} onChange={e=>setForm(f=>({...f,ni_number:e.target.value.toUpperCase()}))} style={{ textTransform:'uppercase' }}/></div>
-            <div className="field"><label>SIA Licence Number</label>
-              <input value={form.sia_licence} onChange={e=>setForm(f=>({...f,sia_licence:e.target.value}))}/></div>
-            <div className="field"><label>SIA Expiry Date</label>
-              <input type="date" value={form.sia_expiry} onChange={e=>setForm(f=>({...f,sia_expiry:e.target.value}))}/></div>
+                {fields}
+              </div>
+            ))}
+
             <div className="modal-footer">
               <button onClick={()=>setEdit(null)} className="btn btn-outline">Cancel</button>
               <button onClick={save} className="btn btn-brand" disabled={saving}>{saving?'Saving…':'Save Changes'}</button>

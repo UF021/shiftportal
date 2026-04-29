@@ -168,14 +168,33 @@ class ActivateRequest(BaseModel):
 
 
 class EditUserRequest(BaseModel):
-    staff_id:              Optional[str] = None
-    employment_start_date: Optional[date] = None
+    # Employment
+    staff_id:              Optional[str]   = None
+    employment_start_date: Optional[date]  = None
     pay_rate:              Optional[float] = None
-    assigned_site_id:      Optional[int] = None
-    assigned_sites:        Optional[str] = None
-    ni_number:             Optional[str] = None
-    sia_licence:           Optional[str] = None
-    sia_expiry:            Optional[date] = None
+    assigned_site_id:      Optional[int]   = None
+    assigned_sites:        Optional[str]   = None
+    right_to_work:         Optional[bool]  = None
+    # SIA / compliance
+    ni_number:             Optional[str]   = None
+    sia_licence:           Optional[str]   = None
+    sia_expiry:            Optional[date]  = None
+    # Personal
+    title:                 Optional[str]   = None
+    first_name:            Optional[str]   = None
+    last_name:             Optional[str]   = None
+    date_of_birth:         Optional[date]  = None
+    nationality:           Optional[str]   = None
+    phone:                 Optional[str]   = None
+    # Address
+    address_line1:         Optional[str]   = None
+    address_line2:         Optional[str]   = None
+    city:                  Optional[str]   = None
+    postcode:              Optional[str]   = None
+    # Next of kin
+    nok_name:              Optional[str]   = None
+    nok_phone:             Optional[str]   = None
+    nok_relation:          Optional[str]   = None
 
 
 # ── Site ──────────────────────────────────────────────────────────────────────
