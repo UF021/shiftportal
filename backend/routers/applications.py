@@ -46,14 +46,44 @@ def _send_registration_email(to_email: str, first_name: str, reg_link: str, org_
     smtp_user = os.getenv("SMTP_USER")
     smtp_pass = os.getenv("SMTP_PASS")
 
-    body = (
-        f"Dear {first_name},\n\n"
-        f"Congratulations! Your application to {org_name} has been accepted.\n\n"
-        f"Please complete your registration by clicking the link below:\n"
-        f"{reg_link}\n\n"
-        f"This link is unique to you — please do not share it.\n\n"
-        f"Kind regards,\n{org_name} HR Team"
-    )
+    body = f"""Dear Colleague,
+
+Thank you for joining our company and we very much look forward to working with you. Your employment start date, weekly shifts, pay rate and site location would have been included in earlier correspondence with a line manager and clearly shown on the job advert.
+
+If you have not been informed of a start date and induction details, we will get in touch with you to arrange them.
+
+Below are the next steps for onboarding you to our payroll system. PLEASE FOLLOW THE INSTRUCTIONS CAREFULLY
+
+*** THINGS TO DO NEXT: ***
+
+1)    Use the link provided to set up the password for your MyPortal:
+      {reg_link}
+
+2)    Log in to make sure everything is working
+
+3)    Open the attached documents in your MyPortal such as company's working policies, Martyn's Law and payment calendar. MAKE SURE TO READ THIS.
+
+4)    After reading, confirm you have read and understood.
+
+5)    You are now ready to start work.
+
+
+SEND THE FOLLOWING VIA EMAIL TO HR@IKANFM.CO.UK
+
+1)    Bank details (Account name, Sort code and account number). This is required to set you up for payroll only.
+
+2)    To ensure you are paying the correct level of tax, please provide us with a copy of your P45 issued in the current financial year (where available) if you have not done so already.
+
+
+After commencing your employment with us, if you wish to resign, you are required to give no less than 14 days' notice via email to the HR Manager to avoid service disruption to our clients, safeguard work colleagues and prevent loss of income to you and the business.
+
+You can contact your tax office to inform them of your new employment and give them the following Payroll Reference number - 120/YA66599
+
+Again, thank you for joining Ikan Facilities Management Ltd.
+
+Julie Mitcham
+HR Dept.
+Web: www.ikanfm.co.uk"""
 
     if not all([smtp_host, smtp_user, smtp_pass]):
         log.info("[EMAIL] SMTP not configured — would send to %s:\n%s", to_email, body)
@@ -61,7 +91,7 @@ def _send_registration_email(to_email: str, first_name: str, reg_link: str, org_
 
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Your {org_name} Application — Next Steps"
+        msg["Subject"] = f"Welcome to {org_name} — Your Onboarding Next Steps"
         msg["From"]    = smtp_user
         msg["To"]      = to_email
         msg.attach(MIMEText(body, "plain"))

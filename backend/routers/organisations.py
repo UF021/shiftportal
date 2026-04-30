@@ -353,13 +353,20 @@ def get_documents(
     docs = db.query(models.OrgDocument).filter(
         models.OrgDocument.organisation_id == org_id,
     ).order_by(models.OrgDocument.id).all()
+    confirmed_map = {
+        r.doc_key: r.confirmed_at for r in db.query(models.DocReadConfirmation).filter(
+            models.DocReadConfirmation.user_id == current_user.id,
+        ).all()
+    }
     return [
         {
-            "doc_key":    d.doc_key,
-            "doc_name":   d.doc_name,
-            "doc_url":    d.doc_url,
-            "has_file":   d.doc_content is not None,
-            "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+            "doc_key":      d.doc_key,
+            "doc_name":     d.doc_name,
+            "doc_url":      d.doc_url,
+            "has_file":     d.doc_content is not None,
+            "updated_at":   d.updated_at.isoformat() if d.updated_at else None,
+            "confirmed":    d.doc_key in confirmed_map,
+            "confirmed_at": confirmed_map[d.doc_key].isoformat() if d.doc_key in confirmed_map else None,
         }
         for d in docs
     ]
@@ -416,6 +423,130 @@ def upload_document(
     doc.updated_by  = hr.id
     db.commit()
     return {"message": "Document uploaded", "size_bytes": len(pdf_bytes)}
+
+
+@router.get("/me/documents/unconfirmed")
+def get_unconfirmed_docs(
+    db:           Session     = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Return doc_keys that the current staff member has not yet confirmed reading."""
+    org_id = current_user.organisation_id
+    if not org_id:
+        raise HTTPException(403, "No organisation")
+    _ensure_default_docs(org_id, db)
+    all_docs = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == org_id,
+    ).all()
+    confirmed_keys = {
+        r.doc_key for r in db.query(models.DocReadConfirmation).filter(
+            models.DocReadConfirmation.user_id == current_user.id,
+        ).all()
+    }
+    unconfirmed = [d.doc_key for d in all_docs if d.doc_key not in confirmed_keys and (d.doc_content is not None or d.doc_url)]
+    return {"unconfirmed": unconfirmed}
+
+
+@router.post("/me/documents/{doc_key}/confirm", status_code=200)
+def confirm_doc_read(
+    doc_key:      str,
+    db:           Session     = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Staff — record that they have read and understood a document."""
+    org_id = current_user.organisation_id
+    if not org_id:
+        raise HTTPException(403, "No organisation")
+    existing = db.query(models.DocReadConfirmation).filter(
+        models.DocReadConfirmation.user_id  == current_user.id,
+        models.DocReadConfirmation.doc_key  == doc_key,
+    ).first()
+    if not existing:
+        db.add(models.DocReadConfirmation(
+            organisation_id = org_id,
+            user_id         = current_user.id,
+            doc_key         = doc_key,
+        ))
+        db.commit()
+    # Send a system message if any docs still unconfirmed
+    all_docs = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == org_id,
+    ).all()
+    confirmed_keys = {
+        r.doc_key for r in db.query(models.DocReadConfirmation).filter(
+            models.DocReadConfirmation.user_id == current_user.id,
+        ).all()
+    }
+    unconfirmed = [d.doc_name for d in all_docs if d.doc_key not in confirmed_keys and (d.doc_content is not None or d.doc_url)]
+    if unconfirmed:
+        # Update or create a reminder message in inbox
+        reminder_title = "Action Required: Please read your employment documents"
+        existing_msg = db.query(models.Message).filter(
+            models.Message.recipient_id == current_user.id,
+            models.Message.title        == reminder_title,
+        ).first()
+        reminder_body = (
+            "You still have unread employment documents that require your confirmation:\n\n"
+            + "\n".join(f"• {n}" for n in unconfirmed)
+            + "\n\nPlease log in to MyPortal → Documents, read each document, and click 'I have read and understood this document' at the bottom."
+        )
+        if existing_msg:
+            existing_msg.body = reminder_body
+            db.commit()
+        else:
+            # Find any HR user to act as sender
+            hr_user = db.query(models.User).filter(
+                models.User.organisation_id == org_id,
+                models.User.role            == models.UserRole.hr,
+            ).first()
+            if hr_user:
+                db.add(models.Message(
+                    organisation_id = org_id,
+                    sent_by         = hr_user.id,
+                    recipient_id    = current_user.id,
+                    title           = reminder_title,
+                    body            = reminder_body,
+                    priority        = 'urgent',
+                    read_by         = '[]',
+                ))
+                db.commit()
+    return {"confirmed": doc_key}
+
+
+@router.get("/me/documents/confirmations")
+def get_doc_confirmations_hr(
+    db: Session     = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    """HR — see which staff have/haven't confirmed each document."""
+    all_docs = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == hr.organisation_id,
+    ).all()
+    all_staff = db.query(models.User).filter(
+        models.User.organisation_id == hr.organisation_id,
+        models.User.role            == models.UserRole.staff,
+        models.User.is_active       == True,
+    ).all()
+    confirmations = db.query(models.DocReadConfirmation).filter(
+        models.DocReadConfirmation.organisation_id == hr.organisation_id,
+    ).all()
+    conf_set = {(c.user_id, c.doc_key): c.confirmed_at for c in confirmations}
+    result = []
+    for s in all_staff:
+        result.append({
+            "user_id":   s.id,
+            "user_name": s.full_name,
+            "docs": [
+                {
+                    "doc_key":      d.doc_key,
+                    "doc_name":     d.doc_name,
+                    "confirmed":    (s.id, d.doc_key) in conf_set,
+                    "confirmed_at": conf_set[(s.id, d.doc_key)].isoformat() if (s.id, d.doc_key) in conf_set else None,
+                }
+                for d in all_docs
+            ],
+        })
+    return result
 
 
 @router.get("/me/documents/{doc_key}/file")

@@ -297,6 +297,22 @@ class OrgDocument(Base):
     __table_args__  = (UniqueConstraint('organisation_id', 'doc_key'),)
 
 
+# ── DocReadConfirmation ───────────────────────────────────────────────────────
+
+class DocReadConfirmation(Base):
+    __tablename__ = 'doc_read_confirmations'
+
+    id              = Column(Integer, primary_key=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False)
+    user_id         = Column(Integer, ForeignKey('users.id',         ondelete='CASCADE'), nullable=False)
+    doc_key         = Column(String(100), nullable=False)
+    confirmed_at    = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (UniqueConstraint('user_id', 'doc_key'),)
+
+
 # ── Holiday ───────────────────────────────────────────────────────────────────
 
 class Holiday(Base):
