@@ -76,8 +76,51 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
             "Please contact your HR administrator."
         )
 
-    # Email uniqueness
-    if db.query(models.User).filter(models.User.email == req.email.lower()).first():
+    # Check if a staff record was pre-created when the application was accepted
+    existing = db.query(models.User).filter(models.User.email == req.email.lower()).first()
+    if existing:
+        # Allow if this is a pre-created account (inactive, same org) with a valid pre-reg token
+        pre_reg = db.query(models.PreRegistration).filter(
+            models.PreRegistration.email           == req.email.lower(),
+            models.PreRegistration.organisation_id == org.id,
+            models.PreRegistration.used            == False,
+        ).first()
+        if pre_reg and not existing.is_active and existing.organisation_id == org.id:
+            # Update with the password and any extra details the applicant provided
+            existing.hashed_password = hash_password(req.password)
+            existing.title           = req.title           or existing.title
+            existing.first_name      = req.first_name      or existing.first_name
+            existing.last_name       = req.last_name       or existing.last_name
+            existing.date_of_birth   = req.date_of_birth   or existing.date_of_birth
+            existing.nationality     = req.nationality     or existing.nationality
+            existing.phone           = req.phone           or existing.phone
+            existing.address_line1   = req.address_line1   or existing.address_line1
+            existing.address_line2   = req.address_line2   or existing.address_line2
+            existing.city            = req.city            or existing.city
+            existing.postcode        = req.postcode        or existing.postcode
+            existing.ni_number       = (req.ni_number.upper() if req.ni_number else None) or existing.ni_number
+            existing.right_to_work   = req.right_to_work
+            existing.sia_licence     = req.sia_licence     or existing.sia_licence
+            existing.sia_expiry      = req.sia_expiry      or existing.sia_expiry
+            existing.nok_name        = req.nok_name        or existing.nok_name
+            existing.nok_phone       = req.nok_phone       or existing.nok_phone
+            existing.nok_relation    = req.nok_relation    or existing.nok_relation
+            existing.decl_policy     = req.decl_policy
+            existing.decl_portal     = req.decl_portal
+            existing.decl_line_manager = req.decl_line_manager
+            existing.decl_pay_schedule = req.decl_pay_schedule
+            existing.decl_trained    = req.decl_trained
+            existing.decl_accurate   = req.decl_accurate
+            existing.decl_contact    = req.decl_contact
+            pre_reg.used = True
+            db.commit()
+            db.refresh(existing)
+            return {
+                "message": "Registration submitted. HR will review and activate your account.",
+                "id":    existing.id,
+                "email": existing.email,
+                "org":   org.name,
+            }
         raise HTTPException(409, "An account with this email address already exists")
 
     user = models.User(

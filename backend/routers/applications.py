@@ -265,7 +265,48 @@ def update_status(
 
     reg_link = None
     if body.status == models.ApplicationStatus.accepted and not a.registration_sent_at:
-        # Create pre-registration record
+        from auth_utils import hash_password
+        from datetime import date as _date
+
+        # ── Auto-create staff record from application ────────────────────────
+        existing_user = db.query(models.User).filter(
+            models.User.email == a.email.lower(),
+        ).first()
+
+        if not existing_user:
+            # Parse sia_expiry string → date (if present)
+            sia_exp_date = None
+            if a.sia_expiry:
+                try:
+                    sia_exp_date = _date.fromisoformat(a.sia_expiry)
+                except (ValueError, TypeError):
+                    pass
+
+            new_user = models.User(
+                organisation_id = a.organisation_id,
+                role            = models.UserRole.staff,
+                email           = a.email.lower(),
+                hashed_password = hash_password(str(uuid.uuid4())),  # temp — replaced when they register
+                is_active       = False,
+                staff_id        = a.reference,      # application ref becomes staff ID
+                title           = a.title,
+                first_name      = a.first_name,
+                last_name       = a.last_name,
+                date_of_birth   = _date.fromisoformat(a.date_of_birth) if a.date_of_birth else None,
+                nationality     = a.nationality,
+                phone           = a.phone,
+                address_line1   = a.address,        # single-string address → line1
+                ni_number       = a.ni_number.upper() if a.ni_number else None,
+                sia_licence     = a.sia_licence,
+                sia_expiry      = sia_exp_date,
+                right_to_work   = a.right_to_work,
+                nok_name        = a.nok_name,
+                nok_phone       = a.nok_phone,
+            )
+            db.add(new_user)
+            db.flush()
+
+        # ── Pre-registration token (so applicant can set their password) ─────
         token = str(uuid.uuid4())
         pre = models.PreRegistration(
             organisation_id = a.organisation_id,
