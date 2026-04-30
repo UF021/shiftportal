@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
-import { getMyClockHistory, getMyMessages, getOrgDocs } from '../../api/client'
+import { getMyClockHistory, getMyMessages } from '../../api/client'
+import { useDocs } from '../../api/DocsContext'
 
 function fmtDuration(mins) {
   if (mins == null) return '—'
@@ -18,7 +19,7 @@ export default function StaffDashboard() {
 
   const [clockData,      setClockData]      = useState(null)
   const [urgentMessages, setUrgentMessages] = useState([])
-  const [unconfirmedDocs, setUnconfirmedDocs] = useState([])
+  const { unconfirmedDocs } = useDocs()
 
   useEffect(() => {
     getMyClockHistory()
@@ -26,11 +27,6 @@ export default function StaffDashboard() {
       .catch(() => setClockData({ open_in: null, shifts: [] }))
     getMyMessages()
       .then(r => setUrgentMessages((r.data || []).filter(m => !m.is_read && m.priority === 'urgent')))
-      .catch(() => {})
-    getOrgDocs()
-      .then(r => setUnconfirmedDocs(
-        (r.data || []).filter(d => (d.has_file || d.doc_url) && !d.confirmed)
-      ))
       .catch(() => {})
   }, [])
 

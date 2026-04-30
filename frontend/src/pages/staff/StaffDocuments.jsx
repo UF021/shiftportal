@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { getOrgDocs, confirmDocRead } from '../../api/client'
+import { useState, useEffect } from 'react'
+import { confirmDocRead } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
+import { useDocs } from '../../api/DocsContext'
 
 const BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -12,13 +13,45 @@ function fmtDate(iso) {
 // ── Per-document card ─────────────────────────────────────────────────────────
 
 function DocCard({ doc, c, onConfirmed }) {
-  const [blobUrl,     setBlobUrl]     = useState(null)
-  const [fetching,    setFetching]    = useState(false)
-  const [loadErr,     setLoadErr]     = useState('')
-  const [confirmErr,  setConfirmErr]  = useState('')
-  const [confirming,  setConfirming]  = useState(false)
-  const [confirmed,   setConfirmed]   = useState(doc.confirmed)
-  const [confirmedAt, setConfirmedAt] = useState(doc.confirmed_at)
+  const [blobUrl,    setBlobUrl]   = useState(null)
+  const [fetching,   setFetching]  = useState(false)
+  const [loadErr,    setLoadErr]   = useState('')
+  const [confirming, setConfirming] = useState(false)
+
+  // Scroll/read enforcement: countdown before confirm is enabled
+  const [canConfirm, setCanConfirm] = useState(false)
+  const [countdown,  setCountdown]  = useState(0)
+
+  // Derive confirmed state directly from doc prop (comes from context)
+  const confirmed   = !!doc.confirmed
+  const confirmedAt = doc.confirmed_at
+
+  // When PDF modal opens, start 8-second countdown
+  useEffect(() => {
+    if (!blobUrl) {
+      setCanConfirm(false)
+      setCountdown(0)
+      return
+    }
+    if (confirmed) {
+      setCanConfirm(true)
+      return
+    }
+    const WAIT = 8
+    setCanConfirm(false)
+    setCountdown(WAIT)
+    const iv = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(iv)
+          setCanConfirm(true)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [blobUrl, confirmed])
 
   function openFile() {
     if (blobUrl) return
@@ -36,37 +69,26 @@ function DocCard({ doc, c, onConfirmed }) {
   function closeModal() {
     if (blobUrl) URL.revokeObjectURL(blobUrl)
     setBlobUrl(null)
-    setConfirmErr('')
   }
 
   async function handleConfirm() {
+    if (!canConfirm || confirming || confirmed) return
     setConfirming(true)
-    setConfirmErr('')
-    // Optimistic update — clear warnings immediately
-    const now = new Date().toISOString()
-    setConfirmed(true)
-    setConfirmedAt(now)
+    // Update context first — all consumers (badge, home page) react immediately
     onConfirmed(doc.doc_key)
     closeModal()
-    // Persist to backend in background
     try {
       await confirmDocRead(doc.doc_key)
     } catch {
-      // Backend unavailable — confirmation recorded locally for this session
-      // No need to roll back; HR can follow up if needed
+      // silent — optimistic; HR can follow up if needed
     } finally {
       setConfirming(false)
     }
   }
 
-  // Confirmation for URL-based docs (no PDF viewer modal)
   async function handleConfirmUrl() {
-    if (confirmed) return
+    if (confirmed || confirming) return
     setConfirming(true)
-    setConfirmErr('')
-    const now = new Date().toISOString()
-    setConfirmed(true)
-    setConfirmedAt(now)
     onConfirmed(doc.doc_key)
     try {
       await confirmDocRead(doc.doc_key)
@@ -137,7 +159,7 @@ function DocCard({ doc, c, onConfirmed }) {
                 fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 700,
                 cursor: fetching ? 'wait' : 'pointer',
               }}>
-                {fetching ? 'Loading…' : 'View Document →'}
+                {fetching ? 'Loading…' : confirmed ? 'View Document' : 'View Document →'}
               </button>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -150,7 +172,6 @@ function DocCard({ doc, c, onConfirmed }) {
                 }}>
                   View Document →
                 </a>
-                {/* Confirm button for URL docs (no modal) */}
                 {!confirmed && (
                   <button onClick={handleConfirmUrl} disabled={confirming} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -222,29 +243,30 @@ function DocCard({ doc, c, onConfirmed }) {
               <>
                 <div>
                   <div style={{ fontSize: 13, color: '#6a4a00', fontWeight: 700, marginBottom: 3 }}>
-                    Please read the full document above before confirming.
+                    {canConfirm
+                      ? 'Please confirm you have read and understood this document.'
+                      : `Please read through the full document above…`}
                   </div>
                   <div style={{ fontSize: 12, color: '#9a6a00' }}>
-                    This confirmation is required by HR and forms part of your employment record.
+                    {canConfirm
+                      ? 'This confirmation forms part of your employment record.'
+                      : `Confirmation available in ${countdown}s`}
                   </div>
-                  {confirmErr && (
-                    <div style={{ fontSize: 12, color: '#e05555', marginTop: 4, fontWeight: 600 }}>
-                      ⚠ {confirmErr}
-                    </div>
-                  )}
                 </div>
                 <button
                   onClick={handleConfirm}
-                  disabled={confirming}
+                  disabled={!canConfirm || confirming}
                   style={{
                     flexShrink: 0, padding: '12px 22px', borderRadius: 10, border: 'none',
-                    background: confirming ? '#aaa' : '#2e7d32',
+                    background: !canConfirm ? '#ccc' : confirming ? '#aaa' : '#2e7d32',
                     color: '#fff', fontFamily: 'DM Sans,sans-serif',
-                    fontSize: 14, fontWeight: 800, cursor: confirming ? 'wait' : 'pointer',
+                    fontSize: 14, fontWeight: 800,
+                    cursor: !canConfirm || confirming ? 'not-allowed' : 'pointer',
                     whiteSpace: 'nowrap',
+                    transition: 'background .3s',
                   }}
                 >
-                  {confirming ? 'Saving…' : '✓ I have read and understood this document'}
+                  {confirming ? 'Saving…' : !canConfirm ? `Wait ${countdown}s…` : '✓ I have read and understood this document'}
                 </button>
               </>
             )}
@@ -260,26 +282,7 @@ function DocCard({ doc, c, onConfirmed }) {
 export default function StaffDocuments() {
   const { colour } = useBrand()
   const c = colour || '#6abf3f'
-  const [docs,    setDocs]    = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    getOrgDocs()
-      .then(r => setDocs(r.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  function handleConfirmed(doc_key) {
-    setDocs(prev => prev.map(d =>
-      d.doc_key === doc_key
-        ? { ...d, confirmed: true, confirmed_at: new Date().toISOString() }
-        : d
-    ))
-  }
-
-  const availableDocs    = docs.filter(d => d.has_file || d.doc_url)
-  const unconfirmedCount = availableDocs.filter(d => !d.confirmed).length
+  const { docs, unconfirmedCount, loading, markConfirmed } = useDocs()
 
   return (
     <div>
@@ -318,7 +321,7 @@ export default function StaffDocuments() {
         </div>
       ) : (
         docs.map(doc => (
-          <DocCard key={doc.doc_key} doc={doc} c={c} onConfirmed={handleConfirmed} />
+          <DocCard key={doc.doc_key} doc={doc} c={c} onConfirmed={markConfirmed} />
         ))
       )}
 

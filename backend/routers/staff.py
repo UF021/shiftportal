@@ -17,8 +17,7 @@ def list_staff(
     hr: models.User = Depends(require_hr),
 ):
     q = db.query(models.User).filter(
-        models.User.is_active == True,
-        models.User.role      == models.UserRole.staff,
+        models.User.role == models.UserRole.staff,
     )
     if hr.role != models.UserRole.superadmin:
         q = q.filter(models.User.organisation_id == hr.organisation_id)

@@ -289,7 +289,19 @@ export default function HRStaff() {
                   <td style={{ textAlign: 'center' }}>
                     <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleRow(s.id)} />
                   </td>
-                  <td><strong>{s.full_name}</strong><br/><span style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</span></td>
+                  <td>
+                    <strong>{s.full_name}</strong>
+                    {!s.is_active && (
+                      <span style={{
+                        display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700,
+                        padding:'2px 7px', borderRadius:10,
+                        background:'rgba(240,160,48,.15)', color:'#b07000',
+                        verticalAlign:'middle',
+                      }}>⏳ Awaiting Registration</span>
+                    )}
+                    <br/>
+                    <span style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</span>
+                  </td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.staff_id||'TBC'}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.sia_licence||'—'}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(s.sia_expiry)}</td>

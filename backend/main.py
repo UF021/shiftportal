@@ -1,14 +1,95 @@
+import uuid
+import logging
+from datetime import date as _date
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from database import engine, Base
+from database import engine, Base, SessionLocal
 from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact
+
+log = logging.getLogger(__name__)
+
+
+def _backfill_accepted_applications():
+    """
+    One-time idempotent migration: for every accepted JobApplication that has
+    no corresponding User record (matched by email within the same org),
+    create a staff User with is_active=False so they appear in Staff Records.
+    Runs on every startup but only creates records that are missing.
+    """
+    from auth_utils import hash_password
+    import models
+
+    db = SessionLocal()
+    try:
+        accepted = (
+            db.query(models.JobApplication)
+            .filter(models.JobApplication.status == models.ApplicationStatus.accepted)
+            .all()
+        )
+        created = 0
+        for a in accepted:
+            existing = db.query(models.User).filter(
+                models.User.email == a.email.lower(),
+            ).first()
+            if existing:
+                continue  # already has a record
+
+            sia_exp_date = None
+            if a.sia_expiry:
+                try:
+                    sia_exp_date = _date.fromisoformat(a.sia_expiry)
+                except (ValueError, TypeError):
+                    pass
+
+            dob = None
+            if a.date_of_birth:
+                try:
+                    dob = _date.fromisoformat(a.date_of_birth)
+                except (ValueError, TypeError):
+                    pass
+
+            new_user = models.User(
+                organisation_id = a.organisation_id,
+                role            = models.UserRole.staff,
+                email           = a.email.lower(),
+                hashed_password = hash_password(str(uuid.uuid4())),
+                is_active       = False,
+                staff_id        = a.reference or 'TBC',
+                title           = a.title,
+                first_name      = a.first_name,
+                last_name       = a.last_name,
+                date_of_birth   = dob,
+                nationality     = a.nationality,
+                phone           = a.phone,
+                address_line1   = a.address,
+                ni_number       = a.ni_number.upper() if a.ni_number else None,
+                sia_licence     = a.sia_licence,
+                sia_expiry      = sia_exp_date,
+                right_to_work   = a.right_to_work,
+                nok_name        = a.nok_name,
+                nok_phone       = a.nok_phone,
+            )
+            db.add(new_user)
+            created += 1
+
+        if created:
+            db.commit()
+            log.info("[MIGRATION] Created %d staff record(s) from accepted applications", created)
+        else:
+            log.info("[MIGRATION] No missing staff records found — all accepted applications already have accounts")
+    except Exception as exc:
+        db.rollback()
+        log.error("[MIGRATION] Backfill failed: %s", exc)
+    finally:
+        db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _backfill_accepted_applications()
     yield
 
 
