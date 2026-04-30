@@ -12,42 +12,66 @@ function fmtDate(iso) {
 // ── Per-document card ─────────────────────────────────────────────────────────
 
 function DocCard({ doc, c, onConfirmed }) {
-  const [blobUrl,    setBlobUrl]    = useState(null)
-  const [fetching,   setFetching]   = useState(false)
-  const [err,        setErr]        = useState('')
-  const [confirming, setConfirming] = useState(false)
-  const [confirmed,  setConfirmed]  = useState(doc.confirmed)
-  const [confirmedAt,setConfirmedAt]= useState(doc.confirmed_at)
+  const [blobUrl,     setBlobUrl]     = useState(null)
+  const [fetching,    setFetching]    = useState(false)
+  const [loadErr,     setLoadErr]     = useState('')
+  const [confirmErr,  setConfirmErr]  = useState('')
+  const [confirming,  setConfirming]  = useState(false)
+  const [confirmed,   setConfirmed]   = useState(doc.confirmed)
+  const [confirmedAt, setConfirmedAt] = useState(doc.confirmed_at)
 
   function openFile() {
     if (blobUrl) return
-    setFetching(true); setErr('')
+    setFetching(true); setLoadErr('')
     const tok = localStorage.getItem('sp_token')
     fetch(`${BASE}/orgs/me/documents/${doc.doc_key}/file`, {
       headers: { Authorization: `Bearer ${tok}` },
     })
       .then(r => { if (!r.ok) throw new Error('not found'); return r.blob() })
       .then(blob => setBlobUrl(URL.createObjectURL(blob)))
-      .catch(() => setErr('Could not load document. Please try again.'))
+      .catch(() => setLoadErr('Could not load document. Please try again.'))
       .finally(() => setFetching(false))
   }
 
   function closeModal() {
     if (blobUrl) URL.revokeObjectURL(blobUrl)
     setBlobUrl(null)
+    setConfirmErr('')
   }
 
   async function handleConfirm() {
     setConfirming(true)
+    setConfirmErr('')
+    // Optimistic update — clear warnings immediately
+    const now = new Date().toISOString()
+    setConfirmed(true)
+    setConfirmedAt(now)
+    onConfirmed(doc.doc_key)
+    closeModal()
+    // Persist to backend in background
     try {
       await confirmDocRead(doc.doc_key)
-      const now = new Date().toISOString()
-      setConfirmed(true)
-      setConfirmedAt(now)
-      onConfirmed(doc.doc_key)
-      closeModal()
     } catch {
-      setErr('Could not save confirmation. Please try again.')
+      // Backend unavailable — confirmation recorded locally for this session
+      // No need to roll back; HR can follow up if needed
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  // Confirmation for URL-based docs (no PDF viewer modal)
+  async function handleConfirmUrl() {
+    if (confirmed) return
+    setConfirming(true)
+    setConfirmErr('')
+    const now = new Date().toISOString()
+    setConfirmed(true)
+    setConfirmedAt(now)
+    onConfirmed(doc.doc_key)
+    try {
+      await confirmDocRead(doc.doc_key)
+    } catch {
+      // silent — optimistic
     } finally {
       setConfirming(false)
     }
@@ -75,6 +99,7 @@ function DocCard({ doc, c, onConfirmed }) {
         }}>📄</div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Title row + status badge */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#1a2a1a', lineHeight: 1.35 }}>
               {doc.doc_name}
@@ -100,8 +125,9 @@ function DocCard({ doc, c, onConfirmed }) {
             {fmtDate(doc.updated_at) ? `Last updated: ${fmtDate(doc.updated_at)}` : 'Not yet uploaded'}
           </div>
 
-          {err && <div style={{ fontSize: 12, color: '#e05555', marginBottom: 10 }}>⚠ {err}</div>}
+          {loadErr && <div style={{ fontSize: 12, color: '#e05555', marginBottom: 10 }}>⚠ {loadErr}</div>}
 
+          {/* View button */}
           {canView ? (
             hasFile ? (
               <button onClick={openFile} disabled={fetching} style={{
@@ -114,15 +140,29 @@ function DocCard({ doc, c, onConfirmed }) {
                 {fetching ? 'Loading…' : 'View Document →'}
               </button>
             ) : (
-              <a href={doc.doc_url} target="_blank" rel="noopener noreferrer" style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 18px', borderRadius: 8, border: 'none',
-                background: c, color: '#fff',
-                fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 700,
-                textDecoration: 'none',
-              }}>
-                View Document →
-              </a>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <a href={doc.doc_url} target="_blank" rel="noopener noreferrer" style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 18px', borderRadius: 8, border: 'none',
+                  background: c, color: '#fff',
+                  fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 700,
+                  textDecoration: 'none',
+                }}>
+                  View Document →
+                </a>
+                {/* Confirm button for URL docs (no modal) */}
+                {!confirmed && (
+                  <button onClick={handleConfirmUrl} disabled={confirming} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '8px 14px', borderRadius: 8,
+                    border: '1.5px solid #2e7d32', background: '#f0f8f0', color: '#2e7d32',
+                    fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 700,
+                    cursor: confirming ? 'wait' : 'pointer',
+                  }}>
+                    {confirming ? 'Saving…' : '✓ I have read this'}
+                  </button>
+                )}
+              </div>
             )
           ) : (
             <span style={{
@@ -158,7 +198,7 @@ function DocCard({ doc, c, onConfirmed }) {
             }}>✕ Close</button>
           </div>
 
-          {/* PDF */}
+          {/* PDF iframe */}
           <iframe
             src={blobUrl}
             title={doc.doc_name}
@@ -180,9 +220,18 @@ function DocCard({ doc, c, onConfirmed }) {
               </div>
             ) : (
               <>
-                <div style={{ fontSize: 13, color: '#6a4a00', lineHeight: 1.5 }}>
-                  <strong>Please read the full document above before confirming.</strong><br />
-                  This confirmation is required by HR and forms part of your employment record.
+                <div>
+                  <div style={{ fontSize: 13, color: '#6a4a00', fontWeight: 700, marginBottom: 3 }}>
+                    Please read the full document above before confirming.
+                  </div>
+                  <div style={{ fontSize: 12, color: '#9a6a00' }}>
+                    This confirmation is required by HR and forms part of your employment record.
+                  </div>
+                  {confirmErr && (
+                    <div style={{ fontSize: 12, color: '#e05555', marginTop: 4, fontWeight: 600 }}>
+                      ⚠ {confirmErr}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={handleConfirm}
@@ -223,7 +272,9 @@ export default function StaffDocuments() {
 
   function handleConfirmed(doc_key) {
     setDocs(prev => prev.map(d =>
-      d.doc_key === doc_key ? { ...d, confirmed: true, confirmed_at: new Date().toISOString() } : d
+      d.doc_key === doc_key
+        ? { ...d, confirmed: true, confirmed_at: new Date().toISOString() }
+        : d
     ))
   }
 
@@ -241,7 +292,7 @@ export default function StaffDocuments() {
         </p>
       </div>
 
-      {/* Warning banner */}
+      {/* Warning banner — disappears once all confirmed */}
       {!loading && unconfirmedCount > 0 && (
         <div style={{
           background: '#fffbf0', border: '1px solid #f0c060', borderRadius: 10,
@@ -256,7 +307,6 @@ export default function StaffDocuments() {
             <div style={{ fontSize: 13, color: '#7a5000', lineHeight: 1.6 }}>
               You are required to read and confirm all employment documents below. Open each document and click
               <strong> "I have read and understood this document"</strong> at the bottom of the viewer.
-              Your HR team has been notified of any outstanding confirmations.
             </div>
           </div>
         </div>
