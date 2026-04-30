@@ -76,12 +76,12 @@ def _backfill_accepted_applications():
 
         if created:
             db.commit()
-            log.info("[MIGRATION] Created %d staff record(s) from accepted applications", created)
+            print(f"[MIGRATION] Created {created} staff record(s) from accepted applications", flush=True)
         else:
-            log.info("[MIGRATION] No missing staff records found — all accepted applications already have accounts")
+            print("[MIGRATION] No missing staff records — all accepted applications already have accounts", flush=True)
     except Exception as exc:
         db.rollback()
-        log.error("[MIGRATION] Backfill failed: %s", exc)
+        print(f"[MIGRATION] Backfill failed: {exc}", flush=True)
     finally:
         db.close()
 
