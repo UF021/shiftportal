@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
-import { getMyMessages } from '../../api/client'
+import { getMyMessages, getOrgDocs } from '../../api/client'
 import OrgLogo from '../../components/OrgLogo'
 
 const BASE_NAV = [
@@ -20,11 +20,17 @@ export default function StaffLayout() {
   const nav                    = useNavigate()
   const { pathname }           = useLocation()
   const c                      = colour || '#6abf3f'
-  const [unread, setUnread]    = useState(0)
+  const [unread,         setUnread]         = useState(0)
+  const [unconfirmedDocs, setUnconfirmedDocs] = useState(0)
 
   useEffect(() => {
     getMyMessages()
       .then(r => setUnread((r.data || []).filter(m => !m.is_read).length))
+      .catch(() => {})
+    getOrgDocs()
+      .then(r => setUnconfirmedDocs(
+        (r.data || []).filter(d => (d.has_file || d.doc_url) && !d.confirmed).length
+      ))
       .catch(() => {})
   }, [pathname])
 
@@ -67,8 +73,9 @@ export default function StaffLayout() {
       }}>
         {BASE_NAV.map(({ path, icon, label }) => {
           const active     = pathname === path || (path !== '/staff' && pathname.startsWith(path))
-          const isMsgs     = path === '/staff/messages'
-          const badgeCount = isMsgs ? unread : 0
+          const isMsgs  = path === '/staff/messages'
+          const isDocs  = path === '/staff/documents'
+          const badgeCount = isMsgs ? unread : isDocs ? unconfirmedDocs : 0
           return (
             <button key={path} onClick={() => nav(path)} style={{
               flex:1, display:'flex', flexDirection:'column', alignItems:'center',

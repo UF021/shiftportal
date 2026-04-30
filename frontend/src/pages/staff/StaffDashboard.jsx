@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
-import { getMyClockHistory, getMyMessages } from '../../api/client'
+import { getMyClockHistory, getMyMessages, getOrgDocs } from '../../api/client'
 
 function fmtDuration(mins) {
   if (mins == null) return '—'
@@ -18,6 +18,7 @@ export default function StaffDashboard() {
 
   const [clockData,      setClockData]      = useState(null)
   const [urgentMessages, setUrgentMessages] = useState([])
+  const [unconfirmedDocs, setUnconfirmedDocs] = useState([])
 
   useEffect(() => {
     getMyClockHistory()
@@ -25,6 +26,11 @@ export default function StaffDashboard() {
       .catch(() => setClockData({ open_in: null, shifts: [] }))
     getMyMessages()
       .then(r => setUrgentMessages((r.data || []).filter(m => !m.is_read && m.priority === 'urgent')))
+      .catch(() => {})
+    getOrgDocs()
+      .then(r => setUnconfirmedDocs(
+        (r.data || []).filter(d => (d.has_file || d.doc_url) && !d.confirmed)
+      ))
       .catch(() => {})
   }, [])
 
@@ -99,6 +105,46 @@ export default function StaffDashboard() {
             You have {urgentMessages.length} urgent message{urgentMessages.length > 1 ? 's' : ''}.
           </div>
           <div style={{ fontSize:12, color:'#c05050' }}>Tap to view →</div>
+        </div>
+      </div>
+    )}
+
+    {/* Document confirmation alert card */}
+    {unconfirmedDocs.length > 0 && (
+      <div
+        onClick={() => nav('/staff/documents')}
+        style={{
+          background: '#fffbf0', border: '1.5px solid #f0c060', borderRadius: 12,
+          padding: '14px 16px', marginBottom: 14, cursor: 'pointer',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 20 }}>📋</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#6a4000' }}>
+              {unconfirmedDocs.length} employment document{unconfirmedDocs.length !== 1 ? 's' : ''} require your confirmation
+            </div>
+            <div style={{ fontSize: 12, color: '#9a6a00', marginTop: 2 }}>
+              You must read and confirm these documents as part of your onboarding.
+            </div>
+          </div>
+          <span style={{
+            flexShrink: 0, background: '#f0a030', color: '#fff',
+            fontWeight: 800, fontSize: 13, borderRadius: 20,
+            padding: '3px 10px', minWidth: 24, textAlign: 'center',
+          }}>{unconfirmedDocs.length}</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {unconfirmedDocs.map(d => (
+            <div key={d.doc_key} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'rgba(240,160,48,.08)', borderRadius: 8, padding: '8px 12px',
+            }}>
+              <span style={{ fontSize: 14 }}>📄</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#6a4000', flex: 1 }}>{d.doc_name}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#c07000' }}>Read & Confirm →</span>
+            </div>
+          ))}
         </div>
       </div>
     )}
