@@ -20,6 +20,30 @@ const TABS = [
   { key:'rejected',     label:'Rejected' },
 ]
 
+function Section({ label, children }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.08em', borderBottom:'1px solid var(--border)', paddingBottom:5, marginBottom:10 }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Field({ label, value, mono }) {
+  return (
+    <div style={{ marginBottom:8 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:2 }}>{label}</div>
+      <div style={{ fontSize:13, fontFamily: mono ? 'DM Mono,monospace' : undefined }}>{value || '—'}</div>
+    </div>
+  )
+}
+
+function Row2({ children }) {
+  return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 24px' }}>{children}</div>
+}
+
 function SBadge({ status }) {
   const cfg = STATUS_CFG[status] || STATUS_CFG.submitted
   return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:4, background:cfg.bg, color:cfg.col }}>{cfg.label}</span>
@@ -106,25 +130,47 @@ function DetailModal({ appId, onClose, onUpdated }) {
 
         {!data ? <p style={{ color:'var(--text-muted)' }}>Loading…</p> : (
           <>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 24px', marginBottom:16 }}>
-              {[
-                ['Date of Birth',    data.date_of_birth],
-                ['Address',         data.address],
-                ['NI Number',       data.ni_number],
-                ['SIA Licence',     data.sia_licence],
-                ['SIA Expiry',      data.sia_expiry],
-                ['Nationality',     data.nationality],
-                ['Right to Work',   data.right_to_work ? 'Yes' : 'No'],
-                ['Commute Method',  data.commute_method],
-                ['Next of Kin',     data.nok_name],
-                ['NOK Phone',       data.nok_phone],
-              ].map(([lbl, val]) => (
-                <div key={lbl}>
-                  <div style={{ fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:2 }}>{lbl}</div>
-                  <div style={{ fontSize:13 }}>{val || '—'}</div>
-                </div>
-              ))}
-            </div>
+            {/* ── Personal Details ── */}
+            <Section label="Personal Details">
+              <Row2>
+                <Field label="Date of Birth"  value={data.date_of_birth} />
+                <Field label="Phone"          value={data.phone} />
+              </Row2>
+              <Row2>
+                <Field label="Nationality"    value={data.nationality} />
+                <Field label="Right to Work"  value={data.right_to_work ? 'Yes ✓' : 'No ✗'} />
+              </Row2>
+              <Field label="Area of Employment" value={data.area_of_employment} />
+            </Section>
+
+            {/* ── Address ── */}
+            <Section label="Address">
+              <Field label="Street Address" value={data.address} />
+              <Row2>
+                <Field label="City / Town" value={data.city} />
+                <Field label="Postcode"    value={data.postcode} mono />
+              </Row2>
+            </Section>
+
+            {/* ── SIA & Compliance ── */}
+            <Section label="SIA & Compliance">
+              <Row2>
+                <Field label="NI Number"   value={data.ni_number}   mono />
+                <Field label="SIA Licence" value={data.sia_licence} mono />
+              </Row2>
+              <Row2>
+                <Field label="SIA Expiry"       value={data.sia_expiry} />
+                <Field label="Commute Method"    value={data.commute_method} />
+              </Row2>
+            </Section>
+
+            {/* ── Emergency Contact ── */}
+            <Section label="Emergency Contact">
+              <Row2>
+                <Field label="Name"  value={data.nok_name} />
+                <Field label="Phone" value={data.nok_phone} />
+              </Row2>
+            </Section>
 
             {/* Employment history */}
             <div style={{ marginBottom:16 }}>
