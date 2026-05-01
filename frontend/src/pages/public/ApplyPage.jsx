@@ -214,7 +214,14 @@ export default function ApplyPage() {
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'40px 16px', background:'#f5f7f5' }}>
       <div style={{ background:'#fff', borderRadius:16, padding:'40px', width:660, maxWidth:'100%', boxShadow:'0 4px 32px rgba(0,0,0,.08)' }}>
 
-        <div style={{ marginBottom:22 }}><OrgLogo dark={false} /></div>
+        <div style={{ marginBottom:16 }}><OrgLogo dark={false} /></div>
+
+        <div style={{ textAlign:'center', marginBottom:22 }}>
+          <h1 style={{ fontSize:20, fontWeight:800, color:'#1a2a1a', letterSpacing:'.01em', marginBottom:4 }}>
+            Application for Employment
+          </h1>
+          <div style={{ width:48, height:3, background:c, borderRadius:2, margin:'0 auto' }} />
+        </div>
 
         <div style={{ fontSize:12, color:'#6a8a6a', marginBottom:8 }}>
           Step {step + 1} of {STEPS.length} — <strong style={{ color:'#1a2a1a' }}>{STEPS[step]}</strong>

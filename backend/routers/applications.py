@@ -394,6 +394,8 @@ def _summary(a: models.JobApplication) -> dict:
         "email":        a.email,
         "phone":        a.phone,
         "date_of_birth": a.date_of_birth,
+        "address":      a.address,
+        "area_of_employment": a.area_of_employment,
         "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
         "status":       a.status.value if a.status else "submitted",
         "has_sia_badge":    a.sia_badge_data is not None,

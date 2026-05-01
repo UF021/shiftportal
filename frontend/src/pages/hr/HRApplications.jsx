@@ -205,6 +205,7 @@ export default function HRApplications() {
   const [apps,        setApps]      = useState(null)
   const [activeTab,   setActiveTab] = useState('all')
   const [selectedId,  setSelectedId]= useState(null)
+  const [sortDir,     setSortDir]   = useState('asc')   // location sort direction
 
   function load() {
     getApplications().then(r => setApps(r.data || [])).catch(() => setApps([]))
@@ -212,7 +213,17 @@ export default function HRApplications() {
 
   useEffect(() => { load() }, [])
 
-  const filtered = (apps || []).filter(a => activeTab === 'all' || a.status === activeTab)
+  function toggleLocationSort() {
+    setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+  }
+
+  const filtered = (apps || [])
+    .filter(a => activeTab === 'all' || a.status === activeTab)
+    .sort((a, b) => {
+      const la = (a.address || '').toLowerCase()
+      const lb = (b.address || '').toLowerCase()
+      return sortDir === 'asc' ? la.localeCompare(lb) : lb.localeCompare(la)
+    })
 
   function counts() {
     if (!apps) return {}
@@ -257,6 +268,13 @@ export default function HRApplications() {
                 <th>Ref</th>
                 <th>Applicant</th>
                 <th>Email</th>
+                <th
+                  onClick={toggleLocationSort}
+                  style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}
+                  title="Sort by location"
+                >
+                  Location {sortDir === 'asc' ? '↑' : '↓'}
+                </th>
                 <th>Submitted</th>
                 <th>Status</th>
                 <th></th>
@@ -264,14 +282,19 @@ export default function HRApplications() {
             </thead>
             <tbody>
               {apps === null ? (
-                <tr><td colSpan={6} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan={7} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>No applications found.</td></tr>
+                <tr><td colSpan={7} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>No applications found.</td></tr>
               ) : filtered.map(a => (
                 <tr key={a.id}>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:13, fontWeight:700, color:'var(--green)' }}>{a.reference || '—'}</td>
                   <td><strong>{a.full_name}</strong></td>
                   <td style={{ fontSize:12, color:'var(--text-muted)' }}>{a.email}</td>
+                  <td style={{ fontSize:12, maxWidth:180 }}>
+                    <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={a.address || ''}>
+                      {a.address || '—'}
+                    </div>
+                  </td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>
                     {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString('en-GB') : '—'}
                   </td>
