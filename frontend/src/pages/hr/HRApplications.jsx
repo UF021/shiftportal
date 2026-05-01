@@ -312,8 +312,7 @@ export default function HRApplications() {
             <thead>
               <tr>
                 <th>Ref</th>
-                <th>Applicant</th>
-                <th>Email</th>
+                <th>Name</th>
                 <th
                   onClick={toggleLocationSort}
                   style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}
@@ -322,6 +321,8 @@ export default function HRApplications() {
                   City {sortDir === 'asc' ? '↑' : '↓'}
                 </th>
                 <th>Postcode</th>
+                <th>Email</th>
+                <th>Tel</th>
                 <th>Submitted</th>
                 <th>Status</th>
                 <th></th>
@@ -329,17 +330,18 @@ export default function HRApplications() {
             </thead>
             <tbody>
               {apps === null ? (
-                <tr><td colSpan={8} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan={9} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>No applications found.</td></tr>
+                <tr><td colSpan={9} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>No applications found.</td></tr>
               ) : filtered.map(a => (
                 <tr key={a.id}>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:13, fontWeight:700, color:'var(--green)' }}>{a.reference || '—'}</td>
-                  <td><strong>{a.full_name}</strong></td>
-                  <td style={{ fontSize:12, color:'var(--text-muted)' }}>{a.email}</td>
+                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12, fontWeight:700, color:'var(--green)', whiteSpace:'nowrap' }}>{a.reference || '—'}</td>
+                  <td style={{ fontWeight:600, whiteSpace:'nowrap' }}>{a.full_name}</td>
                   <td style={{ fontSize:12 }}>{a.city || '—'}</td>
-                  <td style={{ fontSize:12, fontFamily:'DM Mono,monospace' }}>{a.postcode || '—'}</td>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>
+                  <td style={{ fontSize:12, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>{a.postcode || '—'}</td>
+                  <td style={{ fontSize:12 }}>{a.email}</td>
+                  <td style={{ fontSize:12, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>{a.phone || '—'}</td>
+                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12, whiteSpace:'nowrap' }}>
                     {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString('en-GB') : '—'}
                   </td>
                   <td><SBadge status={a.status} /></td>
