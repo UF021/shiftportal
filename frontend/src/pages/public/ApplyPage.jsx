@@ -19,7 +19,7 @@ const COMMUTES  = ['Own transport — car/motorbike', 'Public transport', 'Walk 
 
 const EMPTY = {
   title: 'Mr', first_name: '', last_name: '', area_of_employment: '', date_of_birth: '',
-  email: '', phone: '', address: '',
+  email: '', phone: '', address: '', city: '', postcode: '',
   ni_number: '', sia_licence: '', sia_expiry: '', commute_method: '',
   employment_history: '',
   nationality: '', right_to_work: 'true',
@@ -118,8 +118,8 @@ export default function ApplyPage() {
   function validate() {
     setErr('')
     if (step === 0) {
-      const { title, first_name, last_name, area_of_employment, date_of_birth, email, phone, address } = form
-      if (!title || !first_name || !last_name || !area_of_employment || !date_of_birth || !email || !phone || !address)
+      const { title, first_name, last_name, area_of_employment, date_of_birth, email, phone, address, city, postcode } = form
+      if (!title || !first_name || !last_name || !area_of_employment || !date_of_birth || !email || !phone || !address || !city || !postcode)
         return setErr('Please fill in all fields.'), false
     }
     if (step === 1) {
@@ -259,15 +259,13 @@ export default function ApplyPage() {
             <FInput label="Email Address *" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" />
             <FInput label="Preferred Telephone Number *" type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+44..." />
           </div>
-          <div style={{ marginBottom:16 }}>
-            <Lbl>Current Address *</Lbl>
-            <textarea
-              value={form.address}
-              onChange={e => set('address', e.target.value)}
-              placeholder="Full address including postcode"
-              rows={3}
-              style={{ width:'100%', padding:'12px 14px', borderRadius:9, border:'1.5px solid #d0e0d0', background:'#f8fbf8', color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, outline:'none', boxSizing:'border-box', resize:'vertical' }}
-            />
+          <FInput label="Street Address *" value={form.address} onChange={e => set('address', e.target.value)} placeholder="e.g. 12 High Street, Flat 3" />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 140px', gap:12 }}>
+            <FInput label="City / Town *" value={form.city} onChange={e => set('city', e.target.value)} placeholder="e.g. London" />
+            <FInput label="Postcode *" value={form.postcode}
+              onChange={e => set('postcode', e.target.value.toUpperCase())}
+              placeholder="e.g. E1 6RF"
+              style={{ textTransform:'uppercase' }} />
           </div>
         </>}
 

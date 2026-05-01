@@ -1,4 +1,5 @@
 import uuid
+import re
 import logging
 from datetime import date as _date
 from fastapi import FastAPI
@@ -86,9 +87,68 @@ def _backfill_accepted_applications():
         db.close()
 
 
+_PC_RE = re.compile(r'\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s?[0-9][ABD-HJLNP-UW-Z]{2})\b', re.IGNORECASE)
+
+
+def _parse_city_postcode(address: str):
+    """Best-effort extraction of city and postcode from a free-text UK address."""
+    if not address:
+        return None, None
+    parts = [p.strip() for p in re.split(r'[\n,]', address) if p.strip()]
+    postcode, city = None, None
+    for i, part in enumerate(parts):
+        m = _PC_RE.search(part)
+        if m:
+            postcode = m.group(1).upper().replace(' ', '')
+            postcode = postcode[:-3] + ' ' + postcode[-3:]   # format: AB1 2CD
+            remainder = _PC_RE.sub('', part).strip(' ,')
+            city = remainder if remainder else (parts[i - 1] if i > 0 else None)
+            break
+    if not city:
+        city = parts[-1] if parts else None
+    return city, postcode
+
+
+def _migrate_application_city_postcode():
+    """
+    Adds city/postcode columns to job_applications if missing, then
+    retrospectively parses and fills them from existing address strings.
+    """
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        # Add columns if they don't exist (PostgreSQL syntax)
+        db.execute(text("ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS city VARCHAR(100)"))
+        db.execute(text("ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS postcode VARCHAR(20)"))
+        db.commit()
+
+        # Backfill rows that have no city set yet
+        import models as _models
+        rows = db.execute(text("SELECT id, address FROM job_applications WHERE city IS NULL")).fetchall()
+        updated = 0
+        for row in rows:
+            city, postcode = _parse_city_postcode(row.address or '')
+            db.execute(
+                text("UPDATE job_applications SET city = :city, postcode = :pc WHERE id = :id"),
+                {"city": city, "pc": postcode, "id": row.id}
+            )
+            updated += 1
+        if updated:
+            db.commit()
+            print(f"[MIGRATION] Backfilled city/postcode for {updated} application(s)", flush=True)
+        else:
+            print("[MIGRATION] Application city/postcode columns already up to date", flush=True)
+    except Exception as exc:
+        db.rollback()
+        print(f"[MIGRATION] city/postcode migration failed: {exc}", flush=True)
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _migrate_application_city_postcode()
     _backfill_accepted_applications()
     yield
 

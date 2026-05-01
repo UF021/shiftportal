@@ -220,8 +220,8 @@ export default function HRApplications() {
   const filtered = (apps || [])
     .filter(a => activeTab === 'all' || a.status === activeTab)
     .sort((a, b) => {
-      const la = (a.address || '').toLowerCase()
-      const lb = (b.address || '').toLowerCase()
+      const la = (a.city || '').toLowerCase()
+      const lb = (b.city || '').toLowerCase()
       return sortDir === 'asc' ? la.localeCompare(lb) : lb.localeCompare(la)
     })
 
@@ -290,10 +290,8 @@ export default function HRApplications() {
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:13, fontWeight:700, color:'var(--green)' }}>{a.reference || '—'}</td>
                   <td><strong>{a.full_name}</strong></td>
                   <td style={{ fontSize:12, color:'var(--text-muted)' }}>{a.email}</td>
-                  <td style={{ fontSize:12, maxWidth:180 }}>
-                    <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={a.address || ''}>
-                      {a.address || '—'}
-                    </div>
+                  <td style={{ fontSize:12 }}>
+                    {a.city || '—'}
                   </td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>
                     {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString('en-GB') : '—'}
