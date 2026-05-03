@@ -234,7 +234,7 @@ export function HRTimelogs() {
   }
 
   useEffect(() => {
-    getAllStaff().then(r => setStaff(r.data || [])).catch(() => {})
+    getAllStaff().then(r => setStaff((r.data || []).slice().sort((a, b) => a.full_name.localeCompare(b.full_name)))).catch(() => {})
     getAllHols({ status_filter: 'approved' }).then(r => setHols(r.data || [])).catch(() => {})
     getMySites().then(r => setSites(r.data || [])).catch(() => {})
     // Load all records on mount with no filters
