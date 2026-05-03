@@ -8,7 +8,7 @@ import { useDocs } from '../../api/DocsContext'
 
 function fmtDuration(mins) {
   if (mins == null) return '—'
-  return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
+  return `${parseFloat((mins / 60).toFixed(2))}h`
 }
 
 export default function StaffDashboard() {
@@ -288,8 +288,8 @@ export default function StaffDashboard() {
         <div key={s.id} style={{ padding:'10px 0', borderBottom:'1px solid #f0f4f0' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             {/* Date */}
-            <div style={{ width:82, fontSize:12, fontWeight:700, color:'#1a2a1a', flexShrink:0 }}>
-              {new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'})}
+            <div style={{ width:100, fontSize:12, fontWeight:700, color:'#1a2a1a', flexShrink:0 }}>
+              {(() => { const dt = new Date(s.date + 'T12:00:00'); return dt.toLocaleDateString('en-GB',{weekday:'short'}) + ' ' + dt.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}) })()}
             </div>
             {/* Site + times */}
             <div style={{ flex:1, minWidth:0 }}>

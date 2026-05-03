@@ -1,13 +1,17 @@
 export function fmtDate(dateStr) {
   if (!dateStr) return '—'
   const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('en-GB') // returns dd/mm/yyyy
+  const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' })
+  const date    = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return `${weekday} ${date}`
 }
 
 export function fmtDateTime(dateStr) {
   if (!dateStr) return '—'
   const d = new Date(dateStr)
-  return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' })
+  const date    = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return `${weekday} ${date} ` + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function fmtUKTime(isoStr) {
