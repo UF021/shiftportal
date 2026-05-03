@@ -1,7 +1,7 @@
 // HRTimelogs.jsx
 import { useEffect, useRef, useState } from 'react'
 import { getAllClockEvents, getAllStaff, getAllHols, getMySites,
-         editShift, deleteShift, bulkDeleteShifts } from '../../api/client'
+         editShift, deleteShift, bulkDeleteShifts, recalculateShifts } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
 const fmtM = m => m != null ? `${parseFloat((m / 60).toFixed(2))}h` : '—'
@@ -220,6 +220,9 @@ export function HRTimelogs() {
   const [confirmDelete,   setConfirmDelete]   = useState(null)  // entry to delete
   const [confirmBulk,     setConfirmBulk]     = useState(false)
 
+  // Recalculate shifts
+  const [recalcRunning, setRecalcRunning] = useState(false)
+
   // Toast
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
@@ -324,6 +327,21 @@ export function HRTimelogs() {
     run()
   }
 
+  async function handleRecalculate() {
+    if (!window.confirm('Recalculate all shift hours using the correct overnight rules?\n\nThis will fix any corrupt shift_minutes records. Shifts over 12h will be skipped for manual review.')) return
+    setRecalcRunning(true)
+    try {
+      const res = await recalculateShifts()
+      const { corrected, skipped } = res.data
+      showToast(`✅ Recalculated: ${corrected.length} fixed, ${skipped.length} skipped (need manual review)`)
+      run()
+    } catch (ex) {
+      showToast(ex.response?.data?.detail || 'Recalculation failed', 'error')
+    } finally {
+      setRecalcRunning(false)
+    }
+  }
+
   // Holiday pay
   const holPayEntries = hols.filter(h => h.holiday_pay_flagged && h.holiday_pay_hours > 0)
 
@@ -386,6 +404,20 @@ export function HRTimelogs() {
             }}
           >
             🔴 Late Only{lateOnly ? ' ✓' : ''}
+          </button>
+          <button
+            onClick={handleRecalculate}
+            disabled={recalcRunning}
+            style={{
+              padding: '9px 14px', borderRadius: 8, cursor: recalcRunning ? 'not-allowed' : 'pointer',
+              fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 600,
+              border: '1px solid rgba(106,191,63,.4)',
+              background: 'rgba(106,191,63,.08)',
+              color: recalcRunning ? 'var(--text-muted)' : 'var(--green)',
+              opacity: recalcRunning ? .6 : 1,
+            }}
+          >
+            {recalcRunning ? '⏳ Recalculating…' : '🔧 Recalculate Shifts'}
           </button>
         </div>
 

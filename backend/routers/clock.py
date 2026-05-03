@@ -168,6 +168,20 @@ def _check_gps(site: models.Site, gps_lat: Optional[float], gps_lng: Optional[fl
 
 
 def _calc_lateness(scheduled_start: Optional[str], now: datetime) -> tuple[bool, int]:
+    """Return (is_late, minutes_late) for a clock-in.
+
+    Rules (billing/payroll critical):
+    - Early or on-time arrival  → (False, 0)
+    - Late arrival              → (True, minutes_late)
+
+    Overnight fix: scheduled_start is stored as "HH:MM" with no date.  When a
+    shift starts late at night (e.g. 23:00) and the staff member clocks in after
+    midnight (e.g. 00:32), a naive same-day replace() puts the scheduled time
+    22+ hours in the future, making the diff deeply negative and wrongly marking
+    the clock-in as on-time.  If the resolved scheduled time is more than 12 hours
+    ahead of the actual clock-in we know it must belong to the previous calendar
+    day, so we subtract one day before comparing.
+    """
     if not scheduled_start:
         return False, 0
     try:
@@ -176,14 +190,26 @@ def _calc_lateness(scheduled_start: Optional[str], now: datetime) -> tuple[bool,
         return False, 0
     scheduled = now.replace(hour=h, minute=m, second=0, microsecond=0)
     diff = int((now - scheduled).total_seconds() / 60)
+    # Overnight fix: scheduled time resolved to > 12 h in the future → yesterday
+    if diff < -720:
+        scheduled -= timedelta(days=1)
+        diff = int((now - scheduled).total_seconds() / 60)
     return (True, diff) if diff > 0 else (False, 0)
 
 
 def _effective_start(clock_in_dt: datetime, scheduled_start: Optional[str]) -> datetime:
-    """Return the later of the actual clock-in time and the scheduled start time.
+    """Return the payable shift-start time.
 
-    Rule: staff are not paid for arriving early (effective start = scheduled start),
-    but if they arrive late their paid time starts from when they actually clocked in.
+    Rules (billing/payroll critical):
+    - Clock in BEFORE scheduled start → payable time starts at scheduled start.
+      Staff are not paid for early arrival.
+    - Clock in AFTER scheduled start  → payable time starts at actual clock-in.
+      Late minutes are not paid.
+    - No scheduled start provided     → payable time starts at actual clock-in.
+
+    Overnight fix: same same-day replace() hazard as _calc_lateness.  When the
+    resolved scheduled time is more than 12 hours ahead of clock_in_dt the shift
+    started the previous calendar day and we subtract one day.
     """
     if not scheduled_start:
         return clock_in_dt
@@ -192,6 +218,9 @@ def _effective_start(clock_in_dt: datetime, scheduled_start: Optional[str]) -> d
     except (ValueError, AttributeError):
         return clock_in_dt
     sched_dt = clock_in_dt.replace(hour=h, minute=m, second=0, microsecond=0)
+    # Overnight fix
+    if (sched_dt - clock_in_dt).total_seconds() > 43200:  # > 12 h ahead → yesterday
+        sched_dt -= timedelta(days=1)
     return max(clock_in_dt, sched_dt)
 
 
@@ -838,6 +867,123 @@ def bulk_delete_shifts(
     return {"message": f"{deleted} shifts deleted", "deleted": deleted}
 
 
+# ── Admin: recalculate all stored shift_minutes ───────────────────────────────
+
+@router.post("/admin/recalculate-shifts")
+def recalculate_shifts(
+    db: Session     = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    """Recalculate and correct every stored shift_minutes value for this
+    organisation using the current _effective_start rules.
+
+    Billing/payroll rules applied:
+    - Clock in before scheduled start → shift starts at scheduled start
+    - Clock in after scheduled start  → shift starts at actual clock-in (late)
+    - Overnight scheduled starts      → handled correctly (e.g. 23:00 with
+      post-midnight clock-in is NOT treated as an early arrival)
+
+    Records skipped (need manual HR review):
+    - Stored shift_minutes > 720 (12 h) — likely an unclosed prior shift
+    - Clock-out timestamp is before or equal to clock-in timestamp
+    - No paired clock-in found
+
+    Returns a summary of changes made and records skipped.
+    """
+    clock_outs = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.organisation_id == hr.organisation_id,
+            models.ClockEvent.event_type      == models.ClockEventType.clock_out,
+            models.ClockEvent.shift_minutes   != None,
+        )
+        .order_by(models.ClockEvent.timestamp.asc())
+        .all()
+    )
+
+    updated   = []
+    skipped   = []
+
+    for out_evt in clock_outs:
+        # Skip records that are already flagged as suspiciously long (12 h+)
+        if out_evt.shift_minutes > 720:
+            skipped.append({
+                "clock_out_id":     out_evt.id,
+                "reason":           "shift_minutes > 720 — needs manual HR review",
+                "stored_minutes":   out_evt.shift_minutes,
+            })
+            continue
+
+        # Find the most recent clock_in before this clock_out for the same user
+        in_evt = (
+            db.query(models.ClockEvent)
+            .filter(
+                models.ClockEvent.user_id    == out_evt.user_id,
+                models.ClockEvent.event_type == models.ClockEventType.clock_in,
+                models.ClockEvent.timestamp  <  out_evt.timestamp,
+            )
+            .order_by(models.ClockEvent.timestamp.desc())
+            .first()
+        )
+        if not in_evt:
+            skipped.append({
+                "clock_out_id":   out_evt.id,
+                "reason":         "no paired clock-in found",
+                "stored_minutes": out_evt.shift_minutes,
+            })
+            continue
+
+        # Clock-out before or at clock-in — phantom / corrupt record
+        if out_evt.timestamp <= in_evt.timestamp:
+            skipped.append({
+                "clock_out_id":   out_evt.id,
+                "reason":         "clock-out timestamp ≤ clock-in timestamp (phantom record)",
+                "stored_minutes": out_evt.shift_minutes,
+            })
+            continue
+
+        in_uk  = in_evt.timestamp.astimezone(UK_TZ)
+        out_uk = out_evt.timestamp.astimezone(UK_TZ)
+
+        eff    = _effective_start(in_uk, in_evt.scheduled_start)
+        correct_minutes = int((out_uk - eff).total_seconds() / 60)
+
+        # Also recalculate is_late / minutes_late on the clock-in if needed
+        is_late, mins_late = _calc_lateness(in_evt.scheduled_start, in_uk)
+
+        changed = False
+
+        if out_evt.shift_minutes != correct_minutes:
+            updated.append({
+                "clock_out_id":   out_evt.id,
+                "user_id":        out_evt.user_id,
+                "date":           out_uk.strftime("%d/%m/%Y"),
+                "old_minutes":    out_evt.shift_minutes,
+                "new_minutes":    correct_minutes,
+                "old_hours":      round(out_evt.shift_minutes / 60, 2),
+                "new_hours":      round(correct_minutes / 60, 2),
+            })
+            out_evt.shift_minutes = correct_minutes
+            changed = True
+
+        if in_evt.is_late != is_late or in_evt.minutes_late != mins_late:
+            in_evt.is_late      = is_late
+            in_evt.minutes_late = mins_late
+            changed = True
+
+        if changed:
+            db.add(out_evt)
+            db.add(in_evt)
+
+    db.commit()
+
+    return {
+        "message":        f"{len(updated)} shift(s) corrected, {len(skipped)} skipped for manual review",
+        "corrected":      updated,
+        "skipped":        skipped,
+    }
+
+
 # ── Public: site info ─────────────────────────────────────────────────────────
 # MUST be last — these parametric GET/POST routes catch everything above them.
 
@@ -1069,7 +1215,7 @@ def clock_out(
                 now = now.replace(hour=h, minute=m, second=0, microsecond=0)
             except (ValueError, AttributeError):
                 pass
-        eff_start = _effective_start(last_in.timestamp, last_in.scheduled_start)
+        eff_start = _effective_start(last_in.timestamp.astimezone(UK_TZ), last_in.scheduled_start)
         shift_minutes = int((now - eff_start).total_seconds() / 60)
         override_notes = (
             f"[OVERRIDE] Manager: {body.manager_name.strip()} | "
@@ -1107,7 +1253,7 @@ def clock_out(
 
     gps_verified = _check_gps(site, body.gps_lat, body.gps_lng)
     now = _now_uk()
-    eff_start = _effective_start(last_in.timestamp, last_in.scheduled_start)
+    eff_start = _effective_start(last_in.timestamp.astimezone(UK_TZ), last_in.scheduled_start)
     shift_minutes = int((now - eff_start).total_seconds() / 60)
 
     distance_metres = None

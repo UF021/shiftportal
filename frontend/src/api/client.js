@@ -95,6 +95,7 @@ export const reinstateUser      = (uid)   => api.post(`/clock/failures/${uid}/re
 export const editShift          = (id, d) => api.patch(`/clock/entry/${id}`, d)
 export const deleteShift        = (id)    => api.delete(`/clock/entry/${id}`)
 export const bulkDeleteShifts   = (ids)   => api.delete('/clock/entries/bulk', { data: { event_ids: ids } })
+export const recalculateShifts  = ()      => api.post('/clock/admin/recalculate-shifts')
 
 // Messages
 export const getMyMessages      = ()      => api.get('/messages/my')
