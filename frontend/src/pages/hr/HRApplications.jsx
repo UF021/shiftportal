@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { getApplications, getApplication, updateAppStatus } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
+import { fmtDateTime } from '../../api/utils'
 
 const BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -59,6 +60,7 @@ function DetailModal({ appId, onClose, onUpdated }) {
   const [saving,      setSaving]    = useState(false)
   const [savedMsg,    setSavedMsg]  = useState('')
   const [err,         setErr]       = useState('')
+  const [resending,   setResending] = useState(false)
 
   const token = localStorage.getItem('sp_token')
 
@@ -89,6 +91,22 @@ function DetailModal({ appId, onClose, onUpdated }) {
     URL.revokeObjectURL(url)
   }
 
+  async function resendRegistration() {
+    setResending(true); setErr(''); setSavedMsg('')
+    try {
+      await fetch(`${BASE}/applications/${appId}/resend-registration`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(async r => {
+        if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Failed') }
+      })
+      setSavedMsg(`📧 Registration email resent to ${data.email}`)
+      getApplication(appId).then(r => setData(r.data))
+    } catch (ex) {
+      setErr(ex.message || 'Failed to resend email')
+    } finally { setResending(false) }
+  }
+
   async function save() {
     setSaving(true); setErr(''); setSavedMsg('')
     try {
@@ -114,7 +132,7 @@ function DetailModal({ appId, onClose, onUpdated }) {
             <h3 style={{ marginBottom:4 }}>{data?.full_name || '…'}</h3>
             <div style={{ fontSize:13, color:'var(--text-muted)' }}>
               {data?.email} · {data?.phone}
-              {data?.submitted_at && <> · Submitted {new Date(data.submitted_at).toLocaleDateString('en-GB')}</>}
+              {data?.submitted_at && <> · Submitted {fmtDateTime(data.submitted_at)}</>}
             </div>
             {data?.reference && (
               <div style={{ marginTop:6, display:'inline-flex', alignItems:'center', gap:6, background:'var(--green-muted)', border:'1px solid rgba(106,191,63,.3)', borderRadius:6, padding:'3px 10px' }}>
@@ -225,9 +243,24 @@ function DetailModal({ appId, onClose, onUpdated }) {
                   {savedMsg}
                 </div>
               )}
-              {data.registration_sent_at && (
-                <div style={{ fontSize:12, color:'var(--green)', marginBottom:12 }}>
-                  📧 Registration link sent to {data.email} on {new Date(data.registration_sent_at).toLocaleDateString('en-GB')}
+              {data.status === 'accepted' && (
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+                  {data.registration_sent_at
+                    ? <span style={{ fontSize:12, color:'var(--green)' }}>
+                        📧 Registration link sent on {new Date(data.registration_sent_at).toLocaleDateString('en-GB')}
+                      </span>
+                    : <span style={{ fontSize:12, color:'#a04000' }}>
+                        ⚠️ Registration email not yet sent
+                      </span>
+                  }
+                  <button
+                    onClick={resendRegistration}
+                    disabled={resending}
+                    className="btn btn-outline"
+                    style={{ fontSize:12, padding:'4px 12px' }}
+                  >
+                    {resending ? 'Sending…' : 'Resend Email'}
+                  </button>
                 </div>
               )}
             </div>
@@ -251,7 +284,8 @@ export default function HRApplications() {
   const [apps,        setApps]      = useState(null)
   const [activeTab,   setActiveTab] = useState('all')
   const [selectedId,  setSelectedId]= useState(null)
-  const [sortDir,     setSortDir]   = useState('asc')   // location sort direction
+  const [sortField,   setSortField] = useState('submitted_at')
+  const [sortDir,     setSortDir]   = useState('asc')
 
   function load() {
     getApplications().then(r => setApps(r.data || [])).catch(() => setApps([]))
@@ -259,16 +293,33 @@ export default function HRApplications() {
 
   useEffect(() => { load() }, [])
 
-  function toggleLocationSort() {
-    setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+  function handleSort(field) {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
+
+  function sortIndicator(field) {
+    if (sortField !== field) return ' ↕'
+    return sortDir === 'asc' ? ' ↑' : ' ↓'
   }
 
   const filtered = (apps || [])
     .filter(a => activeTab === 'all' || a.status === activeTab)
     .sort((a, b) => {
-      const la = (a.city || '').toLowerCase()
-      const lb = (b.city || '').toLowerCase()
-      return sortDir === 'asc' ? la.localeCompare(lb) : lb.localeCompare(la)
+      let va, vb
+      if (sortField === 'city' || sortField === 'full_name') {
+        va = (a[sortField] || '').toLowerCase()
+        vb = (b[sortField] || '').toLowerCase()
+        return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+      } else {
+        va = a.submitted_at ? new Date(a.submitted_at).getTime() : 0
+        vb = b.submitted_at ? new Date(b.submitted_at).getTime() : 0
+        return sortDir === 'asc' ? va - vb : vb - va
+      }
     })
 
   function counts() {
@@ -312,18 +363,27 @@ export default function HRApplications() {
             <thead>
               <tr>
                 <th>Ref</th>
-                <th>Name</th>
                 <th
-                  onClick={toggleLocationSort}
+                  onClick={() => handleSort('full_name')}
                   style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}
-                  title="Sort by city"
                 >
-                  City {sortDir === 'asc' ? '↑' : '↓'}
+                  Name{sortIndicator('full_name')}
+                </th>
+                <th
+                  onClick={() => handleSort('city')}
+                  style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}
+                >
+                  City{sortIndicator('city')}
                 </th>
                 <th>Postcode</th>
                 <th>Email</th>
                 <th>Tel</th>
-                <th>Submitted</th>
+                <th
+                  onClick={() => handleSort('submitted_at')}
+                  style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}
+                >
+                  Submitted{sortIndicator('submitted_at')}
+                </th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -342,7 +402,7 @@ export default function HRApplications() {
                   <td style={{ fontSize:12 }}>{a.email}</td>
                   <td style={{ fontSize:12, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>{a.phone || '—'}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12, whiteSpace:'nowrap' }}>
-                    {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString('en-GB') : '—'}
+                    {a.submitted_at ? fmtDateTime(a.submitted_at) : '—'}
                   </td>
                   <td><SBadge status={a.status} /></td>
                   <td>

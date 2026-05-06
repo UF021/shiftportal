@@ -94,8 +94,11 @@ export default function StaffTimelog() {
                   <td style={{ padding: '10px 12px', fontSize: 12, color: '#6a8a6a' }}>
                     {s.site_name || '—'}
                   </td>
-                  <td style={{ padding: '10px 12px', fontFamily: 'DM Mono,monospace', fontWeight: 700, color: c, whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '10px 12px', fontFamily: 'DM Mono,monospace', fontWeight: 700, color: s.shift_minutes > 720 ? '#b54708' : c, whiteSpace: 'nowrap' }}>
                     {fmtMins(s.shift_minutes)}
+                    {s.shift_minutes > 720 && (
+                      <span title="Shift exceeds 12 hours — please check with HR" style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#b54708', background: '#fef3e2', padding: '1px 5px', borderRadius: 4 }}>⚠ 12h+</span>
+                    )}
                   </td>
                   <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                     {s.is_late
