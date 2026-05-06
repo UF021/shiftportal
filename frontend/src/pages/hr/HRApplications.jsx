@@ -285,7 +285,7 @@ export default function HRApplications() {
   const [activeTab,   setActiveTab] = useState('all')
   const [selectedId,  setSelectedId]= useState(null)
   const [sortField,   setSortField] = useState('submitted_at')
-  const [sortDir,     setSortDir]   = useState('asc')
+  const [sortDir,     setSortDir]   = useState('desc')
 
   function load() {
     getApplications().then(r => setApps(r.data || [])).catch(() => setApps([]))
