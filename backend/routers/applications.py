@@ -40,13 +40,14 @@ def _generate_reference(first_name: str, last_name: str, org_id: int, db: Sessio
 
 # ── Email helper ──────────────────────────────────────────────────────────────
 
-def _send_registration_email(to_email: str, first_name: str, reg_link: str, org_name: str):
+def _send_registration_email(to_email: str, first_name: str, reg_link: str, org_name: str) -> bool:
+    """Returns True if the email was sent successfully, False otherwise."""
     smtp_host = os.getenv("SMTP_HOST")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER")
     smtp_pass = os.getenv("SMTP_PASS")
 
-    body = f"""Dear Colleague,
+    body = f"""Dear {first_name},
 
 Thank you for joining our company and we very much look forward to working with you. Your employment start date, weekly shifts, pay rate and site location would have been included in earlier correspondence with a line manager and clearly shown on the job advert.
 
@@ -87,10 +88,11 @@ Web: www.ikanfm.co.uk"""
 
     if not all([smtp_host, smtp_user, smtp_pass]):
         log.info("[EMAIL] SMTP not configured — would send to %s:\n%s", to_email, body)
-        return
+        return False
 
     try:
         msg = MIMEMultipart("alternative")
+        bcc_email = os.getenv("BCC_EMAIL", smtp_user)
         msg["Subject"] = f"Welcome to {org_name} — Your Onboarding Next Steps"
         msg["From"]    = smtp_user
         msg["To"]      = to_email
@@ -98,10 +100,12 @@ Web: www.ikanfm.co.uk"""
         with smtplib.SMTP(smtp_host, smtp_port) as srv:
             srv.starttls()
             srv.login(smtp_user, smtp_pass)
-            srv.sendmail(smtp_user, to_email, msg.as_string())
+            srv.sendmail(smtp_user, [to_email, bcc_email], msg.as_string())
         log.info("[EMAIL] Sent registration email to %s", to_email)
+        return True
     except Exception as exc:
         log.error("[EMAIL] Failed to send to %s: %s", to_email, exc)
+        return False
 
 
 # ── Public: submit application ────────────────────────────────────────────────
@@ -367,8 +371,9 @@ def update_status(
         org_slug = org.slug if org else ""
         reg_link = f"{FRONTEND_URL}/register/{org_slug}?token={token}"
 
-        _send_registration_email(a.email, a.first_name, reg_link, org_name)
-        a.registration_sent_at = datetime.now(timezone.utc)
+        sent = _send_registration_email(a.email, a.first_name, reg_link, org_name)
+        if sent:
+            a.registration_sent_at = datetime.now(timezone.utc)
 
     db.commit()
     return {
@@ -376,6 +381,68 @@ def update_status(
         "reg_link": reg_link,
         "email":    a.email if body.status == models.ApplicationStatus.accepted else None,
     }
+
+
+# ── HR: resend registration email ────────────────────────────────────────────
+
+@router.post("/{app_id}/resend-registration")
+def resend_registration(
+    app_id: int,
+    db:     Session     = Depends(get_db),
+    hr:     models.User = Depends(require_hr),
+):
+    a = _get_app(app_id, hr, db)
+
+    if a.status != models.ApplicationStatus.accepted:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Application is not accepted")
+
+    # Find the most recent unused pre-registration token for this application
+    pre = (
+        db.query(models.PreRegistration)
+        .filter(
+            models.PreRegistration.application_id == a.id,
+            models.PreRegistration.used == False,
+        )
+        .order_by(models.PreRegistration.created_at.desc())
+        .first()
+    )
+
+    # If no token exists (shouldn't happen, but defensive), create one
+    if not pre:
+        token = str(uuid.uuid4())
+        pre = models.PreRegistration(
+            organisation_id = a.organisation_id,
+            token           = token,
+            email           = a.email,
+            first_name      = a.first_name,
+            last_name       = a.last_name,
+            date_of_birth   = a.date_of_birth,
+            address         = a.address,
+            phone           = a.phone,
+            ni_number       = a.ni_number,
+            sia_licence     = a.sia_licence,
+            sia_expiry      = a.sia_expiry,
+            nok_name        = a.nok_name,
+            nok_phone       = a.nok_phone,
+            staff_id        = a.reference,
+            application_id  = a.id,
+        )
+        db.add(pre)
+        db.flush()
+
+    org      = db.query(models.Organisation).filter(models.Organisation.id == a.organisation_id).first()
+    org_name = (org.brand_name or org.name) if org else "ShiftPortal"
+    org_slug = org.slug if org else ""
+    reg_link = f"{FRONTEND_URL}/register/{org_slug}?token={pre.token}"
+
+    sent = _send_registration_email(a.email, a.first_name, reg_link, org_name)
+    if sent:
+        a.registration_sent_at = datetime.now(timezone.utc)
+        db.commit()
+        return {"success": True, "message": f"Registration email resent to {a.email}"}
+    else:
+        db.rollback()
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to send email — check SMTP configuration")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

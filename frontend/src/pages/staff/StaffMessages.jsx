@@ -4,9 +4,10 @@ import { getMyMessages, markMessageRead } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 const PRIORITY_CFG = {
-  urgent: { icon:'🚨', label:'Urgent', bg:'#fde8e8', col:'#c0392b', border:'#e05555' },
-  info:   { icon:'ℹ️',  label:'Info',   bg:'#e3f2fd', col:'#1565c0', border:'#90caf9' },
-  normal: { icon:'📢', label:'Normal', bg:'#e8f8e0', col:'#2e7d32', border:'#6abf3f' },
+  urgent:  { icon:'🚨', label:'Final Notice', bg:'#fde8e8', col:'#c0392b', border:'#e05555' },
+  warning: { icon:'⚠️', label:'Formal Warning', bg:'#fff3cd', col:'#7d4e00', border:'#ffc107' },
+  info:    { icon:'ℹ️',  label:'Info',          bg:'#e3f2fd', col:'#1565c0', border:'#90caf9' },
+  normal:  { icon:'📢', label:'Notice',         bg:'#e8f8e0', col:'#2e7d32', border:'#6abf3f' },
 }
 
 export default function StaffMessages() {
