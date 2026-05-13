@@ -165,6 +165,7 @@ class ActivateRequest(BaseModel):
     employment_start_date: Optional[date] = None
     pay_rate:              Optional[float] = None
     assigned_site_id:      Optional[int] = None
+    assigned_sites:        Optional[str] = None
 
 
 class EditUserRequest(BaseModel):

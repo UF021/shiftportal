@@ -9,7 +9,10 @@ export default function HRRegistrations() {
   const [sites,       setSites]      = useState([])
   const [loading,     setLoad]       = useState(true)
   const [selected,    setSel]        = useState(null)
-  const [act,         setAct]        = useState({ employment_start_date:'', pay_rate:'', assigned_site_id:'' })
+  const [act,         setAct]        = useState({ employment_start_date:'', pay_rate:'' })
+  const [selSites,    setSelSites]   = useState([])
+  const [otherSiteOn, setOtherOn]    = useState(false)
+  const [otherSiteText,setOtherText] = useState('')
   const [customPay,   setCustomPay]  = useState('')
   const [busy,        setBusy]       = useState(false)
   const [msg,         setMsg]        = useState('')
@@ -23,13 +26,38 @@ export default function HRRegistrations() {
     getMySites().then(r=>setSites(r.data||[])).catch(()=>{})
   }, [])
 
+  function openReview(r) {
+    setSel(r)
+    setMsg('')
+    setSelSites([])
+    setOtherOn(false)
+    setOtherText('')
+    setAct({ employment_start_date:'', pay_rate:'' })
+    setCustomPay('')
+  }
+
   async function activate() {
     setBusy(true); setMsg('')
     try {
-      const payValue = act.pay_rate === 'other' ? (customPay ? parseFloat(customPay) : null) : (act.pay_rate ? parseFloat(act.pay_rate) : null)
+      const payValue = act.pay_rate === 'other'
+        ? (customPay ? parseFloat(customPay) : null)
+        : (act.pay_rate ? parseFloat(act.pay_rate) : null)
+
+      // Build site list: checked known sites + freetext "other" sites
+      const allSiteNames = [
+        ...selSites,
+        ...(otherSiteOn && otherSiteText.trim()
+          ? otherSiteText.split(',').map(x => x.trim()).filter(Boolean)
+          : []),
+      ]
+      const assignedSites   = allSiteNames.length ? allSiteNames.join(', ') : null
+      const firstSite       = sites.find(s => s.name === selSites[0])
+      const assignedSiteId  = firstSite ? firstSite.id : null
+
       const res = await activateUser(selected.id, {
-        pay_rate: payValue,
-        assigned_site_id: act.assigned_site_id ? parseInt(act.assigned_site_id) : null,
+        pay_rate:              payValue,
+        assigned_site_id:      assignedSiteId,
+        assigned_sites:        assignedSites,
         employment_start_date: act.employment_start_date || null,
       })
       const sid = res.data?.staff_id || ''
@@ -83,7 +111,7 @@ export default function HRRegistrations() {
                 </div>
               </div>
               <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-                <button onClick={() => { setSel(r); setMsg('') }} className="btn btn-brand" style={{ fontSize:12, padding:'6px 14px' }}>Review →</button>
+                <button onClick={() => openReview(r)} className="btn btn-brand" style={{ fontSize:12, padding:'6px 14px' }}>Review →</button>
                 <button onClick={() => reject(r.id, r.full_name)} className="btn btn-danger" style={{ fontSize:12, padding:'6px 12px' }}>✗</button>
               </div>
             </div>
@@ -94,7 +122,7 @@ export default function HRRegistrations() {
       {/* Review modal */}
       {selected && (
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setSel(null)}>
-          <div className="modal" style={{ width:620 }}>
+          <div className="modal" style={{ width:620, maxHeight:'90vh', overflowY:'auto' }}>
             <h3>Review Registration</h3>
             <p className="sub">Check all details carefully before activating this account.</p>
 
@@ -120,28 +148,57 @@ export default function HRRegistrations() {
             <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 14px', marginBottom:12, fontSize:12, color:'var(--text-muted)' }}>
               🆔 A Staff ID will be auto-generated on activation (e.g. ZZ123 — initials + 3 digits)
             </div>
+
             <div className="form-row">
               <div className="field"><label>Employment Start Date</label>
                 <input type="date" value={act.employment_start_date} onChange={e=>setAct(a=>({...a,employment_start_date:e.target.value}))}/></div>
             </div>
-            <div className="form-row">
-              <div className="field"><label>Pay Rate (£/hr)</label>
-                <select value={act.pay_rate} onChange={e=>setAct(a=>({...a,pay_rate:e.target.value}))}>
-                  <option value="">— Select pay rate —</option>
-                  {PRESET_PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
-                  <option value="other">Other</option>
-                </select>
-                {act.pay_rate === 'other' && (
-                  <input type="number" step="0.01" min="0" value={customPay} onChange={e=>setCustomPay(e.target.value)}
-                    placeholder="Enter amount e.g. 14.50"
-                    style={{ marginTop:6, width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none' }} />
+
+            <div className="field" style={{ marginBottom:12 }}><label>Pay Rate (£/hr)</label>
+              <select value={act.pay_rate} onChange={e=>setAct(a=>({...a,pay_rate:e.target.value}))}>
+                <option value="">— Select pay rate —</option>
+                {PRESET_PAY.map(p=><option key={p} value={p}>£{p}/hr</option>)}
+                <option value="other">Other</option>
+              </select>
+              {act.pay_rate === 'other' && (
+                <input type="number" step="0.01" min="0" value={customPay} onChange={e=>setCustomPay(e.target.value)}
+                  placeholder="Enter amount e.g. 14.50"
+                  style={{ marginTop:6, width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none' }} />
+              )}
+            </div>
+
+            <div className="field" style={{ marginBottom:16 }}><label>Assign to Sites</label>
+              <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px', maxHeight:180, overflowY:'auto' }}>
+                {sites.length === 0 && (
+                  <p style={{ fontSize:12, color:'var(--text-muted)', margin:0 }}>No sites configured yet.</p>
+                )}
+                {sites.map(s => {
+                  const checked = selSites.includes(s.name)
+                  return (
+                    <label key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13 }}>
+                      <input type="checkbox" checked={checked}
+                        onChange={e => setSelSites(prev => e.target.checked ? [...prev, s.name] : prev.filter(n => n !== s.name))}
+                        style={{ accentColor:'var(--green)', width:15, height:15 }} />
+                      {s.name}
+                    </label>
+                  )
+                })}
+                <label style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', cursor:'pointer', fontSize:13, borderTop:'1px solid var(--border)', marginTop:6, paddingTop:8 }}>
+                  <input type="checkbox" checked={otherSiteOn} onChange={e => setOtherOn(e.target.checked)}
+                    style={{ accentColor:'var(--green)', width:15, height:15 }} />
+                  Other
+                </label>
+                {otherSiteOn && (
+                  <input value={otherSiteText} onChange={e => setOtherText(e.target.value)}
+                    placeholder="Enter site name(s), comma-separated"
+                    style={{ marginTop:6, width:'100%', padding:'7px 10px', borderRadius:6, border:'1px solid var(--border)', background:'var(--navy)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', boxSizing:'border-box' }} />
                 )}
               </div>
-              <div className="field"><label>Assign to Site</label>
-                <select value={act.assigned_site_id} onChange={e=>setAct(a=>({...a,assigned_site_id:e.target.value}))}>
-                  <option value="">— Unassigned —</option>
-                  {sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-                </select></div>
+              {(selSites.length > 0 || (otherSiteOn && otherSiteText.trim())) && (
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
+                  Selected: {[...selSites, ...(otherSiteOn && otherSiteText.trim() ? [otherSiteText.trim()] : [])].join(', ')}
+                </div>
+              )}
             </div>
 
             {msg && <div className={`alert ${msg.startsWith('✅')?'alert-green':'alert-red'}`}>{msg}</div>}

@@ -98,6 +98,7 @@ def activate(
     u.employment_start_date = req.employment_start_date
     u.pay_rate              = req.pay_rate
     u.assigned_site_id      = req.assigned_site_id
+    u.assigned_sites        = req.assigned_sites
     u.activated_at          = datetime.now(timezone.utc)
 
     db.commit()
