@@ -97,14 +97,24 @@ Web: www.ikanfm.co.uk"""
         msg["From"]    = smtp_user
         msg["To"]      = to_email
         msg.attach(MIMEText(body, "plain"))
-        with smtplib.SMTP(smtp_host, smtp_port) as srv:
-            srv.starttls()
-            srv.login(smtp_user, smtp_pass)
-            srv.sendmail(smtp_user, [to_email, bcc_email], msg.as_string())
+        if smtp_port == 465:
+            import ssl
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx) as srv:
+                srv.login(smtp_user, smtp_pass)
+                srv.sendmail(smtp_user, [to_email, bcc_email], msg.as_string())
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port) as srv:
+                srv.ehlo()
+                srv.starttls()
+                srv.ehlo()
+                srv.login(smtp_user, smtp_pass)
+                srv.sendmail(smtp_user, [to_email, bcc_email], msg.as_string())
         log.info("[EMAIL] Sent registration email to %s", to_email)
         return True
     except Exception as exc:
-        log.error("[EMAIL] Failed to send to %s: %s", to_email, exc)
+        log.error("[EMAIL] Failed to send to %s: %s | host=%s port=%s user=%s",
+                  to_email, exc, smtp_host, smtp_port, smtp_user)
         return False
 
 
