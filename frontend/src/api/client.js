@@ -109,6 +109,12 @@ export const getGpsCaptures    = ()                  => api.get('/gps-captures/'
 export const approveGpsCapture = (captureId, data)  => api.patch(`/gps-captures/${captureId}/approve`, data)
 export const rejectGpsCapture  = (captureId)         => api.delete(`/gps-captures/${captureId}`)
 
+// Incidents
+export const submitIncident   = (fd)  => api.post('/incidents/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+export const getMyIncidents   = ()    => api.get('/incidents/my')
+export const getIncidents     = ()    => api.get('/incidents/')
+export const reviewIncident   = (id)  => api.patch(`/incidents/${id}/review`)
+
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')
 export const listOrgs       = ()      => api.get('/orgs/')

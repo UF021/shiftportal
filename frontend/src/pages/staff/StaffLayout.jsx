@@ -7,12 +7,13 @@ import { DocsProvider, useDocs } from '../../api/DocsContext'
 import OrgLogo from '../../components/OrgLogo'
 
 const BASE_NAV = [
-  { path:'/staff',           icon:'🏠', label:'Home' },
-  { path:'/staff/contract',  icon:'📄', label:'Contract' },
-  { path:'/staff/documents', icon:'📋', label:'Docs' },
-  { path:'/staff/holidays',  icon:'🌴', label:'Holidays' },
-  { path:'/staff/messages',  icon:'💬', label:'Messages' },
-  { path:'/staff/profile',   icon:'👤', label:'Profile' },
+  { path:'/staff',             icon:'🏠', label:'Home' },
+  { path:'/staff/contract',    icon:'📄', label:'Contract' },
+  { path:'/staff/documents',   icon:'📋', label:'Docs' },
+  { path:'/staff/holidays',    icon:'🌴', label:'Holidays' },
+  { path:'/staff/messages',    icon:'💬', label:'Messages' },
+  { path:'/staff/incidents',   icon:'🚨', label:'Incidents' },
+  { path:'/staff/profile',     icon:'👤', label:'Profile' },
 ]
 
 // Inner component — has access to DocsProvider context

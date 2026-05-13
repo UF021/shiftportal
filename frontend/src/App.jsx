@@ -20,6 +20,7 @@ import StaffDocuments from './pages/staff/StaffDocuments'
 import StaffHolidays  from './pages/staff/StaffHolidays'
 import StaffProfile   from './pages/staff/StaffProfile'
 import StaffMessages  from './pages/staff/StaffMessages'
+import StaffIncidents from './pages/staff/StaffIncidents'
 
 // HR (dark theme)
 import HRLayout         from './pages/hr/HRLayout'
@@ -36,6 +37,7 @@ import HRMessages       from './pages/hr/HRMessages'
 import HRContacts       from './pages/hr/HRContacts'
 import HRApplications   from './pages/hr/HRApplications'
 import HRGPSCaptures    from './pages/hr/HRGPSCaptures'
+import HRIncidents      from './pages/hr/HRIncidents'
 
 // Superadmin
 import SuperLayout  from './pages/superadmin/SuperLayout'
@@ -94,6 +96,7 @@ export default function App() {
         <Route path="documents" element={<StaffDocuments />} />
         <Route path="holidays"  element={<StaffHolidays />} />
         <Route path="messages"  element={<StaffMessages />} />
+        <Route path="incidents" element={<StaffIncidents />} />
         <Route path="profile"   element={<StaffProfile />} />
       </Route>
 
@@ -112,6 +115,7 @@ export default function App() {
         <Route path="failures"      element={<HRClockFailures />} />
         <Route path="messages"      element={<HRMessages />} />
         <Route path="contacts"      element={<HRContacts />} />
+        <Route path="incidents"     element={<HRIncidents />} />
         <Route path="gps"           element={<HRGPSCaptures />} />
         <Route path="settings"      element={<HRSettings />} />
       </Route>

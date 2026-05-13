@@ -484,6 +484,62 @@ class ContactMessage(Base):
     organisation = relationship("Organisation")
 
 
+# ── IncidentReport ────────────────────────────────────────────────────────────
+
+class IncidentReport(Base):
+    __tablename__ = 'incident_reports'
+
+    id                   = Column(Integer, primary_key=True, index=True)
+    organisation_id      = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False)
+    user_id              = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+
+    # Who
+    staff_name           = Column(String(200), nullable=False)
+    staff_id             = Column(String(50),  nullable=False)
+
+    # When / where
+    date_of_incident     = Column(String(20),  nullable=False)   # ISO date string
+    time_of_incident     = Column(String(10),  nullable=False)   # HH:MM
+    site_location        = Column(String(300), nullable=False)
+
+    # Emergency services
+    police_called        = Column(Boolean, default=False)
+    officer_name         = Column(String(200), nullable=True)
+    collar_number        = Column(String(50),  nullable=True)
+
+    # Duty manager
+    duty_manager_called  = Column(Boolean, default=False)
+    duty_manager_name    = Column(String(200), nullable=True)
+
+    # Injuries
+    injuries             = Column(Boolean, default=False)
+    injury_description   = Column(Text, nullable=True)
+
+    # Statement
+    statement            = Column(Text, nullable=False)
+
+    # Photos (up to 3, stored as binary)
+    photo_1_data         = Column(LargeBinary, nullable=True)
+    photo_1_filename     = Column(String(200), nullable=True)
+    photo_1_type         = Column(String(100), nullable=True)
+    photo_2_data         = Column(LargeBinary, nullable=True)
+    photo_2_filename     = Column(String(200), nullable=True)
+    photo_2_type         = Column(String(100), nullable=True)
+    photo_3_data         = Column(LargeBinary, nullable=True)
+    photo_3_filename     = Column(String(200), nullable=True)
+    photo_3_type         = Column(String(100), nullable=True)
+
+    # Review
+    reviewed             = Column(Boolean, default=False)
+    reviewed_at          = Column(DateTime(timezone=True), nullable=True)
+    reviewed_by          = Column(Integer, ForeignKey('users.id'), nullable=True)
+
+    submitted_at         = Column(DateTime(timezone=True), server_default=func.now())
+
+    user                 = relationship("User", foreign_keys=[user_id])
+    reviewer             = relationship("User", foreign_keys=[reviewed_by])
+
+
 class PreRegistration(Base):
     __tablename__ = 'pre_registrations'
 
