@@ -97,14 +97,15 @@ Web: www.ikanfm.co.uk"""
         msg["From"]    = smtp_user
         msg["To"]      = to_email
         msg.attach(MIMEText(body, "plain"))
+        import ssl
+        timeout = 15  # seconds — prevents thread hanging on blocked ports
         if smtp_port == 465:
-            import ssl
             ctx = ssl.create_default_context()
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx) as srv:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=timeout) as srv:
                 srv.login(smtp_user, smtp_pass)
                 srv.sendmail(smtp_user, [to_email, bcc_email], msg.as_string())
         else:
-            with smtplib.SMTP(smtp_host, smtp_port) as srv:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as srv:
                 srv.ehlo()
                 srv.starttls()
                 srv.ehlo()
