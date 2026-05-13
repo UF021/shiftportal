@@ -83,8 +83,9 @@ export const createManualShift   = d      => api.post('/clock/manual', d)
 
 // Applications
 export const getApplications    = ()         => api.get('/applications/')
-export const getApplication     = (id)       => api.get(`/applications/${id}`)
-export const updateAppStatus    = (id, data) => api.patch(`/applications/${id}/status`, data)
+export const getApplication           = (id)       => api.get(`/applications/${id}`)
+export const updateAppStatus          = (id, data) => api.patch(`/applications/${id}/status`, data)
+export const resendRegistrationEmail  = (id)       => api.post(`/applications/${id}/resend-registration`)
 export const getPreRegistration = (token)    => axios.get(`${BASE}/auth/pre-registration/${token}`)
 
 // Clock failures

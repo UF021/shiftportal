@@ -1,6 +1,6 @@
 // HRApplications.jsx
 import { useEffect, useState } from 'react'
-import { getApplications, getApplication, updateAppStatus } from '../../api/client'
+import { getApplications, getApplication, updateAppStatus, resendRegistrationEmail } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 import { fmtDateTime } from '../../api/utils'
 
@@ -94,16 +94,11 @@ function DetailModal({ appId, onClose, onUpdated }) {
   async function resendRegistration() {
     setResending(true); setErr(''); setSavedMsg('')
     try {
-      await fetch(`${BASE}/applications/${appId}/resend-registration`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(async r => {
-        if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Failed') }
-      })
+      await resendRegistrationEmail(appId)
       setSavedMsg(`📧 Registration email resent to ${data.email}`)
       getApplication(appId).then(r => setData(r.data))
     } catch (ex) {
-      setErr(ex.message || 'Failed to resend email')
+      setErr(ex.response?.data?.detail || ex.message || 'Failed to resend email')
     } finally { setResending(false) }
   }
 
@@ -244,23 +239,27 @@ function DetailModal({ appId, onClose, onUpdated }) {
                 </div>
               )}
               {data.status === 'accepted' && (
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
-                  {data.registration_sent_at
-                    ? <span style={{ fontSize:12, color:'var(--green)' }}>
-                        📧 Registration link sent on {new Date(data.registration_sent_at).toLocaleDateString('en-GB')}
-                      </span>
-                    : <span style={{ fontSize:12, color:'#a04000' }}>
-                        ⚠️ Registration email not yet sent
-                      </span>
-                  }
-                  <button
-                    onClick={resendRegistration}
-                    disabled={resending}
-                    className="btn btn-outline"
-                    style={{ fontSize:12, padding:'4px 12px' }}
-                  >
-                    {resending ? 'Sending…' : 'Resend Email'}
-                  </button>
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                    {data.registration_sent_at
+                      ? <span style={{ fontSize:12, color:'var(--green)' }}>
+                          📧 Registration link sent on {new Date(data.registration_sent_at).toLocaleDateString('en-GB')}
+                        </span>
+                      : <span style={{ fontSize:12, color:'#a04000' }}>
+                          ⚠️ Registration email not yet sent
+                        </span>
+                    }
+                    <button
+                      onClick={resendRegistration}
+                      disabled={resending}
+                      className="btn btn-outline"
+                      style={{ fontSize:12, padding:'4px 12px' }}
+                    >
+                      {resending ? 'Sending…' : 'Resend Email'}
+                    </button>
+                  </div>
+                  {err && <div className="alert alert-red" style={{ fontSize:12, padding:'6px 10px' }}>{err}</div>}
+                  {savedMsg && <div className="alert alert-green" style={{ fontSize:12, padding:'6px 10px' }}>{savedMsg}</div>}
                 </div>
               )}
             </div>
