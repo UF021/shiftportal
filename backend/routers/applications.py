@@ -1,12 +1,11 @@
 import os
 import uuid
 import random
-import smtplib
 import logging
 from datetime import datetime, timezone
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from typing import Optional
+
+import resend
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
@@ -42,11 +41,6 @@ def _generate_reference(first_name: str, last_name: str, org_id: int, db: Sessio
 
 def _send_registration_email(to_email: str, first_name: str, reg_link: str, org_name: str) -> bool:
     """Returns True if the email was sent successfully, False otherwise."""
-    smtp_host = os.getenv("SMTP_HOST")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
-
     body = f"""Dear {first_name},
 
 Thank you for joining our company and we very much look forward to working with you. Your employment start date, weekly shifts, pay rate and site location would have been included in earlier correspondence with a line manager and clearly shown on the job advert.
@@ -86,36 +80,25 @@ Julie Mitcham
 HR Dept.
 Web: www.ikanfm.co.uk"""
 
-    if not all([smtp_host, smtp_user, smtp_pass]):
-        log.info("[EMAIL] SMTP not configured — would send to %s:\n%s", to_email, body)
+    api_key   = os.getenv("RESEND_API_KEY")
+    from_addr = os.getenv("EMAIL_FROM", "hr@ikanfm.co.uk")
+
+    if not api_key:
+        log.info("[EMAIL] RESEND_API_KEY not configured — skipping send to %s", to_email)
         return False
 
     try:
-        msg = MIMEMultipart("alternative")
-        bcc_email = os.getenv("BCC_EMAIL", smtp_user)
-        msg["Subject"] = f"Welcome to {org_name} — Your Onboarding Next Steps"
-        msg["From"]    = smtp_user
-        msg["To"]      = to_email
-        msg.attach(MIMEText(body, "plain"))
-        import ssl
-        timeout = 15  # seconds — prevents thread hanging on blocked ports
-        if smtp_port == 465:
-            ctx = ssl.create_default_context()
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=timeout) as srv:
-                srv.login(smtp_user, smtp_pass)
-                srv.sendmail(smtp_user, [to_email, bcc_email], msg.as_string())
-        else:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as srv:
-                srv.ehlo()
-                srv.starttls()
-                srv.ehlo()
-                srv.login(smtp_user, smtp_pass)
-                srv.sendmail(smtp_user, [to_email, bcc_email], msg.as_string())
+        resend.api_key = api_key
+        resend.Emails.send({
+            "from":    f"Ikan FM HR <{from_addr}>",
+            "to":      [to_email],
+            "subject": f"Welcome to {org_name} — Your Onboarding Next Steps",
+            "text":    body,
+        })
         log.info("[EMAIL] Sent registration email to %s", to_email)
         return True
     except Exception as exc:
-        log.error("[EMAIL] Failed to send to %s: %s | host=%s port=%s user=%s",
-                  to_email, exc, smtp_host, smtp_port, smtp_user)
+        log.error("[EMAIL] Failed to send to %s: %s", to_email, exc)
         return False
 
 
