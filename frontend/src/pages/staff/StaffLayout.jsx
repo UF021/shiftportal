@@ -13,6 +13,7 @@ const BASE_NAV = [
   { path:'/staff/holidays',    icon:'🌴', label:'Holidays' },
   { path:'/staff/messages',    icon:'💬', label:'Messages' },
   { path:'/staff/incidents',   icon:'🚨', label:'Incidents' },
+  { path:'/staff/training',    icon:'🎓', label:'Training' },
   { path:'/staff/profile',     icon:'👤', label:'Profile' },
 ]
 

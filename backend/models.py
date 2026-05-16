@@ -561,3 +561,26 @@ class PreRegistration(Base):
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     used            = Column(Boolean, default=False)
     application_id  = Column(Integer, ForeignKey('job_applications.id'), nullable=True)
+
+
+# ── TrainingProgress ──────────────────────────────────────────────────────────
+
+class TrainingProgress(Base):
+    __tablename__ = 'training_progress'
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False)
+    user_id         = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    module          = Column(String(20), nullable=False)   # 'module1' | 'module2' | 'module3'
+
+    score           = Column(Integer, nullable=False, default=0)
+    passed          = Column(Boolean, default=False)
+    attempts        = Column(Integer, default=1)
+
+    completed_at    = Column(DateTime(timezone=True), nullable=True)
+    expires_at      = Column(DateTime(timezone=True), nullable=True)   # +90 days from pass
+    updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user            = relationship("User", foreign_keys=[user_id])
+
+    __table_args__  = (UniqueConstraint('user_id', 'module', name='uq_user_training_module'),)

@@ -199,6 +199,7 @@ def get_me(current_user: models.User = Depends(get_current_user)):
         "nok_relation":          current_user.nok_relation,
         "is_active":             current_user.is_active,
         "registered_at":         current_user.registered_at.isoformat() if current_user.registered_at else None,
+        "activated_at":          current_user.activated_at.isoformat() if current_user.activated_at else None,
         # Org branding passed down for contract/UI
         "org_name":              org.brand_name or org.name if org else None,
         "org_colour":            org.brand_colour if org else "#6abf3f",

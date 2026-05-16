@@ -16,6 +16,7 @@ const NAV = [
   { path:'/hr/messages',        icon:'💬', label:'Messages' },
   { path:'/hr/contacts',        icon:'📩', label:'Web Enquiries' },
   { path:'/hr/incidents',        icon:'🚨', label:'Incidents' },
+  { path:'/hr/training',         icon:'🎓', label:'Training' },
   { path:'/hr/gps',             icon:'📍', label:'GPS Captures' },
   { path:'/hr/settings',        icon:'⚙️', label:'Settings' },
 ]
