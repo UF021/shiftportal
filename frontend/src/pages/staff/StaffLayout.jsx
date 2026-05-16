@@ -7,14 +7,14 @@ import { DocsProvider, useDocs } from '../../api/DocsContext'
 import OrgLogo from '../../components/OrgLogo'
 
 const BASE_NAV = [
-  { path:'/staff',             icon:'🏠', label:'Home' },
-  { path:'/staff/contract',    icon:'📄', label:'Contract' },
-  { path:'/staff/documents',   icon:'📋', label:'Docs' },
-  { path:'/staff/holidays',    icon:'🌴', label:'Holidays' },
-  { path:'/staff/messages',    icon:'💬', label:'Messages' },
-  { path:'/staff/incidents',   icon:'🚨', label:'Incidents' },
-  { path:'/staff/training',    icon:'🎓', label:'Training' },
-  { path:'/staff/profile',     icon:'👤', label:'Profile' },
+  { path:'/staff',             icon:'🏠', label:'Home',      bg:'#e8f4ff', active:'#1565c0' },
+  { path:'/staff/contract',    icon:'📄', label:'Contract',  bg:'#f0faf0', active:'#2e7d32' },
+  { path:'/staff/documents',   icon:'📋', label:'Docs',      bg:'#fff8e8', active:'#b45000' },
+  { path:'/staff/holidays',    icon:'🌴', label:'Holidays',  bg:'#f0fff8', active:'#007a50' },
+  { path:'/staff/messages',    icon:'💬', label:'Messages',  bg:'#fdf0ff', active:'#7b1fa2' },
+  { path:'/staff/incidents',   icon:'🚨', label:'Incidents', bg:'#fff0f0', active:'#c62828' },
+  { path:'/staff/training',    icon:'🎓', label:'Training',  bg:'#fffbe8', active:'#e65100' },
+  { path:'/staff/profile',     icon:'👤', label:'Profile',   bg:'#f0f0f0', active:'#37474f' },
 ]
 
 // Inner component — has access to DocsProvider context
@@ -65,12 +65,13 @@ function StaffLayoutInner() {
 
       {/* Bottom nav */}
       <nav style={{
-        background:'#fff', borderTop:'1px solid #dde8dd',
+        background:'#f5f7f5', borderTop:'1px solid #dde8dd',
         display:'flex', position:'fixed', bottom:0, left:0, right:0, zIndex:99,
         boxShadow:'0 -2px 12px rgba(0,0,0,.08)',
         paddingBottom:'env(safe-area-inset-bottom)',
+        gap:4, padding:'6px 4px calc(6px + env(safe-area-inset-bottom))',
       }}>
-        {BASE_NAV.map(({ path, icon, label }) => {
+        {BASE_NAV.map(({ path, icon, label, bg, active: activeCol }) => {
           const active     = pathname === path || (path !== '/staff' && pathname.startsWith(path))
           const isMsgs     = path === '/staff/messages'
           const isDocs     = path === '/staff/documents'
@@ -78,12 +79,15 @@ function StaffLayoutInner() {
           return (
             <button key={path} onClick={() => nav(path)} style={{
               flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-              padding:'8px 4px 10px', cursor:'pointer', border:'none',
-              background:'transparent', fontFamily:'DM Sans,sans-serif',
-              color: active ? c : '#6a8a6a',
-              transition:'color .15s', position:'relative',
+              padding:'6px 2px 5px', cursor:'pointer', border:'none',
+              background: active ? activeCol : bg,
+              borderRadius: 10,
+              fontFamily:'DM Sans,sans-serif',
+              color: active ? '#fff' : activeCol,
+              transition:'all .15s', position:'relative',
+              boxShadow: active ? `0 2px 8px ${activeCol}55` : 'none',
             }}>
-              <span style={{ fontSize:22, marginBottom:3, transform:active?'scale(1.1)':'none', transition:'transform .15s', position:'relative' }}>
+              <span style={{ fontSize:19, marginBottom:2, transform:active?'scale(1.1)':'none', transition:'transform .15s', position:'relative' }}>
                 {icon}
                 {badgeCount > 0 && (
                   <span style={{
@@ -95,8 +99,7 @@ function StaffLayoutInner() {
                   }}>{badgeCount}</span>
                 )}
               </span>
-              <span style={{ fontSize:10, fontWeight:700, letterSpacing:'.03em', textTransform:'uppercase' }}>{label}</span>
-              {active && <div style={{ width:20, height:2, background:c, borderRadius:1, marginTop:3 }} />}
+              <span style={{ fontSize:9, fontWeight:700, letterSpacing:'.02em', textTransform:'uppercase', opacity: active ? 1 : 0.75 }}>{label}</span>
             </button>
           )
         })}

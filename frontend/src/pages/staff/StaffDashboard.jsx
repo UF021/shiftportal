@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
-import { getMyClockHistory, getMyMessages } from '../../api/client'
+import { getMyClockHistory, getMyMessages, getMyTraining, getMyIncidents } from '../../api/client'
 import { useDocs } from '../../api/DocsContext'
 
 function fmtDuration(mins) {
@@ -19,6 +19,8 @@ export default function StaffDashboard() {
 
   const [clockData,      setClockData]      = useState(null)
   const [urgentMessages, setUrgentMessages] = useState([])
+  const [training,       setTraining]       = useState(null)
+  const [incidents,      setIncidents]      = useState(null)
   const { unconfirmedDocs } = useDocs()
 
   useEffect(() => {
@@ -28,6 +30,12 @@ export default function StaffDashboard() {
     getMyMessages()
       .then(r => setUrgentMessages((r.data || []).filter(m => !m.is_read && m.priority === 'urgent')))
       .catch(() => {})
+    getMyTraining()
+      .then(r => setTraining(r.data))
+      .catch(() => {})
+    getMyIncidents()
+      .then(r => setIncidents(r.data || []))
+      .catch(() => setIncidents([]))
   }, [])
 
   const openClockIn  = clockData?.open_in  || null
@@ -276,6 +284,146 @@ export default function StaffDashboard() {
         </div>
       </div>
     </div>
+
+    {/* Training card */}
+    {(() => {
+      const MODULES = ['module1', 'module2', 'module3']
+      const LABELS  = { module1: 'Company Policies', module2: 'SIA Door Supervisor', module3: "Martyn's Law" }
+      const mods    = training?.modules || {}
+      const passedCount = MODULES.filter(m => mods[m]?.passed).length
+      const allPassed   = passedCount === 3
+
+      let daysLeft = null
+      if (training?.deadline) {
+        daysLeft = Math.ceil((new Date(training.deadline) - new Date()) / 86400000)
+      }
+
+      const barCol = allPassed ? '#2e7d32' : daysLeft !== null && daysLeft < 0 ? '#c62828' : daysLeft !== null && daysLeft <= 7 ? '#e65100' : '#e65100'
+
+      return (
+        <div
+          onClick={() => nav('/staff/training')}
+          style={{
+            background: allPassed ? 'linear-gradient(135deg,#f0faf0,#e8f5e8)' : 'linear-gradient(135deg,#fffbe8,#fff8f0)',
+            border: `1.5px solid ${allPassed ? '#a5d6a7' : daysLeft !== null && daysLeft < 0 ? '#ef9a9a' : '#ffe082'}`,
+            borderRadius: 14, padding: '16px 18px', marginBottom: 14, cursor: 'pointer',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ fontSize: 22 }}>🎓</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#1a1a1a' }}>Security Training</div>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 1 }}>
+                  {allPassed ? 'All modules complete' : `${passedCount} of 3 modules passed`}
+                </div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              {allPassed ? (
+                <span style={{ fontSize: 22 }}>🏆</span>
+              ) : daysLeft !== null ? (
+                <div style={{
+                  background: daysLeft < 0 ? '#c62828' : daysLeft <= 7 ? '#e65100' : '#e65100',
+                  color: '#fff', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700,
+                }}>
+                  {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ background: 'rgba(0,0,0,.08)', borderRadius: 6, height: 8, marginBottom: 12, overflow: 'hidden' }}>
+            <div style={{
+              width: `${(passedCount / 3) * 100}%`, height: '100%',
+              background: allPassed ? '#4caf50' : barCol,
+              borderRadius: 6, transition: 'width .4s',
+            }} />
+          </div>
+
+          {/* Module pills */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {MODULES.map(m => {
+              const p = mods[m]
+              const passed  = p?.passed
+              const expired = passed && p?.expires_at && new Date(p.expires_at) < new Date()
+              const failed  = p && !passed
+              return (
+                <div key={m} style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: passed && !expired ? '#e8f5e8' : expired ? '#fff8e1' : failed ? '#fdecea' : 'rgba(0,0,0,.05)',
+                  border: `1px solid ${passed && !expired ? '#a5d6a7' : expired ? '#ffe082' : failed ? '#ef9a9a' : 'rgba(0,0,0,.1)'}`,
+                  borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 600,
+                  color: passed && !expired ? '#2e7d32' : expired ? '#b45000' : failed ? '#c62828' : '#555',
+                }}>
+                  <span>{passed && !expired ? '✓' : expired ? '⚠' : failed ? '✗' : '○'}</span>
+                  {LABELS[m].split(' ')[0]}
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ fontSize: 11, color: '#888', marginTop: 10, textAlign: 'right' }}>Tap to open training →</div>
+        </div>
+      )
+    })()}
+
+    {/* Incident reports card */}
+    {(() => {
+      const total    = incidents?.length ?? null
+      const pending  = incidents?.filter(i => !i.reviewed_at).length ?? null
+      const reviewed = incidents?.filter(i => !!i.reviewed_at).length ?? null
+
+      return (
+        <div
+          onClick={() => nav('/staff/incidents')}
+          style={{
+            background: 'linear-gradient(135deg,#fff5f5,#fff0f0)',
+            border: '1.5px solid #ffcdd2',
+            borderRadius: 14, padding: '16px 18px', marginBottom: 14, cursor: 'pointer',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ fontSize: 22 }}>🚨</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#1a1a1a' }}>Incident Reports</div>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 1 }}>
+                  {total === null ? 'Loading…' : total === 0 ? 'No incidents reported' : `${total} report${total !== 1 ? 's' : ''} submitted`}
+                </div>
+              </div>
+            </div>
+            <span style={{
+              background: '#c62828', color: '#fff',
+              fontWeight: 700, fontSize: 20, borderRadius: 10,
+              padding: '4px 12px', fontFamily: 'DM Mono,monospace',
+            }}>{total ?? '…'}</span>
+          </div>
+
+          {total !== null && total > 0 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{
+                flex: 1, background: '#fff3e0', border: '1px solid #ffe082',
+                borderRadius: 8, padding: '8px 12px', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#e65100', fontFamily: 'DM Mono,monospace' }}>{pending}</div>
+                <div style={{ fontSize: 10, color: '#b45000', textTransform: 'uppercase', letterSpacing: '.04em', marginTop: 2 }}>Pending review</div>
+              </div>
+              <div style={{
+                flex: 1, background: '#e8f5e8', border: '1px solid #a5d6a7',
+                borderRadius: 8, padding: '8px 12px', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#2e7d32', fontFamily: 'DM Mono,monospace' }}>{reviewed}</div>
+                <div style={{ fontSize: 10, color: '#2e7d32', textTransform: 'uppercase', letterSpacing: '.04em', marginTop: 2 }}>Reviewed</div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontSize: 11, color: '#888', marginTop: 10, textAlign: 'right' }}>Tap to view or report →</div>
+        </div>
+      )
+    })()}
 
     {/* Recent Shifts */}
     <div className="s-card">
