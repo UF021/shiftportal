@@ -41,6 +41,18 @@ def get_my_progress(
         models.TrainingProgress.user_id == me.id
     ).all()
     deadline = _get_deadline(me.id, db)
+
+    # Create enrollment on the fly for staff who logged in before this feature existed
+    if deadline is None:
+        now = datetime.now(timezone.utc)
+        db.add(models.TrainingEnrollment(
+            user_id     = me.id,
+            enrolled_at = now,
+            deadline    = now + timedelta(days=28),
+        ))
+        db.commit()
+        deadline = now + timedelta(days=28)
+
     return {
         "deadline": deadline.isoformat() if deadline else None,
         "modules":  {r.module: _fmt(r) for r in rows},
