@@ -271,18 +271,24 @@ export default function StaffDashboard() {
       )}
     </div>
 
-    {/* Contract card */}
-    <div className="s-card">
-      <div className="s-card-title">📄 Employment Contract</div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10 }}>
-        <div>
-          <div style={{ fontSize:14, fontWeight:700, color:'#1a2a1a' }}>Contract of Employment</div>
-          <div style={{ fontSize:12, color:'#6a8a6a' }}>{user?.first_name} {user?.last_name} · Start: {user?.employment_start_date||'TBC'}</div>
+    {/* Quick-watch video cards */}
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+      {[
+        { id: '1-6L3Lqv9WM', title: 'Site Briefing' },
+        { id: 'ss_3yR8aKqs', title: 'Safety Update' },
+      ].map(({ id, title }) => (
+        <div key={id} style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,.12)', aspectRatio: '1/1', position: 'relative', background: '#000' }}>
+          <iframe
+            width="100%" height="100%"
+            src={`https://www.youtube.com/embed/${id}`}
+            title={title}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
+          />
         </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <a href="/staff/contract" style={{ padding:'8px 14px', borderRadius:8, border:`1.5px solid ${c}`, background:'#fff', color:c, fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:600, cursor:'pointer', textDecoration:'none' }}>View →</a>
-        </div>
-      </div>
+      ))}
     </div>
 
     {/* Training card */}
@@ -298,14 +304,19 @@ export default function StaffDashboard() {
         daysLeft = Math.ceil((new Date(training.deadline) - new Date()) / 86400000)
       }
 
-      const barCol = allPassed ? '#2e7d32' : daysLeft !== null && daysLeft < 0 ? '#c62828' : daysLeft !== null && daysLeft <= 7 ? '#e65100' : '#e65100'
+      const urgency  = daysLeft === null ? 'none' : daysLeft < 0 ? 'overdue' : daysLeft <= 7 ? 'critical' : daysLeft <= 14 ? 'warning' : 'ok'
+      const badgeBg  = { overdue:'#c62828', critical:'#e65100', warning:'#f59f00', ok:'#2e7d32', none:'#888' }
+      const barCol   = allPassed ? '#4caf50' : urgency === 'overdue' ? '#c62828' : urgency === 'critical' ? '#e65100' : urgency === 'warning' ? '#f59f00' : '#4caf50'
+      const fmtDeadline = training?.deadline
+        ? new Date(training.deadline).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+        : null
 
       return (
         <div
           onClick={() => nav('/staff/training')}
           style={{
-            background: allPassed ? 'linear-gradient(135deg,#f0faf0,#e8f5e8)' : 'linear-gradient(135deg,#fffbe8,#fff8f0)',
-            border: `1.5px solid ${allPassed ? '#a5d6a7' : daysLeft !== null && daysLeft < 0 ? '#ef9a9a' : '#ffe082'}`,
+            background: allPassed ? 'linear-gradient(135deg,#f0faf0,#e8f5e8)' : urgency === 'overdue' ? 'linear-gradient(135deg,#fff5f5,#ffeaea)' : 'linear-gradient(135deg,#fffbe8,#fff8f0)',
+            border: `1.5px solid ${allPassed ? '#a5d6a7' : urgency === 'overdue' ? '#ef9a9a' : '#ffe082'}`,
             borderRadius: 14, padding: '16px 18px', marginBottom: 14, cursor: 'pointer',
           }}
         >
@@ -315,8 +326,13 @@ export default function StaffDashboard() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: '#1a1a1a' }}>Security Training</div>
                 <div style={{ fontSize: 12, color: '#666', marginTop: 1 }}>
-                  {allPassed ? 'All modules complete' : `${passedCount} of 3 modules passed`}
+                  {allPassed ? 'All modules complete ✓' : `${passedCount} of 3 modules passed`}
                 </div>
+                {fmtDeadline && !allPassed && (
+                  <div style={{ fontSize: 11, color: urgency === 'overdue' ? '#c62828' : '#888', marginTop: 2, fontWeight: urgency === 'overdue' ? 700 : 400 }}>
+                    {urgency === 'overdue' ? '⚠ Deadline passed · ' : 'Deadline: '}{fmtDeadline}
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -324,7 +340,7 @@ export default function StaffDashboard() {
                 <span style={{ fontSize: 22 }}>🏆</span>
               ) : daysLeft !== null ? (
                 <div style={{
-                  background: daysLeft < 0 ? '#c62828' : daysLeft <= 7 ? '#e65100' : '#e65100',
+                  background: badgeBg[urgency],
                   color: '#fff', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700,
                 }}>
                   {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
