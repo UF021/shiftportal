@@ -304,62 +304,90 @@ export default function StaffDashboard() {
         daysLeft = Math.ceil((new Date(training.deadline) - new Date()) / 86400000)
       }
 
-      const urgency  = daysLeft === null ? 'none' : daysLeft < 0 ? 'overdue' : daysLeft <= 7 ? 'critical' : daysLeft <= 14 ? 'warning' : 'ok'
-      const badgeBg  = { overdue:'#c62828', critical:'#e65100', warning:'#f59f00', ok:'#2e7d32', none:'#888' }
-      const barCol   = allPassed ? '#4caf50' : urgency === 'overdue' ? '#c62828' : urgency === 'critical' ? '#e65100' : urgency === 'warning' ? '#f59f00' : '#4caf50'
+      const urgency = daysLeft === null ? 'none' : daysLeft < 0 ? 'overdue' : daysLeft <= 7 ? 'critical' : daysLeft <= 14 ? 'warning' : 'ok'
+
+      const theme = allPassed
+        ? { bg: 'linear-gradient(135deg,#1b5e20 0%,#2e7d32 100%)', border: '#4caf50', text: '#fff', sub: 'rgba(255,255,255,.75)', accent: '#a5d6a7', barTrack: 'rgba(255,255,255,.2)', barFill: '#a5d6a7', shadow: '0 6px 24px rgba(46,125,50,.35)' }
+        : urgency === 'overdue'
+        ? { bg: 'linear-gradient(135deg,#7f0000 0%,#c62828 100%)', border: '#e57373', text: '#fff', sub: 'rgba(255,255,255,.8)', accent: '#ffcdd2', barTrack: 'rgba(255,255,255,.2)', barFill: '#ff8a80', shadow: '0 6px 24px rgba(198,40,40,.4)' }
+        : urgency === 'critical'
+        ? { bg: 'linear-gradient(135deg,#bf360c 0%,#e64a19 100%)', border: '#ff8a65', text: '#fff', sub: 'rgba(255,255,255,.8)', accent: '#ffccbc', barTrack: 'rgba(255,255,255,.2)', barFill: '#ffab91', shadow: '0 6px 24px rgba(230,74,25,.35)' }
+        : urgency === 'warning'
+        ? { bg: 'linear-gradient(135deg,#1a2a0a 0%,#33510a 60%,#4a7a10 100%)', border: '#f9a825', text: '#fff', sub: 'rgba(255,255,255,.7)', accent: '#fff176', barTrack: 'rgba(255,255,255,.15)', barFill: '#fff176', shadow: '0 6px 20px rgba(0,0,0,.25)' }
+        : { bg: 'linear-gradient(135deg,#0f1923 0%,#1a3a1a 60%,#2a5a20 100%)', border: '#4caf5055', text: '#fff', sub: 'rgba(255,255,255,.65)', accent: '#a5d6a7', barTrack: 'rgba(255,255,255,.12)', barFill: '#69f0ae', shadow: '0 6px 20px rgba(0,0,0,.25)' }
+
       const fmtDeadline = training?.deadline
-        ? new Date(training.deadline).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+        ? new Date(training.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
         : null
+
+      const countdownLabel = daysLeft === null ? null
+        : daysLeft < 0  ? `${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} overdue`
+        : daysLeft === 0 ? 'Due today!'
+        : `${daysLeft} day${daysLeft === 1 ? '' : 's'} remaining`
 
       return (
         <div
           onClick={() => nav('/staff/training')}
           style={{
-            background: allPassed ? 'linear-gradient(135deg,#f0faf0,#e8f5e8)' : urgency === 'overdue' ? 'linear-gradient(135deg,#fff5f5,#ffeaea)' : 'linear-gradient(135deg,#fffbe8,#fff8f0)',
-            border: `1.5px solid ${allPassed ? '#a5d6a7' : urgency === 'overdue' ? '#ef9a9a' : '#ffe082'}`,
-            borderRadius: 14, padding: '16px 18px', marginBottom: 14, cursor: 'pointer',
+            background: theme.bg,
+            border: `2px solid ${theme.border}`,
+            borderRadius: 16, padding: '20px 20px 16px', marginBottom: 14,
+            cursor: 'pointer', boxShadow: theme.shadow, position: 'relative', overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ fontSize: 22 }}>🎓</span>
+          {/* Decorative circle */}
+          <div style={{ position:'absolute', top:-30, right:-30, width:130, height:130, borderRadius:'50%', background:'rgba(255,255,255,.06)', pointerEvents:'none' }} />
+
+          {/* Header row */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontSize: 30, lineHeight: 1 }}>🎓</div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#1a1a1a' }}>Security Training</div>
-                <div style={{ fontSize: 12, color: '#666', marginTop: 1 }}>
-                  {allPassed ? 'All modules complete ✓' : `${passedCount} of 3 modules passed`}
+                <div style={{ fontWeight: 800, fontSize: 17, color: theme.text, letterSpacing: '.01em' }}>Security Training</div>
+                <div style={{ fontSize: 12, color: theme.sub, marginTop: 2 }}>
+                  {allPassed ? '✓ All 3 modules complete' : `${passedCount} of 3 modules passed`}
                 </div>
-                {fmtDeadline && !allPassed && (
-                  <div style={{ fontSize: 11, color: urgency === 'overdue' ? '#c62828' : '#888', marginTop: 2, fontWeight: urgency === 'overdue' ? 700 : 400 }}>
-                    {urgency === 'overdue' ? '⚠ Deadline passed · ' : 'Deadline: '}{fmtDeadline}
-                  </div>
-                )}
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              {allPassed ? (
-                <span style={{ fontSize: 22 }}>🏆</span>
-              ) : daysLeft !== null ? (
-                <div style={{
-                  background: badgeBg[urgency],
-                  color: '#fff', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700,
-                }}>
-                  {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
-                </div>
-              ) : null}
-            </div>
+            {allPassed && <span style={{ fontSize: 28 }}>🏆</span>}
           </div>
 
-          {/* Progress bar */}
-          <div style={{ background: 'rgba(0,0,0,.08)', borderRadius: 6, height: 8, marginBottom: 12, overflow: 'hidden' }}>
+          {/* Deadline + countdown block */}
+          {!allPassed && fmtDeadline && (
             <div style={{
-              width: `${(passedCount / 3) * 100}%`, height: '100%',
-              background: allPassed ? '#4caf50' : barCol,
-              borderRadius: 6, transition: 'width .4s',
-            }} />
+              background: 'rgba(0,0,0,.25)', borderRadius: 10, padding: '10px 14px',
+              marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: theme.sub, marginBottom: 3 }}>Completion Deadline</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: theme.text, fontFamily: 'DM Mono,monospace' }}>{fmtDeadline}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: theme.sub, marginBottom: 3 }}>Countdown</div>
+                <div style={{
+                  fontSize: 18, fontWeight: 900, fontFamily: 'DM Mono,monospace',
+                  color: urgency === 'overdue' ? '#ff8a80' : urgency === 'critical' ? '#ffab91' : theme.accent,
+                }}>{countdownLabel}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Progress bar */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: theme.sub, textTransform: 'uppercase', letterSpacing: '.05em' }}>Progress</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: theme.text }}>{Math.round((passedCount / 3) * 100)}%</span>
+            </div>
+            <div style={{ background: theme.barTrack, borderRadius: 6, height: 10, overflow: 'hidden' }}>
+              <div style={{
+                width: `${(passedCount / 3) * 100}%`, height: '100%',
+                background: theme.barFill, borderRadius: 6, transition: 'width .4s',
+              }} />
+            </div>
           </div>
 
           {/* Module pills */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
             {MODULES.map(m => {
               const p = mods[m]
               const passed  = p?.passed
@@ -367,11 +395,11 @@ export default function StaffDashboard() {
               const failed  = p && !passed
               return (
                 <div key={m} style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: passed && !expired ? '#e8f5e8' : expired ? '#fff8e1' : failed ? '#fdecea' : 'rgba(0,0,0,.05)',
-                  border: `1px solid ${passed && !expired ? '#a5d6a7' : expired ? '#ffe082' : failed ? '#ef9a9a' : 'rgba(0,0,0,.1)'}`,
-                  borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 600,
-                  color: passed && !expired ? '#2e7d32' : expired ? '#b45000' : failed ? '#c62828' : '#555',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  background: 'rgba(255,255,255,.12)',
+                  border: `1px solid ${passed && !expired ? theme.accent : 'rgba(255,255,255,.2)'}`,
+                  borderRadius: 20, padding: '4px 11px', fontSize: 11, fontWeight: 700,
+                  color: passed && !expired ? theme.accent : 'rgba(255,255,255,.65)',
                 }}>
                   <span>{passed && !expired ? '✓' : expired ? '⚠' : failed ? '✗' : '○'}</span>
                   {LABELS[m].split(' ')[0]}
@@ -380,7 +408,7 @@ export default function StaffDashboard() {
             })}
           </div>
 
-          <div style={{ fontSize: 11, color: '#888', marginTop: 10, textAlign: 'right' }}>Tap to open training →</div>
+          <div style={{ fontSize: 11, color: theme.sub, textAlign: 'right' }}>Tap to start training →</div>
         </div>
       )
     })()}
