@@ -8,11 +8,9 @@ Lateness escalation ladder (per calendar month, per staff member):
 """
 import os
 import logging
-import smtplib
+import resend
 import pytz
 from datetime import datetime, timedelta, timezone
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 from database import SessionLocal
 import models
@@ -21,32 +19,25 @@ log = logging.getLogger(__name__)
 UK_TZ = pytz.timezone('Europe/London')
 
 
-def _smtp_cfg():
-    return (
-        os.getenv("SMTP_HOST"),
-        int(os.getenv("SMTP_PORT", "587")),
-        os.getenv("SMTP_USER"),
-        os.getenv("SMTP_PASS"),
-    )
-
-
 def _send(to_email: str, subject: str, body: str):
-    smtp_host, smtp_port, smtp_user, smtp_pass = _smtp_cfg()
-    if not all([smtp_host, smtp_user, smtp_pass]):
-        log.info("[LATENESS] SMTP not configured — would send to %s", to_email)
+    api_key   = os.getenv("RESEND_API_KEY")
+    from_addr = os.getenv("EMAIL_FROM", "hr@ikanfm.co.uk")
+    bcc_addr  = os.getenv("BCC_EMAIL")
+    if not api_key:
+        log.info("[LATENESS] RESEND_API_KEY not configured — would send to %s", to_email)
         return
-    bcc = os.getenv("BCC_EMAIL", smtp_user)
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = smtp_user
-        msg["To"]      = to_email
-        msg.attach(MIMEText(body, "plain"))
-        with smtplib.SMTP(smtp_host, smtp_port) as srv:
-            srv.starttls()
-            srv.login(smtp_user, smtp_pass)
-            srv.sendmail(smtp_user, [to_email, bcc], msg.as_string())
-        log.info("[LATENESS] Sent warning (level %s) to %s", bcc, to_email)
+        resend.api_key = api_key
+        payload = {
+            "from":    f"Ikan FM HR <{from_addr}>",
+            "to":      [to_email],
+            "subject": subject,
+            "text":    body,
+        }
+        if bcc_addr:
+            payload["bcc"] = [bcc_addr]
+        resend.Emails.send(payload)
+        log.info("[LATENESS] Sent warning to %s", to_email)
     except Exception as exc:
         log.error("[LATENESS] Failed to send to %s: %s", to_email, exc)
 
