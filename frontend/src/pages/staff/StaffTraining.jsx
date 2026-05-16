@@ -702,6 +702,20 @@ export default function StaffTraining() {
           <p style={{ fontSize:14, color:'#555' }}>Complete all 3 modules to maintain your certification</p>
         </div>
 
+        {/* Intro video */}
+        <div style={{ marginBottom: 20, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.1)' }}>
+          <iframe
+            width="100%"
+            height="220"
+            src="https://www.youtube.com/embed/WDiv-PwEde4"
+            title="Security Officer Training Introduction"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ display: 'block' }}
+          />
+        </div>
+
         {/* Deadline banner */}
         {deadline && !allPassed && (
           <div style={{

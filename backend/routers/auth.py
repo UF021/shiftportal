@@ -42,6 +42,20 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
             "Your account is pending HR approval. You will be notified by email once activated."
         )
 
+    # Create training enrollment on first login (clock starts now)
+    if user.role.value == 'staff':
+        existing_enrol = db.query(models.TrainingEnrollment).filter(
+            models.TrainingEnrollment.user_id == user.id
+        ).first()
+        if not existing_enrol:
+            now = datetime.now(timezone.utc)
+            db.add(models.TrainingEnrollment(
+                user_id     = user.id,
+                enrolled_at = now,
+                deadline    = now + timedelta(days=28),
+            ))
+            db.commit()
+
     org = user.organisation
     return TokenOut(
         access_token = create_token(user.id, user.organisation_id, user.role.value),

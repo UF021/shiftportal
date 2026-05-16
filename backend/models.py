@@ -563,6 +563,20 @@ class PreRegistration(Base):
     application_id  = Column(Integer, ForeignKey('job_applications.id'), nullable=True)
 
 
+# ── TrainingEnrollment ────────────────────────────────────────────────────────
+
+class TrainingEnrollment(Base):
+    """Created on first login after training was launched. Deadline = enrolled_at + 28 days."""
+    __tablename__ = 'training_enrollments'
+
+    id          = Column(Integer, primary_key=True, index=True)
+    user_id     = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True)
+    enrolled_at = Column(DateTime(timezone=True), server_default=func.now())
+    deadline    = Column(DateTime(timezone=True), nullable=False)
+
+    user        = relationship("User", foreign_keys=[user_id])
+
+
 # ── TrainingProgress ──────────────────────────────────────────────────────────
 
 class TrainingProgress(Base):

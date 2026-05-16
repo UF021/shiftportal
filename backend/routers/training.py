@@ -14,25 +14,20 @@ import models
 
 router = APIRouter()
 
-PASS_MARK      = 8
-EXPIRY_DAYS    = 90
-DEADLINE_DAYS  = 14
-VALID_MODULES  = {'module1', 'module2', 'module3'}
-
-# Training went live on this date. Existing staff get 14 days from here;
-# new staff get 14 days from their activation date — whichever is later.
-TRAINING_LAUNCH = datetime(2026, 5, 16, tzinfo=timezone.utc)
-
-
-def _deadline_for(user: models.User) -> datetime:
-    base = user.activated_at or TRAINING_LAUNCH
-    # For staff activated before the launch, start the clock from launch date
-    effective = max(base, TRAINING_LAUNCH)
-    return effective + timedelta(days=DEADLINE_DAYS)
+PASS_MARK     = 8
+EXPIRY_DAYS   = 90
+VALID_MODULES = {'module1', 'module2', 'module3'}
 
 
 class ProgressSubmit(BaseModel):
     score: int
+
+
+def _get_deadline(user_id: int, db) -> datetime | None:
+    enrol = db.query(models.TrainingEnrollment).filter(
+        models.TrainingEnrollment.user_id == user_id
+    ).first()
+    return enrol.deadline if enrol else None
 
 
 # ── Staff: get my progress ────────────────────────────────────────────────────
@@ -42,12 +37,12 @@ def get_my_progress(
     db: Session = Depends(get_db),
     me: models.User = Depends(get_current_user),
 ):
-    rows = db.query(models.TrainingProgress).filter(
+    rows     = db.query(models.TrainingProgress).filter(
         models.TrainingProgress.user_id == me.id
     ).all()
-    deadline = _deadline_for(me)
+    deadline = _get_deadline(me.id, db)
     return {
-        "deadline": deadline.isoformat(),
+        "deadline": deadline.isoformat() if deadline else None,
         "modules":  {r.module: _fmt(r) for r in rows},
     }
 
@@ -122,7 +117,7 @@ def admin_progress(
             models.TrainingProgress.user_id == s.id
         ).all()
         progress = {r.module: _fmt(r) for r in rows}
-        deadline = _deadline_for(s)
+        deadline = _get_deadline(s.id, db)
 
         result.append({
             "user_id":      s.id,
@@ -130,7 +125,7 @@ def admin_progress(
             "full_name":    s.full_name,
             "email":        s.email,
             "activated_at": s.activated_at.isoformat() if s.activated_at else None,
-            "deadline":     deadline.isoformat(),
+            "deadline":     deadline.isoformat() if deadline else None,
             "module1":      progress.get("module1"),
             "module2":      progress.get("module2"),
             "module3":      progress.get("module3"),
