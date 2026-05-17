@@ -416,7 +416,7 @@ export function HRTimelogs() {
                   position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: 4,
                   background: 'var(--navy-light)', border: '1px solid var(--border)',
                   borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)',
-                  minWidth: 220, maxHeight: 280, overflowY: 'auto',
+                  minWidth: 260, width: 300, maxHeight: 520, overflowY: 'auto',
                 }}>
                   {/* All / Clear */}
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
@@ -427,9 +427,10 @@ export function HRTimelogs() {
                     const checked = staffFilter.has(s.id)
                     return (
                       <label key={s.id} style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer',
-                        background: checked ? 'rgba(106,191,63,.08)' : 'transparent',
-                        borderBottom: '1px solid rgba(255,255,255,.04)',
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', cursor: 'pointer',
+                        background: checked ? 'rgba(106,191,63,.1)' : 'transparent',
+                        borderBottom: '1px solid rgba(255,255,255,.05)',
+                        transition: 'background .1s',
                       }}>
                         <input type="checkbox" checked={checked} onChange={() => {
                           setStaffFilter(prev => {
@@ -437,11 +438,12 @@ export function HRTimelogs() {
                             next.has(s.id) ? next.delete(s.id) : next.add(s.id)
                             return next
                           })
-                        }} style={{ accentColor: 'var(--green)', width: 14, height: 14, flexShrink: 0 }} />
-                        <div>
+                        }} style={{ accentColor: 'var(--green)', width: 16, height: 16, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: checked ? 700 : 400, color: checked ? 'var(--green)' : 'var(--text)' }}>{s.full_name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace' }}>{s.staff_id}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace', marginTop: 2 }}>{s.staff_id}</div>
                         </div>
+                        {checked && <span style={{ color: 'var(--green)', fontSize: 14, flexShrink: 0 }}>✓</span>}
                       </label>
                     )
                   })}
@@ -641,6 +643,8 @@ export function HRTimelogs() {
           setPaySelected(prev => prev.size === staff.length ? new Set() : new Set(staff.map(s => s.id)))
         }
 
+        const NEW_EMPLOYEE_DAYS = 30  // flag staff activated within this many days
+
         async function runPayReport() {
           if (!paySelected.size) return
           setPayLoading(true)
@@ -648,46 +652,66 @@ export function HRTimelogs() {
           try {
             const rows = await Promise.all([...paySelected].map(async uid => {
               const s = staff.find(x => x.id === uid)
-              const p = {}
+              const p = { staff_id: uid }
               if (payFrom) p.from_date = payFrom
               if (payTo)   p.to_date   = payTo
-              p.staff_id = uid
               const res = await getAllClockEvents(p)
-              const entries = res.data?.entries || []
+              const entries   = res.data?.entries || []
               const totalMins = entries.reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
               const totalHrs  = parseFloat((totalMins / 60).toFixed(2))
               const grossPay  = s?.pay_rate && totalHrs ? parseFloat((s.pay_rate * totalHrs).toFixed(2)) : null
+
+              const activatedAt   = s?.activated_at ? new Date(s.activated_at) : null
+              const daysSinceJoin = activatedAt ? Math.floor((Date.now() - activatedAt) / 86400000) : null
+              const isNew         = daysSinceJoin !== null && daysSinceJoin <= NEW_EMPLOYEE_DAYS
+
+              const addrParts = [s?.address_line1, s?.address_line2, s?.city, s?.postcode].filter(Boolean)
+
               return {
-                id:        uid,
-                name:      s?.full_name || '—',
-                ni:        s?.ni_number || '—',
-                postcode:  s?.postcode  || '—',
-                hours:     totalHrs,
-                rate:      s?.pay_rate  || null,
-                gross:     grossPay,
+                id:           uid,
+                name:         s?.full_name        || '—',
+                ni:           s?.ni_number        || '—',
+                phone:        s?.phone            || '—',
+                address:      addrParts.join(', ') || '—',
+                postcode:     s?.postcode         || '—',
+                firstClockIn: s?.first_clock_in   || '—',
+                activatedAt:  activatedAt ? activatedAt.toLocaleDateString('en-GB') : '—',
+                isNew,
+                daysSinceJoin,
+                hours:  totalHrs,
+                rate:   s?.pay_rate || null,
+                gross:  grossPay,
               }
             }))
+            // New employees first, then alphabetical
+            rows.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || a.name.localeCompare(b.name))
             setPayData(rows)
           } finally {
-            setPayLoading(false) }
+            setPayLoading(false)
+          }
         }
 
         function downloadCSV() {
           if (!payData?.length) return
           const periodLabel = payFrom && payTo ? `${payFrom} to ${payTo}` : payFrom ? `from ${payFrom}` : payTo ? `to ${payTo}` : 'all time'
-          const header = ['Name', 'NI Number', 'Postcode', 'Total Hours', 'Hourly Rate (£)', 'Gross Pay (£)']
-          const rows   = payData.map(r => [
-            r.name, r.ni, r.postcode,
-            r.hours,
-            r.rate ?? '',
-            r.gross ?? '',
+          const header = [
+            'New Employee', 'Name', 'NI Number', 'Phone', 'Full Address', 'Postcode',
+            'First Clock-in (Employment Start)', 'Activation Date',
+            'Total Hours', 'Hourly Rate (£)', 'Gross Pay (£)',
+          ]
+          const rows = payData.map(r => [
+            r.isNew ? 'YES' : '',
+            r.name, r.ni, r.phone, r.address, r.postcode,
+            r.firstClockIn, r.activatedAt,
+            r.hours, r.rate ?? '', r.gross ?? '',
           ])
           const csv = [header, ...rows]
             .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
             .join('\n')
           const a = document.createElement('a')
           a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }))
-          a.download = `pay-report-${periodLabel.replace(/\s+/g, '-')}.csv`; a.click()
+          a.download = `pay-report-${periodLabel.replace(/\s+/g, '-')}.csv`
+          a.click()
         }
 
         const periodLabel = payFrom && payTo
@@ -758,14 +782,22 @@ export function HRTimelogs() {
                     </strong>
                   </div>
                 </div>
+                {payData.some(r => r.isNew) && (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, padding:'8px 14px', background:'rgba(245,158,11,.1)', border:'1px solid rgba(245,158,11,.4)', borderRadius:8, fontSize:13, color:'#d97706' }}>
+                    <span>🆕</span> Rows highlighted in amber are new employees (activated within the last {NEW_EMPLOYEE_DAYS} days).
+                  </div>
+                )}
                 <div className="card" style={{ padding: 0 }}>
                   <div className="tw">
                     <table>
                       <thead>
                         <tr>
+                          <th></th>
                           <th>Name</th>
                           <th>NI Number</th>
-                          <th>Postcode</th>
+                          <th>Phone</th>
+                          <th>Full Address</th>
+                          <th>First Clock-in</th>
                           <th>Total Hours</th>
                           <th>Pay Rate</th>
                           <th>Gross Pay</th>
@@ -773,10 +805,23 @@ export function HRTimelogs() {
                       </thead>
                       <tbody>
                         {payData.map(r => (
-                          <tr key={r.id}>
-                            <td><strong>{r.name}</strong></td>
+                          <tr key={r.id} style={{ background: r.isNew ? 'rgba(245,158,11,.07)' : undefined }}>
+                            <td style={{ width: 36, textAlign: 'center' }}>
+                              {r.isNew && (
+                                <span title={`Joined ${r.daysSinceJoin} days ago`} style={{
+                                  display:'inline-block', background:'#f59e0b', color:'#fff',
+                                  fontSize:9, fontWeight:800, borderRadius:4, padding:'2px 5px', letterSpacing:'.04em',
+                                }}>NEW</span>
+                              )}
+                            </td>
+                            <td>
+                              <strong>{r.name}</strong>
+                              {r.isNew && <div style={{ fontSize:11, color:'#d97706', marginTop:2 }}>Activated {r.activatedAt}</div>}
+                            </td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12, letterSpacing: '.04em' }}>{r.ni}</td>
-                            <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.postcode}</td>
+                            <td style={{ fontSize: 12 }}>{r.phone}</td>
+                            <td style={{ fontSize: 12, maxWidth: 200 }}>{r.address}</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.firstClockIn}</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: 'var(--green)' }}>{r.hours}h</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', color: r.rate ? 'var(--text)' : 'var(--text-muted)' }}>
                               {r.rate ? `£${r.rate}/hr` : '—'}
@@ -787,7 +832,7 @@ export function HRTimelogs() {
                           </tr>
                         ))}
                         <tr style={{ background: 'rgba(106,191,63,.06)', borderTop: '2px solid rgba(106,191,63,.3)' }}>
-                          <td colSpan={3} style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>TOTALS</td>
+                          <td colSpan={6} style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>TOTALS</td>
                           <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 900, color: 'var(--green)' }}>
                             {payData.reduce((s, r) => s + r.hours, 0).toFixed(2)}h
                           </td>

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List
 
@@ -22,6 +23,29 @@ def list_staff(
     if hr.role != models.UserRole.superadmin:
         q = q.filter(models.User.organisation_id == hr.organisation_id)
 
+    users = q.order_by(models.User.last_name).all()
+
+    # First clock-in date per user (one query for all users)
+    user_ids = [u.id for u in users]
+    first_clocks = {}
+    if user_ids:
+        rows = (
+            db.query(
+                models.ClockEvent.user_id,
+                func.min(models.ClockEvent.timestamp).label('first_ts'),
+            )
+            .filter(
+                models.ClockEvent.user_id.in_(user_ids),
+                models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            )
+            .group_by(models.ClockEvent.user_id)
+            .all()
+        )
+        import pytz
+        uk = pytz.timezone('Europe/London')
+        for row in rows:
+            first_clocks[row.user_id] = row.first_ts.astimezone(uk).date().isoformat()
+
     return [
         {
             # Identity
@@ -41,9 +65,11 @@ def list_staff(
             "address_line2":         u.address_line2,
             "city":                  u.city,
             "postcode":              u.postcode,
+            "full_address":          u.full_address,
             # Employment
             "pay_rate":              u.pay_rate,
             "employment_start_date": str(u.employment_start_date) if u.employment_start_date else None,
+            "first_clock_in":        first_clocks.get(u.id),
             "assigned_site_id":      u.assigned_site_id,
             "assigned_sites":        u.assigned_sites,
             "right_to_work":         u.right_to_work,
@@ -66,8 +92,9 @@ def list_staff(
             # Meta
             "is_active":             u.is_active,
             "registered_at":         u.registered_at.isoformat() if u.registered_at else None,
+            "activated_at":          u.activated_at.isoformat() if u.activated_at else None,
         }
-        for u in q.order_by(models.User.last_name).all()
+        for u in users
     ]
 
 
