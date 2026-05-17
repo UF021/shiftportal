@@ -549,11 +549,14 @@ export function HRTimelogs() {
                   <tr key={e.id} style={{
                     background: selected.has(e.id)
                       ? 'rgba(106,191,63,.06)'
-                      : e.is_late
-                        ? 'rgba(224,85,85,.05)'
-                        : e.shift_minutes > 720
-                          ? 'rgba(181,71,8,.06)'
-                          : undefined,
+                      : e.is_bank_holiday
+                        ? 'rgba(245,158,11,.08)'
+                        : e.is_late
+                          ? 'rgba(224,85,85,.05)'
+                          : e.shift_minutes > 720
+                            ? 'rgba(181,71,8,.06)'
+                            : undefined,
+                    borderLeft: e.is_bank_holiday ? '3px solid #f59e0b' : undefined,
                   }}>
                     <td style={{ textAlign: 'center' }}>
                       <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleRow(e.id)} />
@@ -564,7 +567,16 @@ export function HRTimelogs() {
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>📝 {e.entry_notes}</div>
                       )}
                     </td>
-                    <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{fmtDate(e.date)}</td>
+                    <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>
+                      {fmtDate(e.date)}
+                      {e.is_bank_holiday && (
+                        <div style={{ marginTop: 3 }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: '#92400e', background: '#fde68a', padding: '1px 6px', borderRadius: 4, letterSpacing: '.03em' }}>
+                            🏦 BANK HOLIDAY · ×1.5
+                          </span>
+                        </div>
+                      )}
+                    </td>
                     <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12, color: 'var(--text-muted)' }}>{e.scheduled_start || '—'}</td>
                     <td style={{ color: 'var(--green)', fontFamily: 'DM Mono,monospace' }}>{e.start_time}</td>
                     <td style={{ color: 'var(--red)', fontFamily: 'DM Mono,monospace' }}>{e.end_time || '—'}</td>
@@ -573,6 +585,11 @@ export function HRTimelogs() {
                       <span style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: e.shift_minutes > 720 ? '#b54708' : 'var(--green)' }}>
                         {fmtM(e.shift_minutes)}
                       </span>
+                      {e.is_bank_holiday && e.shift_minutes && (
+                        <div style={{ fontSize: 10, color: '#92400e', fontFamily: 'DM Mono,monospace', marginTop: 2 }}>
+                          ={fmtM(Math.round(e.shift_minutes * 1.5))} payable
+                        </div>
+                      )}
                       {e.shift_minutes > 720 && (
                         <span title="Shift exceeds 12 hours" style={{
                           marginLeft: 6, fontSize: 10, fontWeight: 700,
@@ -656,10 +673,16 @@ export function HRTimelogs() {
               if (payFrom) p.from_date = payFrom
               if (payTo)   p.to_date   = payTo
               const res = await getAllClockEvents(p)
-              const entries   = res.data?.entries || []
-              const totalMins = entries.reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
+              const entries    = res.data?.entries || []
+              const regMins   = entries.filter(e => !e.is_bank_holiday).reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
+              const bhMins    = entries.filter(e =>  e.is_bank_holiday).reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
+              const totalMins = regMins + bhMins
+              const regHrs    = parseFloat((regMins / 60).toFixed(2))
+              const bhHrs     = parseFloat((bhMins / 60).toFixed(2))
               const totalHrs  = parseFloat((totalMins / 60).toFixed(2))
-              const grossPay  = s?.pay_rate && totalHrs ? parseFloat((s.pay_rate * totalHrs).toFixed(2)) : null
+              const grossPay  = s?.pay_rate
+                ? parseFloat(((regHrs * s.pay_rate) + (bhHrs * s.pay_rate * 1.5)).toFixed(2))
+                : null
 
               const activatedAt   = s?.activated_at ? new Date(s.activated_at) : null
               const daysSinceJoin = activatedAt ? Math.floor((Date.now() - activatedAt) / 86400000) : null
@@ -678,9 +701,11 @@ export function HRTimelogs() {
                 activatedAt:  activatedAt ? activatedAt.toLocaleDateString('en-GB') : '—',
                 isNew,
                 daysSinceJoin,
-                hours:  totalHrs,
-                rate:   s?.pay_rate || null,
-                gross:  grossPay,
+                hours:    totalHrs,
+                regHrs,
+                bhHrs,
+                rate:     s?.pay_rate || null,
+                gross:    grossPay,
               }
             }))
             // New employees first, then alphabetical
@@ -697,13 +722,13 @@ export function HRTimelogs() {
           const header = [
             'New Employee', 'Name', 'NI Number', 'Phone', 'Full Address', 'Postcode',
             'First Clock-in (Employment Start)', 'Activation Date',
-            'Total Hours', 'Hourly Rate (£)', 'Gross Pay (£)',
+            'Regular Hours', 'Bank Holiday Hours (×1.5)', 'Total Hours', 'Hourly Rate (£)', 'Gross Pay (£)',
           ]
           const rows = payData.map(r => [
             r.isNew ? 'YES' : '',
             r.name, r.ni, r.phone, r.address, r.postcode,
             r.firstClockIn, r.activatedAt,
-            r.hours, r.rate ?? '', r.gross ?? '',
+            r.regHrs, r.bhHrs, r.hours, r.rate ?? '', r.gross ?? '',
           ])
           const csv = [header, ...rows]
             .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
@@ -798,6 +823,8 @@ export function HRTimelogs() {
                           <th>Phone</th>
                           <th>Full Address</th>
                           <th>First Clock-in</th>
+                          <th>Reg. Hours</th>
+                          <th style={{ background: 'rgba(245,158,11,.15)', color: '#92400e' }}>🏦 BH Hours (×1.5)</th>
                           <th>Total Hours</th>
                           <th>Pay Rate</th>
                           <th>Gross Pay</th>
@@ -822,6 +849,10 @@ export function HRTimelogs() {
                             <td style={{ fontSize: 12 }}>{r.phone}</td>
                             <td style={{ fontSize: 12, maxWidth: 200 }}>{r.address}</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.firstClockIn}</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', color: 'var(--green)' }}>{r.regHrs}h</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: r.bhHrs > 0 ? '#92400e' : 'var(--text-muted)', background: r.bhHrs > 0 ? 'rgba(245,158,11,.08)' : undefined }}>
+                              {r.bhHrs > 0 ? `${r.bhHrs}h` : '—'}
+                            </td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: 'var(--green)' }}>{r.hours}h</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', color: r.rate ? 'var(--text)' : 'var(--text-muted)' }}>
                               {r.rate ? `£${r.rate}/hr` : '—'}
@@ -833,6 +864,12 @@ export function HRTimelogs() {
                         ))}
                         <tr style={{ background: 'rgba(106,191,63,.06)', borderTop: '2px solid rgba(106,191,63,.3)' }}>
                           <td colSpan={6} style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>TOTALS</td>
+                          <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: 'var(--green)' }}>
+                            {payData.reduce((s, r) => s + r.regHrs, 0).toFixed(2)}h
+                          </td>
+                          <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: '#92400e', background: 'rgba(245,158,11,.08)' }}>
+                            {payData.reduce((s, r) => s + r.bhHrs, 0).toFixed(2)}h
+                          </td>
                           <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 900, color: 'var(--green)' }}>
                             {payData.reduce((s, r) => s + r.hours, 0).toFixed(2)}h
                           </td>

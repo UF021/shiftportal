@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from auth_utils import get_current_user, require_hr
 import models
+from bank_holidays import is_bank_holiday
 
 router = APIRouter()
 
@@ -332,19 +333,21 @@ def my_history(
             used_out_ids.add(co.id)
         site_name = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
         is_manual = ci.entry_notes is not None
-        ci_uk = ci.timestamp.astimezone(UK_TZ)
+        ci_uk    = ci.timestamp.astimezone(UK_TZ)
+        date_str = ci_uk.date().isoformat()
         shifts.append({
-            "id":              ci.id,
-            "date":            ci_uk.date().isoformat(),
-            "start_time":      ci_uk.strftime("%H:%M"),
-            "end_time":        co.timestamp.astimezone(UK_TZ).strftime("%H:%M") if co else None,
-            "site_name":       site_name,
-            "shift_minutes":   co.shift_minutes if co else None,
-            "is_late":         ci.is_late,
-            "minutes_late":    ci.minutes_late,
-            "scheduled_start": ci.scheduled_start,
-            "is_manual":       is_manual,
-            "gps_verified":    ci.gps_verified,
+            "id":               ci.id,
+            "date":             date_str,
+            "start_time":       ci_uk.strftime("%H:%M"),
+            "end_time":         co.timestamp.astimezone(UK_TZ).strftime("%H:%M") if co else None,
+            "site_name":        site_name,
+            "shift_minutes":    co.shift_minutes if co else None,
+            "is_late":          ci.is_late,
+            "minutes_late":     ci.minutes_late,
+            "scheduled_start":  ci.scheduled_start,
+            "is_manual":        is_manual,
+            "gps_verified":     ci.gps_verified,
+            "is_bank_holiday":  is_bank_holiday(date_str),
         })
 
     return {"open_in": open_in, "shifts": shifts}
@@ -486,26 +489,28 @@ def all_events(
         is_override, manager_name = _parse_override(ci.entry_notes)
         is_manual     = bool(ci.entry_notes) and not is_override
 
-        ci_uk = ci.timestamp.astimezone(UK_TZ)
+        ci_uk     = ci.timestamp.astimezone(UK_TZ)
+        date_str  = ci_uk.date().isoformat()
         entries.append({
-            "id":              ci.id,
-            "user_id":         ci.user_id,
-            "user_name":       ci.user.full_name if ci.user else "Unknown",
-            "date":            ci_uk.date().isoformat(),
-            "start_time":      ci_uk.strftime("%H:%M"),
-            "end_time":        co.timestamp.astimezone(UK_TZ).strftime("%H:%M") if co else None,
-            "site_id":         ci.site_id,
-            "site_name":       site_name,
-            "shift_minutes":   shift_minutes,
-            "shift_hours":     round(shift_minutes / 60, 2) if shift_minutes else None,
-            "is_late":         ci.is_late,
-            "minutes_late":    ci.minutes_late,
-            "scheduled_start": ci.scheduled_start,
-            "is_manual":       is_manual,
-            "is_override":     is_override,
-            "manager_name":    manager_name,
-            "entry_notes":     ci.entry_notes or None,
-            "gps_verified":    ci.gps_verified,
+            "id":               ci.id,
+            "user_id":          ci.user_id,
+            "user_name":        ci.user.full_name if ci.user else "Unknown",
+            "date":             date_str,
+            "start_time":       ci_uk.strftime("%H:%M"),
+            "end_time":         co.timestamp.astimezone(UK_TZ).strftime("%H:%M") if co else None,
+            "site_id":          ci.site_id,
+            "site_name":        site_name,
+            "shift_minutes":    shift_minutes,
+            "shift_hours":      round(shift_minutes / 60, 2) if shift_minutes else None,
+            "is_late":          ci.is_late,
+            "minutes_late":     ci.minutes_late,
+            "scheduled_start":  ci.scheduled_start,
+            "is_manual":        is_manual,
+            "is_override":      is_override,
+            "manager_name":     manager_name,
+            "entry_notes":      ci.entry_notes or None,
+            "gps_verified":     ci.gps_verified,
+            "is_bank_holiday":  is_bank_holiday(date_str),
         })
         if shift_minutes:
             total_mins += shift_minutes
