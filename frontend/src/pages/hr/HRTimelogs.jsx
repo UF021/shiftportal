@@ -1,5 +1,5 @@
 // HRTimelogs.jsx
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { getAllClockEvents, getAllStaff, getAllHols, getMySites,
          editShift, deleteShift, bulkDeleteShifts, recalculateShifts } from '../../api/client'
 import { fmtDate } from '../../api/utils'
@@ -207,7 +207,10 @@ export function HRTimelogs() {
   const [staff,   setStaff]   = useState([])
   const [hols,    setHols]    = useState([])
   const [sites,   setSites]   = useState([])
-  const [fil,      setFil]      = useState({ staff_id: '', site_id: '', from_date: '', to_date: '' })
+  const [fil,           setFil]           = useState({ site_id: '', from_date: '', to_date: '' })
+  const [staffFilter,   setStaffFilter]   = useState(new Set())   // selected staff IDs (empty = all)
+  const [staffDropOpen, setStaffDropOpen] = useState(false)
+  const staffDropRef = useRef(null)
   const [appliedSiteId, setAppliedSiteId] = useState(null)
   const [mode,     setMode]     = useState('timelogs')
   const [lateOnly, setLateOnly] = useState(false)
@@ -249,13 +252,22 @@ export function HRTimelogs() {
     getAllClockEvents({}).then(r => setData(r.data)).catch(() => setData({ entries: [], total_mins: 0 }))
   }, [])
 
+  // Close staff dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (staffDropRef.current && !staffDropRef.current.contains(e.target)) {
+        setStaffDropOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   function run() {
     const p = {}
-    if (fil.staff_id)  p.staff_id  = Number(fil.staff_id)
     if (fil.site_id)   p.site_id   = Number(fil.site_id)
     if (fil.from_date) p.from_date = fil.from_date
     if (fil.to_date)   p.to_date   = fil.to_date
-    // Track applied site filter for frontend-side filtering
     setAppliedSiteId(fil.site_id ? Number(fil.site_id) : null)
     setSelected(new Set())
     getAllClockEvents(p)
@@ -284,7 +296,8 @@ export function HRTimelogs() {
   // ── Selection helpers ────────────────────────────────────────────────────────
 
   const allEntries = (data?.entries || []).filter(e =>
-    !appliedSiteId || e.site_id === appliedSiteId
+    (!appliedSiteId || e.site_id === appliedSiteId) &&
+    (staffFilter.size === 0 || staffFilter.has(e.user_id))
   )
   const entries = lateOnly ? allEntries.filter(e => e.is_late) : allEntries
   const onTimeCount = allEntries.filter(e => e.scheduled_start && !e.is_late).length
@@ -377,11 +390,64 @@ export function HRTimelogs() {
         {/* Filters */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <F label="Employee">
-            <select value={fil.staff_id} onChange={e => setFil(f => ({ ...f, staff_id: e.target.value }))}
-              style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy-light)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13 }}>
-              <option value="">All Staff</option>
-              {staff.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-            </select>
+            <div ref={staffDropRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setStaffDropOpen(v => !v)}
+                style={{
+                  padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--navy-light)', color: 'var(--text)',
+                  fontFamily: 'DM Sans,sans-serif', fontSize: 13, cursor: 'pointer',
+                  minWidth: 180, textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                }}
+              >
+                <span>
+                  {staffFilter.size === 0
+                    ? 'All Staff'
+                    : staffFilter.size === 1
+                      ? staff.find(s => staffFilter.has(s.id))?.full_name || '1 selected'
+                      : `${staffFilter.size} staff selected`}
+                </span>
+                <span style={{ fontSize: 10, opacity: .6 }}>{staffDropOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {staffDropOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: 4,
+                  background: 'var(--navy-light)', border: '1px solid var(--border)',
+                  borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)',
+                  minWidth: 220, maxHeight: 280, overflowY: 'auto',
+                }}>
+                  {/* All / Clear */}
+                  <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+                    <button onClick={() => setStaffFilter(new Set())} style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: '1px solid var(--border)', background: staffFilter.size === 0 ? 'var(--green)' : 'transparent', color: staffFilter.size === 0 ? '#fff' : 'var(--text-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>All</button>
+                    {staffFilter.size > 0 && <button onClick={() => setStaffFilter(new Set())} style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer' }}>Clear</button>}
+                  </div>
+                  {staff.map(s => {
+                    const checked = staffFilter.has(s.id)
+                    return (
+                      <label key={s.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer',
+                        background: checked ? 'rgba(106,191,63,.08)' : 'transparent',
+                        borderBottom: '1px solid rgba(255,255,255,.04)',
+                      }}>
+                        <input type="checkbox" checked={checked} onChange={() => {
+                          setStaffFilter(prev => {
+                            const next = new Set(prev)
+                            next.has(s.id) ? next.delete(s.id) : next.add(s.id)
+                            return next
+                          })
+                        }} style={{ accentColor: 'var(--green)', width: 14, height: 14, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: checked ? 700 : 400, color: checked ? 'var(--green)' : 'var(--text)' }}>{s.full_name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace' }}>{s.staff_id}</div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </F>
           <F label="Site">
             <select value={fil.site_id} onChange={e => setFil(f => ({ ...f, site_id: e.target.value }))}
