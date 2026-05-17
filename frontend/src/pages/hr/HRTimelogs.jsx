@@ -674,12 +674,14 @@ export function HRTimelogs() {
               if (payTo)   p.to_date   = payTo
               const res = await getAllClockEvents(p)
               const entries    = res.data?.entries || []
-              const regMins      = entries.filter(e => !e.is_bank_holiday).reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
-              const bhMins       = entries.filter(e =>  e.is_bank_holiday).reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
-              const regHrs       = parseFloat((regMins / 60).toFixed(2))
-              const bhHrs        = parseFloat((bhMins / 60).toFixed(2))
-              // Payable hours = regular hours + BH hours × 1.5 (time and a half)
-              const payableHrs   = parseFloat((regHrs + bhHrs * 1.5).toFixed(2))
+              const allMins      = entries.reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
+              const bhMins       = entries.filter(e => e.is_bank_holiday).reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
+              // workedHrs = all actual hours (reg + BH combined)
+              const workedHrs    = parseFloat((allMins / 60).toFixed(2))
+              // bhPremium = extra 50% on BH hours only (not the full BH hours)
+              const bhPremium    = parseFloat((bhMins / 60 * 0.5).toFixed(3))
+              // payableHrs = workedHrs + bhPremium  (≡ regHrs + bhHrs × 1.5)
+              const payableHrs   = parseFloat((workedHrs + bhPremium).toFixed(3))
               const grossPay     = s?.pay_rate
                 ? parseFloat((payableHrs * s.pay_rate).toFixed(2))
                 : null
@@ -702,8 +704,9 @@ export function HRTimelogs() {
                 isNew,
                 daysSinceJoin,
                 activatedAt:     activatedAt ? activatedAt.toLocaleDateString('en-GB') : '—',
-                regHrs,
-                bhHrs,
+                phone:       s?.phone || '—',
+                workedHrs,
+                bhPremium,
                 payableHrs,
                 rate:     s?.pay_rate || null,
                 gross:    grossPay,
@@ -721,15 +724,15 @@ export function HRTimelogs() {
           if (!payData?.length) return
           const periodLabel = payFrom && payTo ? `${payFrom} to ${payTo}` : payFrom ? `from ${payFrom}` : payTo ? `to ${payTo}` : 'all time'
           const header = [
-            'Name', 'Full Address', 'NI Number', 'Date of Birth', 'Email',
+            'Name', 'Full Address', 'Telephone', 'NI Number', 'Date of Birth', 'Email',
             'Employment Start Date', 'New Employee (last 30 days)',
-            'Regular Hours (actual)', 'Bank Holiday Hours (actual)', 'Total Payable Hours (BH at ×1.5)',
+            'Regular Hours', 'Bank Holiday Hours (×½ premium)', 'Total Hours',
             'Pay Rate (£/hr)', 'Gross Pay (£)',
           ]
           const rows = payData.map(r => [
-            r.name, r.address, r.ni, r.dob, r.email,
+            r.name, r.address, r.phone, r.ni, r.dob, r.email,
             r.employmentStart, r.isNew ? 'YES' : '',
-            r.regHrs, r.bhHrs, r.payableHrs,
+            r.workedHrs, r.bhPremium, r.payableHrs,
             r.rate ?? '', r.gross ?? '',
           ])
           const csv = [header, ...rows]
@@ -851,9 +854,9 @@ export function HRTimelogs() {
                             <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.dob}</td>
                             <td style={{ fontSize: 12 }}>{r.email}</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.employmentStart}</td>
-                            <td style={{ fontFamily: 'DM Mono,monospace', color: 'var(--green)' }}>{r.regHrs}h</td>
-                            <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: r.bhHrs > 0 ? '#92400e' : 'var(--text-muted)', background: r.bhHrs > 0 ? 'rgba(245,158,11,.08)' : undefined }}>
-                              {r.bhHrs > 0 ? `${r.bhHrs}h` : '—'}
+                            <td style={{ fontFamily: 'DM Mono,monospace', color: 'var(--green)' }}>{r.workedHrs}h</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: r.bhPremium > 0 ? '#92400e' : 'var(--text-muted)', background: r.bhPremium > 0 ? 'rgba(245,158,11,.08)' : undefined }}>
+                              {r.bhPremium > 0 ? `${r.bhPremium}h` : '—'}
                             </td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: 'var(--green)' }}>{r.payableHrs}h</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', color: r.rate ? 'var(--text)' : 'var(--text-muted)' }}>
@@ -867,10 +870,10 @@ export function HRTimelogs() {
                         <tr style={{ background: 'rgba(106,191,63,.06)', borderTop: '2px solid rgba(106,191,63,.3)' }}>
                           <td colSpan={6} style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>TOTALS</td>
                           <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: 'var(--green)' }}>
-                            {payData.reduce((s, r) => s + r.regHrs, 0).toFixed(2)}h
+                            {payData.reduce((s, r) => s + r.workedHrs, 0).toFixed(2)}h
                           </td>
                           <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: '#92400e', background: 'rgba(245,158,11,.08)' }}>
-                            {payData.reduce((s, r) => s + r.bhHrs, 0).toFixed(2)}h
+                            {payData.reduce((s, r) => s + r.bhPremium, 0).toFixed(3)}h
                           </td>
                           <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 900, color: 'var(--green)' }}>
                             {payData.reduce((s, r) => s + r.payableHrs, 0).toFixed(2)}h
