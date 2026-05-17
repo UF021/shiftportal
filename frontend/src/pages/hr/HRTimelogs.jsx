@@ -662,7 +662,7 @@ export function HRTimelogs() {
                   {paySelected.size === staff.length ? 'Deselect All' : 'Select All'}
                 </button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
                 {staff.map(s => (
                   <label key={s.id} style={{
                     display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
