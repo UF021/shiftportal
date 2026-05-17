@@ -688,19 +688,20 @@ export function HRTimelogs() {
               const daysSinceJoin = activatedAt ? Math.floor((Date.now() - activatedAt) / 86400000) : null
               const isNew         = daysSinceJoin !== null && daysSinceJoin <= NEW_EMPLOYEE_DAYS
 
-              const addrParts = [s?.address_line1, s?.address_line2, s?.city, s?.postcode].filter(Boolean)
+              const addrParts       = [s?.address_line1, s?.address_line2, s?.city, s?.postcode].filter(Boolean)
+              const employmentStart = isNew ? (s?.first_clock_in || '—') : (s?.employment_start_date || '—')
 
               return {
-                id:           uid,
-                name:         s?.full_name        || '—',
-                ni:           s?.ni_number        || '—',
-                phone:        s?.phone            || '—',
-                address:      addrParts.join(', ') || '—',
-                postcode:     s?.postcode         || '—',
-                firstClockIn: s?.first_clock_in   || '—',
-                activatedAt:  activatedAt ? activatedAt.toLocaleDateString('en-GB') : '—',
+                id:              uid,
+                name:            s?.full_name        || '—',
+                address:         addrParts.join(', ') || '—',
+                ni:              s?.ni_number        || '—',
+                dob:             s?.date_of_birth    || '—',
+                email:           s?.email            || '—',
+                employmentStart,
                 isNew,
                 daysSinceJoin,
+                activatedAt:     activatedAt ? activatedAt.toLocaleDateString('en-GB') : '—',
                 hours:    totalHrs,
                 regHrs,
                 bhHrs,
@@ -720,15 +721,16 @@ export function HRTimelogs() {
           if (!payData?.length) return
           const periodLabel = payFrom && payTo ? `${payFrom} to ${payTo}` : payFrom ? `from ${payFrom}` : payTo ? `to ${payTo}` : 'all time'
           const header = [
-            'New Employee', 'Name', 'NI Number', 'Phone', 'Full Address', 'Postcode',
-            'First Clock-in (Employment Start)', 'Activation Date',
-            'Regular Hours', 'Bank Holiday Hours (×1.5)', 'Total Hours', 'Hourly Rate (£)', 'Gross Pay (£)',
+            'Name', 'Full Address', 'NI Number', 'Date of Birth', 'Email',
+            'Employment Start Date', 'New Employee (last 30 days)',
+            'Regular Hours', 'Bank Holiday Hours (×1.5)', 'Total Hours',
+            'Pay Rate (£/hr)', 'Gross Pay (£)',
           ]
           const rows = payData.map(r => [
-            r.isNew ? 'YES' : '',
-            r.name, r.ni, r.phone, r.address, r.postcode,
-            r.firstClockIn, r.activatedAt,
-            r.regHrs, r.bhHrs, r.hours, r.rate ?? '', r.gross ?? '',
+            r.name, r.address, r.ni, r.dob, r.email,
+            r.employmentStart, r.isNew ? 'YES' : '',
+            r.regHrs, r.bhHrs, r.hours,
+            r.rate ?? '', r.gross ?? '',
           ])
           const csv = [header, ...rows]
             .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
@@ -817,12 +819,12 @@ export function HRTimelogs() {
                     <table>
                       <thead>
                         <tr>
-                          <th></th>
                           <th>Name</th>
+                          <th>Address</th>
                           <th>NI Number</th>
-                          <th>Phone</th>
-                          <th>Full Address</th>
-                          <th>First Clock-in</th>
+                          <th>Date of Birth</th>
+                          <th>Email</th>
+                          <th>Employment Start</th>
                           <th>Reg. Hours</th>
                           <th style={{ background: 'rgba(245,158,11,.15)', color: '#92400e' }}>🏦 BH Hours (×1.5)</th>
                           <th>Total Hours</th>
@@ -833,22 +835,22 @@ export function HRTimelogs() {
                       <tbody>
                         {payData.map(r => (
                           <tr key={r.id} style={{ background: r.isNew ? 'rgba(245,158,11,.07)' : undefined }}>
-                            <td style={{ width: 36, textAlign: 'center' }}>
-                              {r.isNew && (
-                                <span title={`Joined ${r.daysSinceJoin} days ago`} style={{
-                                  display:'inline-block', background:'#f59e0b', color:'#fff',
-                                  fontSize:9, fontWeight:800, borderRadius:4, padding:'2px 5px', letterSpacing:'.04em',
-                                }}>NEW</span>
-                              )}
-                            </td>
                             <td>
                               <strong>{r.name}</strong>
-                              {r.isNew && <div style={{ fontSize:11, color:'#d97706', marginTop:2 }}>Activated {r.activatedAt}</div>}
+                              {r.isNew && (
+                                <div style={{ marginTop: 3 }}>
+                                  <span title={`Activated ${r.daysSinceJoin} days ago`} style={{
+                                    display:'inline-block', background:'#f59e0b', color:'#fff',
+                                    fontSize:9, fontWeight:800, borderRadius:4, padding:'2px 5px', letterSpacing:'.04em',
+                                  }}>NEW</span>
+                                </div>
+                              )}
                             </td>
+                            <td style={{ fontSize: 12, maxWidth: 180 }}>{r.address}</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12, letterSpacing: '.04em' }}>{r.ni}</td>
-                            <td style={{ fontSize: 12 }}>{r.phone}</td>
-                            <td style={{ fontSize: 12, maxWidth: 200 }}>{r.address}</td>
-                            <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.firstClockIn}</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.dob}</td>
+                            <td style={{ fontSize: 12 }}>{r.email}</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.employmentStart}</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', color: 'var(--green)' }}>{r.regHrs}h</td>
                             <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: r.bhHrs > 0 ? '#92400e' : 'var(--text-muted)', background: r.bhHrs > 0 ? 'rgba(245,158,11,.08)' : undefined }}>
                               {r.bhHrs > 0 ? `${r.bhHrs}h` : '—'}
