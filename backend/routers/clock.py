@@ -289,16 +289,18 @@ def _has_open_clock_in(db: Session, user_id: int) -> bool:
 
 @router.get("/my/history")
 def my_history(
+    from_date: Optional[date] = None,
+    to_date:   Optional[date] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     """Return completed shifts (grouped clock_in+clock_out) plus any open clock-in."""
-    events = (
-        db.query(models.ClockEvent)
-        .filter(models.ClockEvent.user_id == current_user.id)
-        .order_by(models.ClockEvent.timestamp.asc())
-        .all()
-    )
+    q = db.query(models.ClockEvent).filter(models.ClockEvent.user_id == current_user.id)
+    if from_date:
+        q = q.filter(models.ClockEvent.timestamp >= datetime(from_date.year, from_date.month, from_date.day, tzinfo=timezone.utc))
+    if to_date:
+        q = q.filter(models.ClockEvent.timestamp <= datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc))
+    events = q.order_by(models.ClockEvent.timestamp.asc()).all()
 
     clock_ins  = [e for e in events if e.event_type == models.ClockEventType.clock_in]
     clock_outs = [e for e in events if e.event_type == models.ClockEventType.clock_out]

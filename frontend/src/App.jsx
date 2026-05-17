@@ -22,6 +22,7 @@ import StaffProfile   from './pages/staff/StaffProfile'
 import StaffMessages  from './pages/staff/StaffMessages'
 import StaffIncidents from './pages/staff/StaffIncidents'
 import StaffTraining  from './pages/staff/StaffTraining'
+import StaffShifts    from './pages/staff/StaffShifts'
 
 // HR (dark theme)
 import HRLayout         from './pages/hr/HRLayout'
@@ -100,6 +101,7 @@ export default function App() {
         <Route path="messages"  element={<StaffMessages />} />
         <Route path="incidents" element={<StaffIncidents />} />
         <Route path="training"  element={<StaffTraining />} />
+        <Route path="shifts"    element={<StaffShifts />} />
         <Route path="profile"   element={<StaffProfile />} />
       </Route>
 

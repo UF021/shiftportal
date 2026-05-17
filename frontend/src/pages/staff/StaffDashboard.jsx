@@ -23,8 +23,12 @@ export default function StaffDashboard() {
   const [incidents,      setIncidents]      = useState(null)
   const { unconfirmedDocs } = useDocs()
 
+  // Default: last 14 days on dashboard
+  const twoWeeksAgo = (() => { const d = new Date(); d.setDate(d.getDate() - 14); return d.toISOString().split('T')[0] })()
+  const todayIso    = new Date().toISOString().split('T')[0]
+
   useEffect(() => {
-    getMyClockHistory()
+    getMyClockHistory({ from_date: twoWeeksAgo, to_date: todayIso })
       .then(r => setClockData(r.data))
       .catch(() => setClockData({ open_in: null, shifts: [] }))
     getMyMessages()
@@ -471,11 +475,40 @@ export default function StaffDashboard() {
 
     {/* Recent Shifts */}
     <div className="s-card">
-      <div className="s-card-title">🕐 Recent Shifts</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div className="s-card-title" style={{ margin: 0 }}>🕐 Last 14 Days</div>
+        <button onClick={() => nav('/staff/shifts')} style={{
+          background: 'none', border: `1px solid ${c}`, color: c,
+          borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        }}>View all →</button>
+      </div>
+      {/* Mini totals */}
+      {clockData !== null && shifts.length > 0 && (
+        <div style={{ display: 'flex', gap: 16, marginBottom: 12, padding: '8px 12px', background: '#f8fdf8', borderRadius: 8 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'DM Mono,monospace', color: c }}>{shifts.length}</div>
+            <div style={{ fontSize: 10, color: '#6a8a6a', textTransform: 'uppercase', letterSpacing: '.04em' }}>Shifts</div>
+          </div>
+          <div style={{ width: 1, background: '#e0ead0' }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'DM Mono,monospace', color: c }}>
+              {(shifts.reduce((sum, s) => sum + (s.shift_minutes || 0), 0) / 60).toFixed(1)}h
+            </div>
+            <div style={{ fontSize: 10, color: '#6a8a6a', textTransform: 'uppercase', letterSpacing: '.04em' }}>Total hrs</div>
+          </div>
+          <div style={{ width: 1, background: '#e0ead0' }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'DM Mono,monospace', color: shifts.filter(s => s.is_late).length > 0 ? '#c0392b' : c }}>
+              {shifts.filter(s => s.is_late).length}
+            </div>
+            <div style={{ fontSize: 10, color: '#6a8a6a', textTransform: 'uppercase', letterSpacing: '.04em' }}>Late</div>
+          </div>
+        </div>
+      )}
       {clockData === null ? (
         <p style={{ color:'#8aaa8a', fontSize:13 }}>Loading…</p>
       ) : recentShifts.length === 0 ? (
-        <p style={{ color:'#8aaa8a', fontSize:13 }}>No completed shifts yet.</p>
+        <p style={{ color:'#8aaa8a', fontSize:13 }}>No shifts in the last 14 days.</p>
       ) : recentShifts.map(s => (
         <div key={s.id} style={{ padding:'10px 0', borderBottom:'1px solid #f0f4f0' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>

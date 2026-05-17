@@ -212,6 +212,13 @@ export function HRTimelogs() {
   const [mode,     setMode]     = useState('timelogs')
   const [lateOnly, setLateOnly] = useState(false)
 
+  // Pay report state
+  const [payFrom,       setPayFrom]       = useState('')
+  const [payTo,         setPayTo]         = useState('')
+  const [paySelected,   setPaySelected]   = useState(new Set())
+  const [payData,       setPayData]       = useState(null)
+  const [payLoading,    setPayLoading]    = useState(false)
+
   // Selection state
   const [selected, setSelected] = useState(new Set())
 
@@ -356,7 +363,7 @@ export function HRTimelogs() {
 
       {/* Mode tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {[['timelogs', '⏱ Timelogs'], ['holiday_pay', '💰 Holiday Pay']].map(([v, l]) => (
+        {[['timelogs', '⏱ Timelogs'], ['pay_report', '📊 Pay Report'], ['holiday_pay', '💰 Holiday Pay']].map(([v, l]) => (
           <button key={v} onClick={() => setMode(v)} style={{
             padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', fontSize: 13,
             border: `1px solid ${mode === v ? 'var(--green)' : 'var(--border)'}`,
@@ -555,6 +562,183 @@ export function HRTimelogs() {
           </div>
         </div>}
       </>}
+
+      {mode === 'pay_report' && (() => {
+        function togglePayStaff(id) {
+          setPaySelected(prev => {
+            const next = new Set(prev)
+            next.has(id) ? next.delete(id) : next.add(id)
+            return next
+          })
+        }
+        function toggleAllPayStaff() {
+          setPaySelected(prev => prev.size === staff.length ? new Set() : new Set(staff.map(s => s.id)))
+        }
+
+        async function runPayReport() {
+          if (!paySelected.size) return
+          setPayLoading(true)
+          setPayData(null)
+          try {
+            const rows = await Promise.all([...paySelected].map(async uid => {
+              const s = staff.find(x => x.id === uid)
+              const p = {}
+              if (payFrom) p.from_date = payFrom
+              if (payTo)   p.to_date   = payTo
+              p.staff_id = uid
+              const res = await getAllClockEvents(p)
+              const entries = res.data?.entries || []
+              const totalMins = entries.reduce((sum, e) => sum + (e.shift_minutes || 0), 0)
+              const totalHrs  = parseFloat((totalMins / 60).toFixed(2))
+              const grossPay  = s?.pay_rate && totalHrs ? parseFloat((s.pay_rate * totalHrs).toFixed(2)) : null
+              return {
+                id:        uid,
+                name:      s?.full_name || '—',
+                ni:        s?.ni_number || '—',
+                postcode:  s?.postcode  || '—',
+                hours:     totalHrs,
+                rate:      s?.pay_rate  || null,
+                gross:     grossPay,
+              }
+            }))
+            setPayData(rows)
+          } finally {
+            setPayLoading(false) }
+        }
+
+        function downloadCSV() {
+          if (!payData?.length) return
+          const periodLabel = payFrom && payTo ? `${payFrom} to ${payTo}` : payFrom ? `from ${payFrom}` : payTo ? `to ${payTo}` : 'all time'
+          const header = ['Name', 'NI Number', 'Postcode', 'Total Hours', 'Hourly Rate (£)', 'Gross Pay (£)']
+          const rows   = payData.map(r => [
+            r.name, r.ni, r.postcode,
+            r.hours,
+            r.rate ?? '',
+            r.gross ?? '',
+          ])
+          const csv = [header, ...rows]
+            .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
+            .join('\n')
+          const a = document.createElement('a')
+          a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }))
+          a.download = `pay-report-${periodLabel.replace(/\s+/g, '-')}.csv`; a.click()
+        }
+
+        const periodLabel = payFrom && payTo
+          ? `${payFrom} – ${payTo}`
+          : payFrom ? `From ${payFrom}` : payTo ? `To ${payTo}` : 'All time'
+
+        return (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+              Select staff and a date range to generate a pay report. Downloads as a CSV spreadsheet (opens in Excel).
+            </p>
+
+            {/* Controls row */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <F label="From Date">
+                <input type="date" value={payFrom} onChange={e => setPayFrom(e.target.value)}
+                  style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy-light)', color: 'var(--text)', fontFamily: 'DM Mono,monospace', fontSize: 13 }} />
+              </F>
+              <F label="To Date">
+                <input type="date" value={payTo} onChange={e => setPayTo(e.target.value)}
+                  style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy-light)', color: 'var(--text)', fontFamily: 'DM Mono,monospace', fontSize: 13 }} />
+              </F>
+              <button onClick={runPayReport} disabled={payLoading || !paySelected.size} className="btn btn-brand">
+                {payLoading ? '⏳ Loading…' : '🔍 Generate Report'}
+              </button>
+              {payData && (
+                <button onClick={downloadCSV} className="btn" style={{ background: '#2e7d32', color: '#fff', border: 'none' }}>
+                  📥 Download Spreadsheet
+                </button>
+              )}
+            </div>
+
+            {/* Staff multi-select */}
+            <div className="card" style={{ marginBottom: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Select Staff ({paySelected.size} of {staff.length} selected)</span>
+                <button onClick={toggleAllPayStaff} className="btn btn-outline" style={{ fontSize: 12, padding: '4px 12px' }}>
+                  {paySelected.size === staff.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
+                {staff.map(s => (
+                  <label key={s.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
+                    padding: '8px 12px', borderRadius: 8,
+                    background: paySelected.has(s.id) ? 'rgba(106,191,63,.1)' : 'var(--navy-light)',
+                    border: `1px solid ${paySelected.has(s.id) ? 'var(--green)' : 'var(--border)'}`,
+                  }}>
+                    <input type="checkbox" checked={paySelected.has(s.id)} onChange={() => togglePayStaff(s.id)} style={{ accentColor: 'var(--green)', width: 15, height: 15 }} />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{s.full_name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace' }}>{s.staff_id}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Results table */}
+            {payData && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>Pay Report — {periodLabel}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    {payData.length} staff · Total gross:{' '}
+                    <strong style={{ color: 'var(--green)', fontFamily: 'DM Mono,monospace' }}>
+                      £{payData.reduce((s, r) => s + (r.gross || 0), 0).toFixed(2)}
+                    </strong>
+                  </div>
+                </div>
+                <div className="card" style={{ padding: 0 }}>
+                  <div className="tw">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>NI Number</th>
+                          <th>Postcode</th>
+                          <th>Total Hours</th>
+                          <th>Pay Rate</th>
+                          <th>Gross Pay</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payData.map(r => (
+                          <tr key={r.id}>
+                            <td><strong>{r.name}</strong></td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12, letterSpacing: '.04em' }}>{r.ni}</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontSize: 12 }}>{r.postcode}</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, color: 'var(--green)' }}>{r.hours}h</td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', color: r.rate ? 'var(--text)' : 'var(--text-muted)' }}>
+                              {r.rate ? `£${r.rate}/hr` : '—'}
+                            </td>
+                            <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 700, fontSize: 14, color: r.gross != null ? 'var(--green)' : 'var(--text-muted)' }}>
+                              {r.gross != null ? `£${r.gross.toFixed(2)}` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr style={{ background: 'rgba(106,191,63,.06)', borderTop: '2px solid rgba(106,191,63,.3)' }}>
+                          <td colSpan={3} style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>TOTALS</td>
+                          <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 900, color: 'var(--green)' }}>
+                            {payData.reduce((s, r) => s + r.hours, 0).toFixed(2)}h
+                          </td>
+                          <td />
+                          <td style={{ fontFamily: 'DM Mono,monospace', fontWeight: 900, fontSize: 15, color: 'var(--green)' }}>
+                            £{payData.reduce((s, r) => s + (r.gross || 0), 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })()}
 
       {mode === 'holiday_pay' && <>
         <div style={{ marginBottom: 14, fontSize: 13, color: 'var(--text-muted)' }}>
