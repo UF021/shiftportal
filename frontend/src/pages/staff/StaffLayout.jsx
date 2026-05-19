@@ -8,7 +8,7 @@ import OrgLogo from '../../components/OrgLogo'
 
 const BASE_NAV = [
   { path:'/staff',             icon:'🏠', label:'Home',      bg:'#e8f4ff', active:'#1565c0' },
-  { path:'/staff/contract',    icon:'📄', label:'Contract',  bg:'#f0faf0', active:'#2e7d32' },
+  { path:'/staff/shifts',      icon:'🕐', label:'Shifts',    bg:'#f0f8ff', active:'#0277bd' },
   { path:'/staff/documents',   icon:'📋', label:'Docs',      bg:'#fff8e8', active:'#b45000' },
   { path:'/staff/holidays',    icon:'🌴', label:'Holidays',  bg:'#f0fff8', active:'#007a50' },
   { path:'/staff/messages',    icon:'💬', label:'Messages',  bg:'#fdf0ff', active:'#7b1fa2' },
