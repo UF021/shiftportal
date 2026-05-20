@@ -264,9 +264,38 @@ def _fix_bst_shift_minutes():
         db.close()
 
 
+def _ensure_columns():
+    """
+    Idempotent: add any columns that create_all cannot add to existing tables.
+    Safe to run on every deploy — uses IF NOT EXISTS / IS NULL guards.
+    """
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        stmts = [
+            # Sites — is_active (may be missing if table pre-dates the column)
+            "ALTER TABLE sites ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true",
+            "UPDATE sites SET is_active = true WHERE is_active IS NULL",
+            # Users — activated_at (nullable timestamp, safe if already exists)
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ",
+            # Users — registered_at (has server_default; add if missing)
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS registered_at TIMESTAMPTZ DEFAULT NOW()",
+        ]
+        for s in stmts:
+            db.execute(text(s))
+        db.commit()
+        print("[MIGRATION] Column-ensure pass complete", flush=True)
+    except Exception as exc:
+        db.rollback()
+        print(f"[MIGRATION] Column-ensure failed: {exc}", flush=True)
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _ensure_columns()
     _migrate_application_city_postcode()
     _backfill_accepted_applications()
     _fix_bst_shift_minutes()

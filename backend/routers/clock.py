@@ -131,7 +131,8 @@ def _get_site(db: Session, org_slug: str, site_code: str) -> tuple:
     site = db.query(models.Site).filter(
         models.Site.organisation_id == org.id,
         models.Site.code == site_code,
-        models.Site.is_active == True,
+        # Use isnot(False) so sites with is_active=NULL (pre-migration rows) still work
+        models.Site.is_active.isnot(False),
     ).first()
     if not site:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
