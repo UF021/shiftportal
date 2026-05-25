@@ -91,6 +91,7 @@ def list_staff(
             "decl_contact":          u.decl_contact,
             # Meta
             "is_active":             u.is_active,
+            "is_blocked":            u.is_blocked,
             "registered_at":         u.registered_at.isoformat() if u.registered_at else None,
             "activated_at":          u.activated_at.isoformat() if u.activated_at else None,
         }
@@ -182,3 +183,62 @@ def bulk_delete_staff(
         deleted += 1
     db.commit()
     return {"deleted": deleted}
+
+
+class BulkBlockRequest(BaseModel):
+    user_ids: List[int]
+
+
+@router.post("/{user_id}/block")
+def block_staff(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "User not found")
+    org_guard(hr, u.organisation_id)
+    if u.role != models.UserRole.staff:
+        raise HTTPException(403, "Can only block staff accounts")
+    u.is_blocked = True
+    db.commit()
+    return {"message": "Access blocked", "id": u.id}
+
+
+@router.post("/{user_id}/unblock")
+def unblock_staff(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "User not found")
+    org_guard(hr, u.organisation_id)
+    if u.role != models.UserRole.staff:
+        raise HTTPException(403, "Can only unblock staff accounts")
+    u.is_blocked = False
+    db.commit()
+    return {"message": "Access restored", "id": u.id}
+
+
+@router.post("/bulk/block")
+def bulk_block_staff(
+    req: BulkBlockRequest,
+    db:  Session = Depends(get_db),
+    hr:  models.User = Depends(require_hr),
+):
+    users = db.query(models.User).filter(models.User.id.in_(req.user_ids)).all()
+    blocked = 0
+    for u in users:
+        try:
+            org_guard(hr, u.organisation_id)
+        except HTTPException:
+            continue
+        if u.role != models.UserRole.staff:
+            continue
+        u.is_blocked = True
+        blocked += 1
+    db.commit()
+    return {"blocked": blocked}

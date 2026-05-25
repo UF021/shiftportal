@@ -41,6 +41,9 @@ export const getAllStaff      = ()           => api.get('/staff/all')
 export const updateStaff      = (id, d)     => api.patch(`/staff/${id}`, d)
 export const deleteStaff      = (id)        => api.delete(`/staff/${id}`)
 export const bulkDeleteStaff  = (user_ids)  => api.delete('/staff/bulk/delete', { data: { user_ids } })
+export const blockStaff       = (id)        => api.post(`/staff/${id}/block`)
+export const unblockStaff     = (id)        => api.post(`/staff/${id}/unblock`)
+export const bulkBlockStaff   = (user_ids)  => api.post('/staff/bulk/block', { user_ids })
 
 // Registrations
 export const getPending   = ()       => api.get('/registrations/pending')

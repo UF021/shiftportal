@@ -280,6 +280,9 @@ def _ensure_columns():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ",
             # Users — registered_at (has server_default; add if missing)
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS registered_at TIMESTAMPTZ DEFAULT NOW()",
+            # Users — is_blocked (HR block access, separate from is_active)
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false",
+            "UPDATE users SET is_blocked = false WHERE is_blocked IS NULL",
         ]
         for s in stmts:
             db.execute(text(s))

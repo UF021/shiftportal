@@ -158,6 +158,7 @@ class User(Base):
     email           = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     is_active       = Column(Boolean, default=False)  # False until HR activates
+    is_blocked      = Column(Boolean, default=False)  # HR can block portal + clock-in access
 
     # HR-assigned
     staff_id        = Column(String(30), nullable=True, default="TBC")

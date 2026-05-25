@@ -1048,6 +1048,9 @@ def clock_in(
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been suspended after 3 failed location attempts. Please contact your supervisor.")
 
+    if user.is_blocked:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account access has been suspended. Please contact HR.")
+
     # ── Scheduled start is mandatory for every clock-in ──────────────────────
     if not body.scheduled_start or not body.scheduled_start.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Scheduled start time is required to clock in")

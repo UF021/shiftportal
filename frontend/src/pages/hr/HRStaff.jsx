@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getAllStaff, updateStaff, getMySites, deleteStaff, bulkDeleteStaff } from '../../api/client'
+import { getAllStaff, updateStaff, getMySites, deleteStaff, bulkDeleteStaff, blockStaff, unblockStaff, bulkBlockStaff } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
 const PRESET_PAY = ['12.71','12.80','12.90','13.00']
@@ -34,17 +34,17 @@ function Toast({ toast }) {
   )
 }
 
-function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = 'Yes, Delete Permanently', busy = false }) {
+function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = 'Yes, Delete Permanently', confirmStyle = {}, busy = false }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
       <div className="modal" style={{ width: 440 }}>
-        <h3 style={{ marginBottom: 12 }}>Confirm Delete</h3>
+        <h3 style={{ marginBottom: 12 }}>{confirmLabel.startsWith('Yes, Delete') ? 'Confirm Delete' : 'Confirm Action'}</h3>
         <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 24 }}>{message}</p>
         <div className="modal-footer">
           <button onClick={onCancel} className="btn btn-outline" disabled={busy}>Cancel</button>
           <button onClick={onConfirm} disabled={busy}
-            className="btn" style={{ background: '#e05555', color: '#fff', border: 'none' }}>
-            {busy ? 'Deleting…' : confirmLabel}
+            className="btn" style={{ background: '#e05555', color: '#fff', border: 'none', ...confirmStyle }}>
+            {busy ? 'Processing…' : confirmLabel}
           </button>
         </div>
       </div>
@@ -73,6 +73,11 @@ export default function HRStaff() {
   const [confirmBulk,   setConfirmBulk]   = useState(false)
   const [deleting,      setDeleting]      = useState(false)
 
+  // Block state
+  const [confirmBulkBlock, setConfirmBulkBlock] = useState(false)
+  const [blocking,         setBlocking]         = useState(false)
+  const [blockingId,       setBlockingId]        = useState(null)  // id of single in-progress block/unblock
+
   // Toast
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
@@ -89,7 +94,8 @@ export default function HRStaff() {
   const filtered = staff.filter(s => {
     const q = search.toLowerCase()
     const mQ = !q || [s.full_name,s.email,s.sia_licence,s.ni_number].some(f=>f?.toLowerCase().includes(q))
-    const mF = !filter || siaStatus(s.sia_expiry)===filter
+    const mF = !filter
+      || (filter === 'blocked' ? s.is_blocked : siaStatus(s.sia_expiry) === filter)
     return mQ && mF
   }).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||''))
 
@@ -136,6 +142,45 @@ export default function HRStaff() {
       setConfirmBulk(false)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // Block handlers
+  async function handleToggleBlock(s) {
+    setBlockingId(s.id)
+    try {
+      if (s.is_blocked) {
+        await unblockStaff(s.id)
+        showToast(`✅ Access restored for ${s.full_name}.`)
+      } else {
+        await blockStaff(s.id)
+        showToast(`🔒 Access blocked for ${s.full_name}.`)
+      }
+      // Update editing record if open
+      if (editing && editing.id === s.id) {
+        setEdit(prev => ({ ...prev, is_blocked: !s.is_blocked }))
+      }
+      load()
+    } catch (ex) {
+      showToast(ex.response?.data?.detail || 'Action failed', 'error')
+    } finally {
+      setBlockingId(null)
+    }
+  }
+
+  async function handleBulkBlock() {
+    setBlocking(true)
+    const ids = [...selected]
+    try {
+      const res = await bulkBlockStaff(ids)
+      showToast(`🔒 ${res.data.blocked} staff member${res.data.blocked !== 1 ? 's' : ''} blocked successfully.`)
+      setConfirmBulkBlock(false)
+      load()
+    } catch (ex) {
+      showToast(ex.response?.data?.detail || 'Failed to block staff', 'error')
+      setConfirmBulkBlock(false)
+    } finally {
+      setBlocking(false)
     }
   }
 
@@ -245,10 +290,11 @@ export default function HRStaff() {
           style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none', width:240 }}/>
         <select value={filter} onChange={e=>setFilter(e.target.value)}
           style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13 }}>
-          <option value="">All SIA Status</option>
-          <option value="valid">Valid</option>
-          <option value="expiring">Expiring (&lt;60 days)</option>
-          <option value="expired">Expired</option>
+          <option value="">All Status</option>
+          <option value="valid">SIA Valid</option>
+          <option value="expiring">SIA Expiring (&lt;60 days)</option>
+          <option value="expired">SIA Expired</option>
+          <option value="blocked">Access Blocked</option>
         </select>
       </div>
 
@@ -257,11 +303,15 @@ export default function HRStaff() {
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12,
           background: 'rgba(224,85,85,.08)', border: '1px solid rgba(224,85,85,.3)',
-          borderRadius: 10, padding: '10px 16px',
+          borderRadius: 10, padding: '10px 16px', flexWrap: 'wrap',
         }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
             {selected.size} staff selected
           </span>
+          <button onClick={() => setConfirmBulkBlock(true)}
+            className="btn" style={{ fontSize: 12, padding: '5px 14px', background: '#b03030', color: '#fff', border: 'none' }}>
+            🔒 Block Selected
+          </button>
           <button onClick={() => setConfirmBulk(true)}
             className="btn" style={{ fontSize: 12, padding: '5px 14px', background: '#e05555', color: '#fff', border: 'none' }}>
             🗑️ Delete Selected
@@ -291,7 +341,15 @@ export default function HRStaff() {
                   </td>
                   <td>
                     <strong>{s.full_name}</strong>
-                    {!s.is_active && (
+                    {s.is_blocked && (
+                      <span style={{
+                        display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700,
+                        padding:'2px 7px', borderRadius:10,
+                        background:'rgba(224,85,85,.15)', color:'#c02020',
+                        verticalAlign:'middle',
+                      }}>🔒 Access Blocked</span>
+                    )}
+                    {!s.is_active && !s.is_blocked && (
                       <span style={{
                         display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700,
                         padding:'2px 7px', borderRadius:10,
@@ -337,6 +395,18 @@ export default function HRStaff() {
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => openEdit(s)} className="btn btn-outline" style={{ fontSize:11, padding:'5px 10px' }}>Edit</button>
                       <button
+                        onClick={() => handleToggleBlock(s)}
+                        disabled={blockingId === s.id}
+                        title={s.is_blocked ? 'Restore access' : 'Block access'}
+                        style={{
+                          padding:'5px 8px', borderRadius:6,
+                          border: s.is_blocked ? '1px solid rgba(106,191,63,.4)' : '1px solid rgba(176,48,48,.4)',
+                          background: s.is_blocked ? 'rgba(106,191,63,.1)' : 'rgba(176,48,48,.1)',
+                          color: s.is_blocked ? '#4a9f2a' : '#b03030',
+                          cursor:'pointer', fontSize:13,
+                        }}
+                      >{blockingId === s.id ? '…' : s.is_blocked ? '🔓' : '🔒'}</button>
+                      <button
                         onClick={() => setConfirmSingle(s)}
                         title="Delete staff member"
                         style={{ padding:'5px 8px', borderRadius:6, border:'1px solid rgba(224,85,85,.4)', background:'rgba(224,85,85,.08)', color:'#e05555', cursor:'pointer', fontSize:13 }}
@@ -358,7 +428,41 @@ export default function HRStaff() {
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setEdit(null)}>
           <div className="modal" style={{ width:580, maxHeight:'90vh', overflowY:'auto' }}>
             <h3>Staff Record</h3>
-            <p className="sub" style={{ marginBottom:20 }}>{editing.email} · Registered {editing.registered_at ? fmtDate(editing.registered_at.slice(0,10)) : '—'}</p>
+            <p className="sub" style={{ marginBottom:16 }}>{editing.email} · Registered {editing.registered_at ? fmtDate(editing.registered_at.slice(0,10)) : '—'}</p>
+
+            {/* ── Access Control banner ── */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', borderRadius: 10, marginBottom: 20,
+              background: editing.is_blocked ? 'rgba(224,85,85,.1)' : 'rgba(106,191,63,.08)',
+              border: `1px solid ${editing.is_blocked ? 'rgba(224,85,85,.35)' : 'rgba(106,191,63,.25)'}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{editing.is_blocked ? '🔒' : '✅'}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: editing.is_blocked ? '#c02020' : '#3a8020' }}>
+                    {editing.is_blocked ? 'Access Blocked' : 'Access Active'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {editing.is_blocked
+                      ? 'This staff member cannot log in or clock in via QR code.'
+                      : 'This staff member has full portal and clock-in access.'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggleBlock(editing)}
+                disabled={blockingId === editing.id}
+                style={{
+                  padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  border: 'none', cursor: 'pointer',
+                  background: editing.is_blocked ? '#3a8020' : '#b03030',
+                  color: '#fff',
+                }}
+              >
+                {blockingId === editing.id ? 'Processing…' : editing.is_blocked ? '🔓 Unblock Access' : '🔒 Block Access'}
+              </button>
+            </div>
 
             {/* ── Section helper ── */}
             {[
@@ -568,6 +672,18 @@ export default function HRStaff() {
           onConfirm={handleBulkDelete}
           onCancel={() => setConfirmBulk(false)}
           busy={deleting}
+        />
+      )}
+
+      {/* Bulk block confirmation */}
+      {confirmBulkBlock && (
+        <ConfirmModal
+          message={`Block access for ${selected.size} staff member${selected.size !== 1 ? 's' : ''}? They will be unable to log in or clock in via QR code until unblocked individually.`}
+          confirmLabel={`Yes, Block ${selected.size} Account${selected.size !== 1 ? 's' : ''}`}
+          confirmStyle={{ background: '#b03030' }}
+          onConfirm={handleBulkBlock}
+          onCancel={() => setConfirmBulkBlock(false)}
+          busy={blocking}
         />
       )}
     </>
