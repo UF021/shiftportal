@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDashboard } from '../../api/client'
+import { getDashboard, acknowledgeProfileChange } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 function Stat({ label, value, col, sub }) {
@@ -15,15 +15,74 @@ function Stat({ label, value, col, sub }) {
   )
 }
 
+function ChangeEntry({ entry, onAck }) {
+  const [busy, setBusy] = useState(false)
+  const changes = Object.values(entry.changes)
+
+  const ts = entry.changed_at
+    ? new Date(entry.changed_at).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    : '—'
+
+  async function dismiss() {
+    setBusy(true)
+    try { await acknowledgeProfileChange(entry.id); onAck(entry.id) }
+    catch { setBusy(false) }
+  }
+
+  return (
+    <div style={{
+      padding:'12px 14px', borderRadius:9, marginBottom:10,
+      background:'rgba(99,132,255,.07)', border:'1px solid rgba(99,132,255,.2)',
+    }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:10 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:700, fontSize:13, color:'var(--text)', marginBottom:2 }}>
+            {entry.full_name}
+            {entry.staff_id && entry.staff_id !== 'TBC' && (
+              <span style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'DM Mono,monospace', marginLeft:7 }}>{entry.staff_id}</span>
+            )}
+          </div>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:8 }}>Updated {ts}</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {changes.map((ch, i) => (
+              <div key={i} style={{
+                fontSize:11, padding:'4px 9px', borderRadius:6,
+                background:'rgba(99,132,255,.1)', color:'#4050cc',
+                fontWeight:600,
+              }}>
+                {ch.label}: {ch.old ? <span style={{ textDecoration:'line-through', opacity:.7, marginRight:4 }}>{ch.old}</span> : <span style={{ opacity:.5, marginRight:4 }}>empty</span>}→ {ch.new || <span style={{ opacity:.5 }}>cleared</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+        <button onClick={dismiss} disabled={busy} style={{
+          padding:'5px 12px', borderRadius:6, border:'1px solid rgba(99,132,255,.3)',
+          background:'transparent', color:'#4050cc', fontSize:11, fontWeight:700,
+          cursor:busy?'not-allowed':'pointer', whiteSpace:'nowrap', flexShrink:0,
+        }}>{busy ? '…' : 'Dismiss'}</button>
+      </div>
+    </div>
+  )
+}
+
 export default function HRDashboard() {
   const nav            = useNavigate()
   const { colour }     = useBrand()
   const c              = colour || '#6abf3f'
   const [stats, setSt] = useState(null)
+  const [changes, setChanges] = useState([])
 
   useEffect(() => {
-    getDashboard().then(r => setSt(r.data)).catch(() => {})
+    getDashboard().then(r => {
+      setSt(r.data)
+      setChanges(r.data?.profile_change_list || [])
+    }).catch(() => {})
   }, [])
+
+  function removeChange(id) {
+    setChanges(prev => prev.filter(x => x.id !== id))
+    setSt(prev => prev ? { ...prev, profile_changes: Math.max(0, (prev.profile_changes||1) - 1) } : prev)
+  }
 
   return (
     <>
@@ -42,7 +101,7 @@ export default function HRDashboard() {
         <Stat label="SIA Expired"       value={stats?.sia_expired}        col="var(--red)"   sub="Action required" />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
         {/* SIA Alerts */}
         <div className="card">
           <div className="card-title">⚠️ SIA Alerts</div>
@@ -83,6 +142,34 @@ export default function HRDashboard() {
             <p style={{ color:'var(--text-muted)', fontSize:13 }}>No pending registrations</p>
           )}
         </div>
+      </div>
+
+      {/* Profile Change Notices */}
+      <div className="card">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+          <div className="card-title" style={{ marginBottom:0 }}>
+            📝 Staff Detail Updates
+            {changes.length > 0 && (
+              <span style={{
+                marginLeft:8, background:'#4050cc', color:'#fff',
+                fontSize:11, fontWeight:700, borderRadius:10,
+                padding:'2px 8px', verticalAlign:'middle',
+              }}>{changes.length}</span>
+            )}
+          </div>
+          {changes.length > 0 && (
+            <button onClick={() => nav('/hr/staff')} className="btn btn-outline" style={{ fontSize:12, padding:'4px 12px' }}>
+              View in Staff Records →
+            </button>
+          )}
+        </div>
+        {changes.length > 0 ? (
+          changes.map(entry => (
+            <ChangeEntry key={entry.id} entry={entry} onAck={removeChange} />
+          ))
+        ) : (
+          <p style={{ color:'var(--text-muted)', fontSize:13 }}>No pending detail update notices</p>
+        )}
       </div>
     </>
   )

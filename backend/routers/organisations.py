@@ -304,6 +304,15 @@ def dashboard(
         models.User.sia_expiry      <= in60,
     ).order_by(models.User.sia_expiry).limit(8).all()
 
+    import json as _json
+    import pytz as _pytz
+    uk = _pytz.timezone('Europe/London')
+
+    change_logs = db.query(models.ProfileChangeLog).filter(
+        models.ProfileChangeLog.organisation_id == org_id,
+        models.ProfileChangeLog.is_acknowledged  == False,
+    ).order_by(models.ProfileChangeLog.changed_at.desc()).limit(20).all()
+
     return {
         "total_staff":        total_staff,
         "pending_regs":       pending_regs,
@@ -318,6 +327,18 @@ def dashboard(
                 "expired":    u.sia_expiry < today,
             }
             for u in alerts
+        ],
+        "profile_changes": len(change_logs),
+        "profile_change_list": [
+            {
+                "id":         l.id,
+                "user_id":    l.user_id,
+                "full_name":  l.user.full_name if l.user else "Unknown",
+                "staff_id":   l.user.staff_id if l.user else None,
+                "changed_at": l.changed_at.astimezone(uk).isoformat() if l.changed_at else None,
+                "changes":    _json.loads(l.changes_json),
+            }
+            for l in change_logs
         ],
     }
 

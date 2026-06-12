@@ -5,7 +5,7 @@ from typing import Optional
 import uuid
 
 from database import get_db
-from schemas import LoginRequest, TokenOut, RegisterRequest, UserProfile
+from schemas import LoginRequest, TokenOut, RegisterRequest, UserProfile, UpdateMyDetailsRequest
 from auth_utils import verify_password, hash_password, create_token, get_current_user
 import models
 from pydantic import BaseModel
@@ -233,6 +233,72 @@ def get_me(current_user: models.User = Depends(get_current_user)):
         "contract_min_pay":          org.contract_min_pay if org else "NMW",
         "contract_max_pay":          org.contract_max_pay if org else "£14",
     }
+
+
+_DETAIL_FIELD_LABELS = {
+    'first_name':    'First Name',
+    'last_name':     'Last Name',
+    'phone':         'Phone',
+    'date_of_birth': 'Date of Birth',
+    'nationality':   'Nationality',
+    'address_line1': 'Address Line 1',
+    'address_line2': 'Address Line 2',
+    'city':          'City / Town',
+    'postcode':      'Postcode',
+    'nok_name':      'Next of Kin Name',
+    'nok_phone':     'Next of Kin Phone',
+    'nok_relation':  'Next of Kin Relationship',
+}
+
+
+@router.patch("/me/details")
+def update_my_details(
+    req:          UpdateMyDetailsRequest,
+    db:           Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    import json
+
+    if current_user.role != models.UserRole.staff:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only staff accounts can use this endpoint")
+
+    if req.first_name is not None and not req.first_name.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "First name cannot be empty")
+    if req.last_name is not None and not req.last_name.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Last name cannot be empty")
+
+    changes = {}
+    for field, label in _DETAIL_FIELD_LABELS.items():
+        new_val = getattr(req, field, None)
+        if new_val is None:
+            continue
+        old_val = getattr(current_user, field, None)
+        new_str = str(new_val).strip() if new_val is not None else ''
+        old_str = str(old_val).strip() if old_val is not None else ''
+        if new_str != old_str:
+            changes[field] = {'label': label, 'old': old_str or None, 'new': new_str or None}
+
+    for field in _DETAIL_FIELD_LABELS:
+        new_val = getattr(req, field, None)
+        if new_val is None:
+            continue
+        if field == 'postcode':
+            setattr(current_user, field, new_val.upper().strip() or None)
+        elif field in ('first_name', 'last_name'):
+            setattr(current_user, field, new_val.strip())
+        else:
+            setattr(current_user, field, new_val or None)
+
+    if changes:
+        db.add(models.ProfileChangeLog(
+            organisation_id = current_user.organisation_id,
+            user_id         = current_user.id,
+            changes_json    = json.dumps(changes),
+        ))
+
+    db.commit()
+    db.refresh(current_user)
+    return {"message": "Details updated", "changed_fields": list(changes.keys())}
 
 
 @router.get("/pre-registration/{token}")

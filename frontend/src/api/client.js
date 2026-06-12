@@ -31,6 +31,7 @@ export const getMe        = ()               => api.get('/auth/me')
 export const getOrgPublic    = slug             => api.get(`/auth/org/${slug}`)
 export const verifyIdentity  = data             => api.post('/auth/verify-identity', data)
 export const resetPassword   = data             => api.post('/auth/reset-password', data)
+export const updateMyDetails = data             => api.patch('/auth/me/details', data)
 
 // Contact enquiries
 export const getContactMessages = ()        => api.get('/contact/')
@@ -41,9 +42,11 @@ export const getAllStaff      = ()           => api.get('/staff/all')
 export const updateStaff      = (id, d)     => api.patch(`/staff/${id}`, d)
 export const deleteStaff      = (id)        => api.delete(`/staff/${id}`)
 export const bulkDeleteStaff  = (user_ids)  => api.delete('/staff/bulk/delete', { data: { user_ids } })
-export const blockStaff       = (id)        => api.post(`/staff/${id}/block`)
-export const unblockStaff     = (id)        => api.post(`/staff/${id}/unblock`)
-export const bulkBlockStaff   = (user_ids)  => api.post('/staff/bulk/block', { user_ids })
+export const blockStaff                = (id)     => api.post(`/staff/${id}/block`)
+export const unblockStaff              = (id)     => api.post(`/staff/${id}/unblock`)
+export const bulkBlockStaff            = (ids)    => api.post('/staff/bulk/block', { user_ids: ids })
+export const getProfileChanges         = ()       => api.get('/staff/profile-changes')
+export const acknowledgeProfileChange  = (id)     => api.post(`/staff/profile-changes/${id}/acknowledge`)
 
 // Registrations
 export const getPending   = ()       => api.get('/registrations/pending')

@@ -380,6 +380,21 @@ class Message(Base):
     recipient       = relationship("User", foreign_keys=[recipient_id])
 
 
+# ── ProfileChangeLog ──────────────────────────────────────────────────────────
+
+class ProfileChangeLog(Base):
+    __tablename__ = 'profile_change_logs'
+
+    id              = Column(Integer, primary_key=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'))
+    user_id         = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
+    changed_at      = Column(DateTime(timezone=True), server_default=func.now())
+    changes_json    = Column(Text, nullable=False)   # JSON: {field: {label, old, new}}
+    is_acknowledged = Column(Boolean, default=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
 # ── JobApplication ────────────────────────────────────────────────────────────
 
 class ApplicationStatus(str, enum.Enum):

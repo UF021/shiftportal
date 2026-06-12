@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -242,3 +243,44 @@ def bulk_block_staff(
         blocked += 1
     db.commit()
     return {"blocked": blocked}
+
+
+@router.get("/profile-changes")
+def list_profile_changes(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    import pytz
+    uk = pytz.timezone('Europe/London')
+    q = db.query(models.ProfileChangeLog).filter(
+        models.ProfileChangeLog.is_acknowledged == False,
+    )
+    if hr.role != models.UserRole.superadmin:
+        q = q.filter(models.ProfileChangeLog.organisation_id == hr.organisation_id)
+    logs = q.order_by(models.ProfileChangeLog.changed_at.desc()).limit(50).all()
+    return [
+        {
+            "id":           l.id,
+            "user_id":      l.user_id,
+            "full_name":    l.user.full_name if l.user else "Unknown",
+            "staff_id":     l.user.staff_id if l.user else None,
+            "changed_at":   l.changed_at.astimezone(uk).isoformat() if l.changed_at else None,
+            "changes":      json.loads(l.changes_json),
+        }
+        for l in logs
+    ]
+
+
+@router.post("/profile-changes/{log_id}/acknowledge")
+def acknowledge_profile_change(
+    log_id: int,
+    db:     Session = Depends(get_db),
+    hr:     models.User = Depends(require_hr),
+):
+    log = db.query(models.ProfileChangeLog).filter(models.ProfileChangeLog.id == log_id).first()
+    if not log:
+        raise HTTPException(404, "Notice not found")
+    org_guard(hr, log.organisation_id)
+    log.is_acknowledged = True
+    db.commit()
+    return {"message": "Acknowledged"}

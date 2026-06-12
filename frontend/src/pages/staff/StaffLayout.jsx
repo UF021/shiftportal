@@ -14,7 +14,7 @@ const BASE_NAV = [
   { path:'/staff/messages',    icon:'💬', label:'Messages',  bg:'#fdf0ff', active:'#7b1fa2' },
   { path:'/staff/incidents',   icon:'🚨', label:'Incidents', bg:'#fff0f0', active:'#c62828' },
   { path:'/staff/training',    icon:'🎓', label:'Training',  bg:'#fffbe8', active:'#e65100' },
-  { path:'/staff/profile',     icon:'👤', label:'Profile',   bg:'#f0f0f0', active:'#37474f' },
+  { path:'/staff/profile',     icon:'👤', label:'Details',   bg:'#f0f0f0', active:'#37474f' },
 ]
 
 // Inner component — has access to DocsProvider context

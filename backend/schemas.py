@@ -198,6 +198,21 @@ class EditUserRequest(BaseModel):
     nok_relation:          Optional[str]   = None
 
 
+class UpdateMyDetailsRequest(BaseModel):
+    first_name:    Optional[str]  = None
+    last_name:     Optional[str]  = None
+    phone:         Optional[str]  = None
+    date_of_birth: Optional[date] = None
+    nationality:   Optional[str]  = None
+    address_line1: Optional[str]  = None
+    address_line2: Optional[str]  = None
+    city:          Optional[str]  = None
+    postcode:      Optional[str]  = None
+    nok_name:      Optional[str]  = None
+    nok_phone:     Optional[str]  = None
+    nok_relation:  Optional[str]  = None
+
+
 # ── Site ──────────────────────────────────────────────────────────────────────
 class SiteCreate(BaseModel):
     code:    str
