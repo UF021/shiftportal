@@ -1074,6 +1074,7 @@ def clock_in(
                 pass
 
         is_late, minutes_late = _calc_lateness(body.scheduled_start, now)
+        effective_ts = _effective_start(now, body.scheduled_start)
         override_notes = (
             f"[OVERRIDE] Manager: {body.manager_name.strip()} | "
             f"Reason: {body.override_reason or 'Not specified'}"
@@ -1083,7 +1084,7 @@ def clock_in(
             user_id         = user.id,
             site_id         = site.id,
             event_type      = models.ClockEventType.clock_in,
-            timestamp       = now,
+            timestamp       = effective_ts,
             scheduled_start = body.scheduled_start,
             is_late         = is_late,
             minutes_late    = minutes_late,
@@ -1096,7 +1097,7 @@ def clock_in(
         db.commit()
         return {
             "success":         True,
-            "timestamp":       now.isoformat(),
+            "timestamp":       effective_ts.isoformat(),
             "site_name":       site.name,
             "full_name":       user.full_name,
             "staff_id":        user.staff_id,
@@ -1143,13 +1144,14 @@ def clock_in(
 
     now = _now_uk()
     is_late, minutes_late = _calc_lateness(body.scheduled_start, now)
+    effective_ts = _effective_start(now, body.scheduled_start)
 
     event = models.ClockEvent(
         organisation_id = org.id,
         user_id         = user.id,
         site_id         = site.id,
         event_type      = models.ClockEventType.clock_in,
-        timestamp       = now,
+        timestamp       = effective_ts,
         scheduled_start = body.scheduled_start,
         is_late         = is_late,
         minutes_late    = minutes_late,
@@ -1162,7 +1164,7 @@ def clock_in(
 
     return {
         "success":          True,
-        "timestamp":        now.isoformat(),
+        "timestamp":        effective_ts.isoformat(),
         "site_name":        site.name,
         "full_name":        user.full_name,
         "staff_id":         user.staff_id,
