@@ -283,6 +283,8 @@ def _ensure_columns():
             # Users — is_blocked (HR block access, separate from is_active)
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false",
             "UPDATE users SET is_blocked = false WHERE is_blocked IS NULL",
+            # JobApplications — address_line2
+            "ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS address_line2 VARCHAR(500)",
         ]
         for s in stmts:
             db.execute(text(s))

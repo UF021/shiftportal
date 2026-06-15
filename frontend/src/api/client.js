@@ -45,8 +45,10 @@ export const bulkDeleteStaff  = (user_ids)  => api.delete('/staff/bulk/delete', 
 export const blockStaff                = (id)     => api.post(`/staff/${id}/block`)
 export const unblockStaff              = (id)     => api.post(`/staff/${id}/unblock`)
 export const bulkBlockStaff            = (ids)    => api.post('/staff/bulk/block', { user_ids: ids })
-export const getProfileChanges         = ()       => api.get('/staff/profile-changes')
-export const acknowledgeProfileChange  = (id)     => api.post(`/staff/profile-changes/${id}/acknowledge`)
+export const getProfileChanges         = ()              => api.get('/staff/profile-changes')
+export const acknowledgeProfileChange  = (id)            => api.post(`/staff/profile-changes/${id}/acknowledge`)
+export const getStaffDuplicates        = ()              => api.get('/staff/duplicates')
+export const mergeStaff               = (primary_id, secondary_id) => api.post('/staff/merge', { primary_id, secondary_id })
 
 // Registrations
 export const getPending   = ()       => api.get('/registrations/pending')
@@ -88,10 +90,11 @@ export const getShiftAvg         = uid    => api.get(`/clock/shift-avg/${uid}`)
 export const createManualShift   = d      => api.post('/clock/manual', d)
 
 // Applications
-export const getApplications    = ()         => api.get('/applications/')
+export const getApplications          = ()         => api.get('/applications/')
 export const getApplication           = (id)       => api.get(`/applications/${id}`)
 export const updateAppStatus          = (id, data) => api.patch(`/applications/${id}/status`, data)
 export const resendRegistrationEmail  = (id)       => api.post(`/applications/${id}/resend-registration`)
+export const deleteApplication        = (id)       => api.delete(`/applications/${id}`)
 export const getPreRegistration = (token)    => axios.get(`${BASE}/auth/pre-registration/${token}`)
 
 // Clock failures

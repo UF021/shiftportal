@@ -1,6 +1,6 @@
 // HRApplications.jsx
 import { useEffect, useState } from 'react'
-import { getApplications, getApplication, updateAppStatus, resendRegistrationEmail } from '../../api/client'
+import { getApplications, getApplication, updateAppStatus, resendRegistrationEmail, deleteApplication } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 import { fmtDateTime } from '../../api/utils'
 
@@ -61,6 +61,8 @@ function DetailModal({ appId, onClose, onUpdated }) {
   const [savedMsg,    setSavedMsg]  = useState('')
   const [err,         setErr]       = useState('')
   const [resending,   setResending] = useState(false)
+  const [confirmDel,  setConfirmDel]= useState(false)
+  const [deleting,    setDeleting]  = useState(false)
 
   const token = localStorage.getItem('sp_token')
 
@@ -89,6 +91,18 @@ function DetailModal({ appId, onClose, onUpdated }) {
     const a    = document.createElement('a')
     a.href = url; a.download = data?.immigration_doc_filename || 'immigration_doc'; a.click()
     URL.revokeObjectURL(url)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteApplication(appId)
+      onUpdated()
+      onClose()
+    } catch (ex) {
+      setErr(ex.response?.data?.detail || 'Failed to delete application')
+      setConfirmDel(false)
+    } finally { setDeleting(false) }
   }
 
   async function resendRegistration() {
@@ -158,7 +172,8 @@ function DetailModal({ appId, onClose, onUpdated }) {
 
             {/* ── Address ── */}
             <Section label="Address">
-              <Field label="Street Address" value={data.address} />
+              <Field label="Address Line 1" value={data.address}       />
+              {data.address_line2 && <Field label="Address Line 2" value={data.address_line2} />}
               <Row2>
                 <Field label="City / Town" value={data.city} />
                 <Field label="Postcode"    value={data.postcode} mono />
@@ -266,11 +281,30 @@ function DetailModal({ appId, onClose, onUpdated }) {
           </>
         )}
 
-        <div className="modal-footer" style={{ marginTop:16 }}>
-          <button onClick={onClose} className="btn btn-outline">Close</button>
-          <button onClick={save} disabled={saving} className="btn btn-brand">
-            {saving ? 'Saving…' : 'Update Status'}
-          </button>
+        <div className="modal-footer" style={{ marginTop:16, justifyContent:'space-between' }}>
+          <div style={{ display:'flex', gap:8 }}>
+            {!confirmDel ? (
+              <button onClick={() => setConfirmDel(true)}
+                style={{ padding:'8px 14px', borderRadius:8, border:'1px solid rgba(224,85,85,.4)', background:'rgba(224,85,85,.08)', color:'#e05555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                🗑️ Delete Application
+              </button>
+            ) : (
+              <>
+                <span style={{ fontSize:12, color:'#e05555', alignSelf:'center', fontWeight:600 }}>Permanently delete?</span>
+                <button onClick={handleDelete} disabled={deleting}
+                  style={{ padding:'8px 14px', borderRadius:8, border:'none', background:'#e05555', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                  {deleting ? 'Deleting…' : 'Yes, Delete'}
+                </button>
+                <button onClick={() => setConfirmDel(false)} className="btn btn-outline" style={{ fontSize:12, padding:'4px 10px' }}>Cancel</button>
+              </>
+            )}
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={onClose} className="btn btn-outline">Close</button>
+            <button onClick={save} disabled={saving} className="btn btn-brand">
+              {saving ? 'Saving…' : 'Update Status'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

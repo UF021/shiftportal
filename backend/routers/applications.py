@@ -115,6 +115,7 @@ async def submit_application(
     email:              str = Form(...),
     phone:              str = Form(...),
     address:            str = Form(...),
+    address_line2:      Optional[str] = Form(None),
     city:               str = Form(...),
     postcode:           str = Form(...),
     # Employment
@@ -166,8 +167,9 @@ async def submit_application(
         date_of_birth            = date_of_birth.strip(),
         email                    = email.strip().lower(),
         phone                    = phone.strip(),
-        address                  = address.strip(),
-        city                     = city.strip(),
+        address                  = address.strip().upper(),
+        address_line2            = (address_line2 or '').strip().upper() or None,
+        city                     = city.strip().upper(),
         postcode                 = postcode.strip().upper(),
         ni_number                = ni_number.strip().upper(),
         sia_licence              = sia_licence.strip(),
@@ -220,6 +222,7 @@ def get_application(
     return {
         **_summary(a),
         "address":            a.address,
+        "address_line2":      a.address_line2,
         "ni_number":          a.ni_number,
         "sia_licence":        a.sia_licence,
         "sia_expiry":         a.sia_expiry,
@@ -327,7 +330,10 @@ def update_status(
                 date_of_birth   = _date.fromisoformat(a.date_of_birth) if a.date_of_birth else None,
                 nationality     = a.nationality,
                 phone           = a.phone,
-                address_line1   = a.address,        # single-string address → line1
+                address_line1   = a.address,
+                address_line2   = a.address_line2,
+                city            = a.city,
+                postcode        = a.postcode,
                 ni_number       = a.ni_number.upper() if a.ni_number else None,
                 sia_licence     = a.sia_licence,
                 sia_expiry      = sia_exp_date,
@@ -439,6 +445,20 @@ def resend_registration(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to send email — check SMTP configuration")
 
 
+# ── HR: delete application ─────────────────────────────────────────────────────
+
+@router.delete("/{app_id}")
+def delete_application(
+    app_id: int,
+    db:     Session     = Depends(get_db),
+    hr:     models.User = Depends(require_hr),
+):
+    a = _get_app(app_id, hr, db)
+    db.delete(a)
+    db.commit()
+    return {"message": "Application deleted", "id": app_id}
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_app(app_id: int, hr: models.User, db: Session) -> models.JobApplication:
@@ -460,6 +480,7 @@ def _summary(a: models.JobApplication) -> dict:
         "phone":        a.phone,
         "date_of_birth": a.date_of_birth,
         "address":      a.address,
+        "address_line2": a.address_line2,
         "city":         a.city,
         "postcode":     a.postcode,
         "area_of_employment": a.area_of_employment,

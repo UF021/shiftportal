@@ -19,7 +19,7 @@ const COMMUTES  = ['Own transport — car/motorbike', 'Public transport', 'Walk 
 
 const EMPTY = {
   title: 'Mr', first_name: '', last_name: '', area_of_employment: '', date_of_birth: '',
-  email: '', phone: '', address: '', city: '', postcode: '',
+  email: '', phone: '', address: '', address_line2: '', city: '', postcode: '',
   ni_number: '', sia_licence: '', sia_expiry: '', commute_method: '',
   employment_history: '',
   nationality: '', right_to_work: 'true',
@@ -259,7 +259,8 @@ export default function ApplyPage() {
             <FInput label="Email Address *" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" />
             <FInput label="Preferred Telephone Number *" type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+44..." />
           </div>
-          <FInput label="Street Address *" value={form.address} onChange={e => set('address', e.target.value)} placeholder="e.g. 12 High Street, Flat 3" />
+          <FInput label="Address Line 1 *" value={form.address} onChange={e => set('address', e.target.value)} placeholder="e.g. 12 High Street" />
+          <FInput label="Address Line 2" value={form.address_line2} onChange={e => set('address_line2', e.target.value)} placeholder="Flat / apartment / building (optional)" />
           <div style={{ display:'grid', gridTemplateColumns:'1fr 140px', gap:12 }}>
             <FInput label="City / Town *" value={form.city} onChange={e => set('city', e.target.value)} placeholder="e.g. London" />
             <FInput label="Postcode *" value={form.postcode}

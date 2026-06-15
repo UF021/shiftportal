@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { getAllStaff, updateStaff, getMySites, deleteStaff, bulkDeleteStaff, blockStaff, unblockStaff, bulkBlockStaff } from '../../api/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { getAllStaff, updateStaff, getMySites, deleteStaff, bulkDeleteStaff, blockStaff, unblockStaff, bulkBlockStaff, mergeStaff } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
 const PRESET_PAY = ['12.71','12.80','12.90','13.00']
@@ -52,6 +52,67 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = 'Yes, Delet
   )
 }
 
+function MergeModal({ pair, onConfirm, onCancel, busy }) {
+  const [primaryId, setPrimaryId] = useState(() => {
+    const [a, b] = pair.records
+    const aTime = a.activated_at || a.registered_at || ''
+    const bTime = b.activated_at || b.registered_at || ''
+    return aTime >= bTime ? a.id : b.id
+  })
+
+  const primary   = pair.records.find(r => r.id === primaryId)
+  const secondary = pair.records.find(r => r.id !== primaryId)
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="modal" style={{ width: 580 }}>
+        <h3 style={{ marginBottom:6 }}>Merge Duplicate Records</h3>
+        <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:18, lineHeight:1.5 }}>
+          These two records share the same {pair.reason === 'ni_number' ? 'NI number' : 'SIA licence'}. Select which record to keep — it will absorb all shift history from the other, then the duplicate will be deleted.
+        </p>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+          {pair.records.map(r => {
+            const selected = r.id === primaryId
+            return (
+              <div key={r.id} onClick={() => setPrimaryId(r.id)} style={{
+                padding:14, borderRadius:10, cursor:'pointer', transition:'all .15s',
+                border: `2px solid ${selected ? 'var(--green)' : 'var(--border)'}`,
+                background: selected ? 'rgba(106,191,63,.08)' : 'var(--navy-light)',
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                  <input type="radio" checked={selected} onChange={() => setPrimaryId(r.id)} style={{ accentColor:'var(--green)' }} />
+                  <span style={{ fontSize:12, fontWeight:700, color: selected ? 'var(--green)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em' }}>
+                    {selected ? '✓ Keep this' : 'Discard this'}
+                  </span>
+                </div>
+                <div style={{ fontWeight:700, fontSize:14 }}>{r.full_name}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'DM Mono,monospace', marginTop:2 }}>{r.staff_id}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{r.email}</div>
+                <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:6 }}>
+                  Registered: {r.registered_at ? new Date(r.registered_at).toLocaleDateString('en-GB') : '—'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ background:'rgba(224,85,85,.08)', border:'1px solid rgba(224,85,85,.25)', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#c02020', marginBottom:20 }}>
+          ⚠ This will permanently delete <strong>{secondary?.full_name}</strong> and transfer all their shift records to <strong>{primary?.full_name}</strong>. This cannot be undone.
+        </div>
+
+        <div className="modal-footer">
+          <button onClick={onCancel} className="btn btn-outline" disabled={busy}>Cancel</button>
+          <button onClick={() => onConfirm(primaryId, secondary?.id)} disabled={busy}
+            className="btn" style={{ background:'var(--green)', color:'#fff', border:'none' }}>
+            {busy ? 'Merging…' : `Merge — Keep ${primary?.full_name}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function HRStaff() {
   const [staff,  setStaff]  = useState([])
   const [sites,  setSites]  = useState([])
@@ -76,7 +137,11 @@ export default function HRStaff() {
   // Block state
   const [confirmBulkBlock, setConfirmBulkBlock] = useState(false)
   const [blocking,         setBlocking]         = useState(false)
-  const [blockingId,       setBlockingId]        = useState(null)  // id of single in-progress block/unblock
+  const [blockingId,       setBlockingId]        = useState(null)
+
+  // Merge / duplicate state
+  const [mergePair,   setMergePair]   = useState(null)   // the pair object from duplicates list
+  const [merging,     setMerging]     = useState(false)
 
   // Toast
   const [toast, setToast] = useState(null)
@@ -90,6 +155,28 @@ export default function HRStaff() {
 
   const load = () => getAllStaff().then(r => { setStaff(r.data || []); setSelected(new Set()) }).catch(() => {})
   useEffect(() => { load(); getMySites().then(r => setSites(r.data || [])).catch(() => {}) }, [])
+
+  // Compute duplicate IDs from loaded staff (by NI or SIA)
+  const duplicateIds = useMemo(() => {
+    const niMap = {}, siaMap = {}, ids = new Set()
+    staff.forEach(s => {
+      if (s.ni_number)   (niMap[s.ni_number]   = niMap[s.ni_number]   || []).push(s.id)
+      if (s.sia_licence) (siaMap[s.sia_licence] = siaMap[s.sia_licence] || []).push(s.id)
+    })
+    Object.values(niMap).forEach(arr  => arr.length  > 1 && arr.forEach(id  => ids.add(id)))
+    Object.values(siaMap).forEach(arr => arr.length  > 1 && arr.forEach(id  => ids.add(id)))
+    return ids
+  }, [staff])
+
+  // Build pair objects for a given staff member so we can open the merge modal
+  function getDuplicatePairFor(s) {
+    const byNI  = s.ni_number   ? staff.filter(x => x.id !== s.id && x.ni_number   === s.ni_number)   : []
+    const bySIA = s.sia_licence ? staff.filter(x => x.id !== s.id && x.sia_licence === s.sia_licence) : []
+    const other = byNI[0] || bySIA[0]
+    if (!other) return null
+    const reason = byNI[0] ? 'ni_number' : 'sia_licence'
+    return { reason, records: [s, other].map(r => ({ id:r.id, full_name:r.full_name, staff_id:r.staff_id, email:r.email, ni_number:r.ni_number, sia_licence:r.sia_licence, registered_at:r.registered_at, activated_at:r.activated_at })) }
+  }
 
   const filtered = staff.filter(s => {
     const q = search.toLowerCase()
@@ -182,6 +269,18 @@ export default function HRStaff() {
     } finally {
       setBlocking(false)
     }
+  }
+
+  async function handleMerge(primaryId, secondaryId) {
+    setMerging(true)
+    try {
+      const res = await mergeStaff(primaryId, secondaryId)
+      showToast(`✅ ${res.data.message}`)
+      setMergePair(null)
+      load()
+    } catch (ex) {
+      showToast(ex.response?.data?.detail || 'Merge failed', 'error')
+    } finally { setMerging(false) }
   }
 
   function openEdit(s) {
@@ -356,6 +455,17 @@ export default function HRStaff() {
                         background:'rgba(240,160,48,.15)', color:'#b07000',
                         verticalAlign:'middle',
                       }}>⏳ Awaiting Registration</span>
+                    )}
+                    {duplicateIds.has(s.id) && (
+                      <span
+                        onClick={() => { const p = getDuplicatePairFor(s); if (p) setMergePair(p) }}
+                        title="Duplicate detected — click to merge"
+                        style={{
+                          display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700,
+                          padding:'2px 7px', borderRadius:10, cursor:'pointer',
+                          background:'rgba(255,160,0,.18)', color:'#8a5000',
+                          verticalAlign:'middle', border:'1px solid rgba(255,160,0,.35)',
+                        }}>⚠ Duplicate</span>
                     )}
                     <br/>
                     <span style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</span>
@@ -672,6 +782,16 @@ export default function HRStaff() {
           onConfirm={handleBulkDelete}
           onCancel={() => setConfirmBulk(false)}
           busy={deleting}
+        />
+      )}
+
+      {/* Merge duplicate modal */}
+      {mergePair && (
+        <MergeModal
+          pair={mergePair}
+          onConfirm={handleMerge}
+          onCancel={() => setMergePair(null)}
+          busy={merging}
         />
       )}
 

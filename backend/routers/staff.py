@@ -284,3 +284,112 @@ def acknowledge_profile_change(
     log.is_acknowledged = True
     db.commit()
     return {"message": "Acknowledged"}
+
+
+@router.get("/duplicates")
+def list_duplicates(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    """Return groups of staff sharing an NI number or SIA licence."""
+    q = db.query(models.User).filter(
+        models.User.role      == models.UserRole.staff,
+        models.User.is_active == True,
+    )
+    if hr.role != models.UserRole.superadmin:
+        q = q.filter(models.User.organisation_id == hr.organisation_id)
+    all_staff = q.all()
+
+    from collections import defaultdict
+    ni_map  = defaultdict(list)
+    sia_map = defaultdict(list)
+    for u in all_staff:
+        if u.ni_number:
+            ni_map[u.ni_number.upper()].append(u.id)
+        if u.sia_licence:
+            sia_map[u.sia_licence.strip()].append(u.id)
+
+    dup_pairs = set()
+    for ids in ni_map.values():
+        if len(ids) > 1:
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    dup_pairs.add((min(ids[i], ids[j]), max(ids[i], ids[j])))
+    for ids in sia_map.values():
+        if len(ids) > 1:
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    dup_pairs.add((min(ids[i], ids[j]), max(ids[i], ids[j])))
+
+    user_map = {u.id: u for u in all_staff}
+    result = []
+    for id_a, id_b in dup_pairs:
+        ua, ub = user_map.get(id_a), user_map.get(id_b)
+        if ua and ub:
+            result.append({
+                "ids":    [ua.id, ub.id],
+                "reason": "ni_number" if (ua.ni_number and ua.ni_number == ub.ni_number) else "sia_licence",
+                "records": [
+                    {"id": u.id, "full_name": u.full_name, "staff_id": u.staff_id,
+                     "email": u.email, "ni_number": u.ni_number, "sia_licence": u.sia_licence,
+                     "registered_at": u.registered_at.isoformat() if u.registered_at else None,
+                     "activated_at":  u.activated_at.isoformat()  if u.activated_at  else None}
+                    for u in (ua, ub)
+                ],
+            })
+    return result
+
+
+class MergeRequest(BaseModel):
+    primary_id:   int   # record to keep (newer — takes field primacy)
+    secondary_id: int   # record to absorb then delete
+
+
+@router.post("/merge")
+def merge_staff(
+    req: MergeRequest,
+    db:  Session = Depends(get_db),
+    hr:  models.User = Depends(require_hr),
+):
+    primary   = db.query(models.User).filter(models.User.id == req.primary_id).first()
+    secondary = db.query(models.User).filter(models.User.id == req.secondary_id).first()
+    if not primary or not secondary:
+        raise HTTPException(404, "One or both staff records not found")
+    org_guard(hr, primary.organisation_id)
+    org_guard(hr, secondary.organisation_id)
+
+    # Re-parent all historical records from secondary → primary
+    for Model, fk in [
+        (models.ClockEvent, models.ClockEvent.user_id),
+        (models.Timelog,    models.Timelog.user_id),
+        (models.Holiday,    models.Holiday.user_id),
+        (models.ProfileChangeLog, models.ProfileChangeLog.user_id),
+    ]:
+        db.query(Model).filter(fk == secondary.id).update({fk: primary.id}, synchronize_session=False)
+
+    # Training enrollment — keep primary's; absorb secondary's only if primary lacks one
+    primary_enrol   = db.query(models.TrainingEnrollment).filter(models.TrainingEnrollment.user_id == primary.id).first()
+    secondary_enrol = db.query(models.TrainingEnrollment).filter(models.TrainingEnrollment.user_id == secondary.id).first()
+    if secondary_enrol:
+        if primary_enrol:
+            db.delete(secondary_enrol)
+        else:
+            secondary_enrol.user_id = primary.id
+
+    # Training progress — re-parent avoiding duplicate module keys
+    from sqlalchemy import and_
+    sec_progress = db.query(models.TrainingProgress).filter(models.TrainingProgress.user_id == secondary.id).all()
+    for sp in sec_progress:
+        clash = db.query(models.TrainingProgress).filter(
+            models.TrainingProgress.user_id == primary.id,
+            models.TrainingProgress.module  == sp.module,
+        ).first()
+        if clash:
+            db.delete(sp)
+        else:
+            sp.user_id = primary.id
+
+    secondary_name = secondary.full_name
+    db.delete(secondary)
+    db.commit()
+    return {"message": f"Merged: {secondary_name} absorbed into {primary.full_name}", "primary_id": primary.id}

@@ -424,6 +424,7 @@ class JobApplication(Base):
     email                    = Column(String(200), nullable=False)
     phone                    = Column(String(30),  nullable=False)
     address                  = Column(String(500), nullable=False)
+    address_line2            = Column(String(500), nullable=True)
     city                     = Column(String(100), nullable=True)
     postcode                 = Column(String(20),  nullable=True)
 
