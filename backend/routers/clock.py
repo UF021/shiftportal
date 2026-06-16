@@ -956,10 +956,15 @@ def recalculate_shifts(
         eff    = _effective_start(in_uk, in_evt.scheduled_start)
         correct_minutes = int((out_uk - eff).total_seconds() / 60)
 
-        # Also recalculate is_late / minutes_late on the clock-in if needed
+        # Recalculate is_late / minutes_late on the clock-in if needed
         is_late, mins_late = _calc_lateness(in_evt.scheduled_start, in_uk)
 
         changed = False
+
+        # Snap clock-in timestamp to effective start if staff arrived early
+        if eff != in_uk:
+            in_evt.timestamp = eff
+            changed = True
 
         if out_evt.shift_minutes != correct_minutes:
             updated.append({
