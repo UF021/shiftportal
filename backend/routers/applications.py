@@ -309,6 +309,24 @@ def update_status(
         ).first()
 
         if not existing_user:
+            # Block if name + DOB + phone already match an active staff record
+            from sqlalchemy import func as sqlfunc
+            dob_check = _date.fromisoformat(a.date_of_birth) if a.date_of_birth else None
+            if dob_check:
+                dup = db.query(models.User).filter(
+                    models.User.organisation_id == a.organisation_id,
+                    models.User.role            == models.UserRole.staff,
+                    sqlfunc.lower(models.User.first_name) == a.first_name.lower(),
+                    sqlfunc.lower(models.User.last_name)  == a.last_name.lower(),
+                    models.User.date_of_birth             == dob_check,
+                    models.User.phone                     == a.phone,
+                ).first()
+                if dup:
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT,
+                        f"A staff record already exists for {a.first_name} {a.last_name} with the same date of birth and phone number (Staff ID: {dup.staff_id}). Merge the existing records before accepting this application.",
+                    )
+
             # Parse sia_expiry string → date (if present)
             sia_exp_date = None
             if a.sia_expiry:

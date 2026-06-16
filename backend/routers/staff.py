@@ -291,7 +291,7 @@ def list_duplicates(
     db: Session = Depends(get_db),
     hr: models.User = Depends(require_hr),
 ):
-    """Return groups of staff sharing an NI number or SIA licence."""
+    """Return groups of staff sharing an NI number, SIA licence, or name+DOB+phone."""
     q = db.query(models.User).filter(
         models.User.role      == models.UserRole.staff,
         models.User.is_active == True,
@@ -301,37 +301,48 @@ def list_duplicates(
     all_staff = q.all()
 
     from collections import defaultdict
-    ni_map  = defaultdict(list)
-    sia_map = defaultdict(list)
+    ni_map   = defaultdict(list)
+    sia_map  = defaultdict(list)
+    name_map = defaultdict(list)
     for u in all_staff:
         if u.ni_number:
             ni_map[u.ni_number.upper()].append(u.id)
         if u.sia_licence:
             sia_map[u.sia_licence.strip()].append(u.id)
+        if u.first_name and u.last_name and u.date_of_birth and u.phone:
+            key = f"{u.first_name.lower()}|{u.last_name.lower()}|{u.date_of_birth}|{u.phone}"
+            name_map[key].append(u.id)
 
-    dup_pairs = set()
+    pair_reason: dict[tuple, str] = {}
     for ids in ni_map.values():
         if len(ids) > 1:
             for i in range(len(ids)):
                 for j in range(i + 1, len(ids)):
-                    dup_pairs.add((min(ids[i], ids[j]), max(ids[i], ids[j])))
+                    pair_reason.setdefault((min(ids[i], ids[j]), max(ids[i], ids[j])), "ni_number")
     for ids in sia_map.values():
         if len(ids) > 1:
             for i in range(len(ids)):
                 for j in range(i + 1, len(ids)):
-                    dup_pairs.add((min(ids[i], ids[j]), max(ids[i], ids[j])))
+                    pair_reason.setdefault((min(ids[i], ids[j]), max(ids[i], ids[j])), "sia_licence")
+    for ids in name_map.values():
+        if len(ids) > 1:
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    pair_reason.setdefault((min(ids[i], ids[j]), max(ids[i], ids[j])), "name_dob_phone")
 
     user_map = {u.id: u for u in all_staff}
     result = []
-    for id_a, id_b in dup_pairs:
+    for (id_a, id_b), reason in pair_reason.items():
         ua, ub = user_map.get(id_a), user_map.get(id_b)
         if ua and ub:
             result.append({
                 "ids":    [ua.id, ub.id],
-                "reason": "ni_number" if (ua.ni_number and ua.ni_number == ub.ni_number) else "sia_licence",
+                "reason": reason,
                 "records": [
                     {"id": u.id, "full_name": u.full_name, "staff_id": u.staff_id,
                      "email": u.email, "ni_number": u.ni_number, "sia_licence": u.sia_licence,
+                     "date_of_birth": str(u.date_of_birth) if u.date_of_birth else None,
+                     "phone": u.phone,
                      "registered_at": u.registered_at.isoformat() if u.registered_at else None,
                      "activated_at":  u.activated_at.isoformat()  if u.activated_at  else None}
                     for u in (ua, ub)
@@ -358,14 +369,38 @@ def merge_staff(
     org_guard(hr, primary.organisation_id)
     org_guard(hr, secondary.organisation_id)
 
-    # Re-parent all historical records from secondary → primary
+    # Re-parent simple records from secondary → primary
     for Model, fk in [
-        (models.ClockEvent, models.ClockEvent.user_id),
-        (models.Timelog,    models.Timelog.user_id),
-        (models.Holiday,    models.Holiday.user_id),
+        (models.ClockEvent,       models.ClockEvent.user_id),
+        (models.ClockFailure,     models.ClockFailure.user_id),
+        (models.Timelog,          models.Timelog.user_id),
+        (models.Holiday,          models.Holiday.user_id),
         (models.ProfileChangeLog, models.ProfileChangeLog.user_id),
+        (models.IncidentReport,   models.IncidentReport.user_id),
     ]:
         db.query(Model).filter(fk == secondary.id).update({fk: primary.id}, synchronize_session=False)
+
+    # Messages — re-parent both sent_by and recipient_id
+    db.query(models.Message).filter(models.Message.sent_by == secondary.id).update(
+        {models.Message.sent_by: primary.id}, synchronize_session=False
+    )
+    db.query(models.Message).filter(models.Message.recipient_id == secondary.id).update(
+        {models.Message.recipient_id: primary.id}, synchronize_session=False
+    )
+
+    # DocReadConfirmation — re-parent, skip if primary already confirmed the same doc
+    sec_confirms = db.query(models.DocReadConfirmation).filter(
+        models.DocReadConfirmation.user_id == secondary.id
+    ).all()
+    for dc in sec_confirms:
+        clash = db.query(models.DocReadConfirmation).filter(
+            models.DocReadConfirmation.user_id == primary.id,
+            models.DocReadConfirmation.doc_key == dc.doc_key,
+        ).first()
+        if clash:
+            db.delete(dc)
+        else:
+            dc.user_id = primary.id
 
     # Training enrollment — keep primary's; absorb secondary's only if primary lacks one
     primary_enrol   = db.query(models.TrainingEnrollment).filter(models.TrainingEnrollment.user_id == primary.id).first()
@@ -377,7 +412,6 @@ def merge_staff(
             secondary_enrol.user_id = primary.id
 
     # Training progress — re-parent avoiding duplicate module keys
-    from sqlalchemy import and_
     sec_progress = db.query(models.TrainingProgress).filter(models.TrainingProgress.user_id == secondary.id).all()
     for sp in sec_progress:
         clash = db.query(models.TrainingProgress).filter(

@@ -53,27 +53,33 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = 'Yes, Delet
 }
 
 function MergeModal({ pair, onConfirm, onCancel, busy }) {
-  const [primaryId, setPrimaryId] = useState(() => {
+  const newestId = (() => {
     const [a, b] = pair.records
     const aTime = a.activated_at || a.registered_at || ''
     const bTime = b.activated_at || b.registered_at || ''
     return aTime >= bTime ? a.id : b.id
-  })
+  })()
+  const [primaryId, setPrimaryId] = useState(newestId)
 
   const primary   = pair.records.find(r => r.id === primaryId)
   const secondary = pair.records.find(r => r.id !== primaryId)
+
+  const reasonText = pair.reason === 'ni_number'     ? 'NI number'
+                   : pair.reason === 'sia_licence'   ? 'SIA licence'
+                   : 'name, date of birth and phone number'
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
       <div className="modal" style={{ width: 580 }}>
         <h3 style={{ marginBottom:6 }}>Merge Duplicate Records</h3>
         <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:18, lineHeight:1.5 }}>
-          These two records share the same {pair.reason === 'ni_number' ? 'NI number' : 'SIA licence'}. Select which record to keep — it will absorb all shift history from the other, then the duplicate will be deleted.
+          These two records share the same {reasonText}. The newest account is pre-selected to keep — it will absorb all shifts, incidents, holidays and other history from the duplicate, which will then be deleted.
         </p>
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
           {pair.records.map(r => {
             const selected = r.id === primaryId
+            const isNewest = r.id === newestId
             return (
               <div key={r.id} onClick={() => setPrimaryId(r.id)} style={{
                 padding:14, borderRadius:10, cursor:'pointer', transition:'all .15s',
@@ -85,6 +91,11 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
                   <span style={{ fontSize:12, fontWeight:700, color: selected ? 'var(--green)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em' }}>
                     {selected ? '✓ Keep this' : 'Discard this'}
                   </span>
+                  {isNewest && (
+                    <span style={{ fontSize:10, fontWeight:700, color:'var(--green)', background:'rgba(106,191,63,.15)', borderRadius:4, padding:'1px 5px', marginLeft:'auto' }}>
+                      Newest
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontWeight:700, fontSize:14 }}>{r.full_name}</div>
                 <div style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'DM Mono,monospace', marginTop:2 }}>{r.staff_id}</div>
@@ -98,7 +109,7 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
         </div>
 
         <div style={{ background:'rgba(224,85,85,.08)', border:'1px solid rgba(224,85,85,.25)', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#c02020', marginBottom:20 }}>
-          ⚠ This will permanently delete <strong>{secondary?.full_name}</strong> and transfer all their shift records to <strong>{primary?.full_name}</strong>. This cannot be undone.
+          ⚠ This will permanently delete <strong>{secondary?.full_name}</strong> and transfer all their records to <strong>{primary?.full_name}</strong>. This cannot be undone.
         </div>
 
         <div className="modal-footer">
@@ -156,26 +167,38 @@ export default function HRStaff() {
   const load = () => getAllStaff().then(r => { setStaff(r.data || []); setSelected(new Set()) }).catch(() => {})
   useEffect(() => { load(); getMySites().then(r => setSites(r.data || [])).catch(() => {}) }, [])
 
-  // Compute duplicate IDs from loaded staff (by NI or SIA)
+  // Compute duplicate IDs from loaded staff (by NI, SIA, or name+DOB+phone)
   const duplicateIds = useMemo(() => {
-    const niMap = {}, siaMap = {}, ids = new Set()
+    const niMap = {}, siaMap = {}, nameMap = {}, ids = new Set()
     staff.forEach(s => {
       if (s.ni_number)   (niMap[s.ni_number]   = niMap[s.ni_number]   || []).push(s.id)
       if (s.sia_licence) (siaMap[s.sia_licence] = siaMap[s.sia_licence] || []).push(s.id)
+      if (s.first_name && s.last_name && s.date_of_birth && s.phone) {
+        const key = `${s.first_name.toLowerCase()}|${s.last_name.toLowerCase()}|${s.date_of_birth}|${s.phone}`
+        ;(nameMap[key] = nameMap[key] || []).push(s.id)
+      }
     })
-    Object.values(niMap).forEach(arr  => arr.length  > 1 && arr.forEach(id  => ids.add(id)))
-    Object.values(siaMap).forEach(arr => arr.length  > 1 && arr.forEach(id  => ids.add(id)))
+    Object.values(niMap).forEach(arr   => arr.length > 1 && arr.forEach(id => ids.add(id)))
+    Object.values(siaMap).forEach(arr  => arr.length > 1 && arr.forEach(id => ids.add(id)))
+    Object.values(nameMap).forEach(arr => arr.length > 1 && arr.forEach(id => ids.add(id)))
     return ids
   }, [staff])
 
   // Build pair objects for a given staff member so we can open the merge modal
   function getDuplicatePairFor(s) {
-    const byNI  = s.ni_number   ? staff.filter(x => x.id !== s.id && x.ni_number   === s.ni_number)   : []
-    const bySIA = s.sia_licence ? staff.filter(x => x.id !== s.id && x.sia_licence === s.sia_licence) : []
-    const other = byNI[0] || bySIA[0]
+    const byNI   = s.ni_number   ? staff.filter(x => x.id !== s.id && x.ni_number   === s.ni_number)   : []
+    const bySIA  = s.sia_licence ? staff.filter(x => x.id !== s.id && x.sia_licence === s.sia_licence) : []
+    const byName = (s.first_name && s.last_name && s.date_of_birth && s.phone)
+      ? staff.filter(x => x.id !== s.id
+          && x.first_name?.toLowerCase() === s.first_name?.toLowerCase()
+          && x.last_name?.toLowerCase()  === s.last_name?.toLowerCase()
+          && x.date_of_birth === s.date_of_birth
+          && x.phone === s.phone)
+      : []
+    const other = byNI[0] || bySIA[0] || byName[0]
     if (!other) return null
-    const reason = byNI[0] ? 'ni_number' : 'sia_licence'
-    return { reason, records: [s, other].map(r => ({ id:r.id, full_name:r.full_name, staff_id:r.staff_id, email:r.email, ni_number:r.ni_number, sia_licence:r.sia_licence, registered_at:r.registered_at, activated_at:r.activated_at })) }
+    const reason = byNI[0] ? 'ni_number' : bySIA[0] ? 'sia_licence' : 'name_dob_phone'
+    return { reason, records: [s, other].map(r => ({ id:r.id, full_name:r.full_name, staff_id:r.staff_id, email:r.email, ni_number:r.ni_number, sia_licence:r.sia_licence, date_of_birth:r.date_of_birth, phone:r.phone, registered_at:r.registered_at, activated_at:r.activated_at })) }
   }
 
   const filtered = staff.filter(s => {
