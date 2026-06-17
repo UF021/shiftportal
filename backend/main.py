@@ -285,6 +285,8 @@ def _ensure_columns():
             "UPDATE users SET is_blocked = false WHERE is_blocked IS NULL",
             # JobApplications — address_line2
             "ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS address_line2 VARCHAR(500)",
+            # Messages — recipient_ids for multi-select sending
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS recipient_ids TEXT",
         ]
         for s in stmts:
             db.execute(text(s))

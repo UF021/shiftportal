@@ -369,7 +369,8 @@ class Message(Base):
     id              = Column(Integer, primary_key=True)
     organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'))
     sent_by         = Column(Integer, ForeignKey('users.id'))
-    recipient_id    = Column(Integer, ForeignKey('users.id'), nullable=True)   # None = broadcast to all staff
+    recipient_id    = Column(Integer, ForeignKey('users.id'), nullable=True)   # single recipient (legacy)
+    recipient_ids   = Column(Text, nullable=True)                               # JSON array of user_ids for multi-select
     title           = Column(String(200), nullable=False)
     body            = Column(Text, nullable=False)
     priority        = Column(String(20), default='normal')   # 'normal' | 'urgent' | 'info'
