@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { confirmDocRead } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 import { useDocs } from '../../api/DocsContext'
@@ -283,6 +284,7 @@ export default function StaffDocuments() {
   const { colour } = useBrand()
   const c = colour || '#6abf3f'
   const { docs, unconfirmedCount, loading, markConfirmed } = useDocs()
+  const navigate = useNavigate()
 
   return (
     <div>
@@ -293,6 +295,51 @@ export default function StaffDocuments() {
         <p style={{ fontSize: 13, color: '#6a8a6a', lineHeight: 1.5 }}>
           Company policies and documents issued by Ikan Facilities Management
         </p>
+      </div>
+
+      {/* Employment Contract card */}
+      <div style={{
+        background: '#fff',
+        border: `1px solid ${c}55`,
+        borderRadius: 14,
+        padding: '20px',
+        marginBottom: 14,
+        boxShadow: '0 1px 4px rgba(0,0,0,.06)',
+        display: 'flex', alignItems: 'flex-start', gap: 16,
+      }}>
+        <div style={{
+          fontSize: 28, lineHeight: 1, flexShrink: 0,
+          background: `${c}18`,
+          borderRadius: 10, padding: '10px 12px',
+        }}>📝</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1a2a1a', lineHeight: 1.35 }}>
+              Contract of Employment &amp; Staff Handbook
+            </div>
+            <span style={{
+              flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+              background: `${c}22`, color: c, whiteSpace: 'nowrap',
+            }}>
+              Personal Document
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: '#8aaa8a', marginBottom: 14 }}>
+            Your individual contract of employment including terms, conditions and staff handbook
+          </div>
+          <button
+            onClick={() => navigate('/staff/contract')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 18px', borderRadius: 8, border: 'none',
+              background: c, color: '#fff',
+              fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            View Contract →
+          </button>
+        </div>
       </div>
 
       {/* Warning banner — disappears once all confirmed */}
