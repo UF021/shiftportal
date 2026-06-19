@@ -176,6 +176,7 @@ class EditUserRequest(BaseModel):
     assigned_site_id:      Optional[int]   = None
     assigned_sites:        Optional[str]   = None
     right_to_work:         Optional[bool]  = None
+    staff_type:            Optional[str]   = None   # 'payroll' | 'subcontract'
     # SIA / compliance
     ni_number:             Optional[str]   = None
     sia_licence:           Optional[str]   = None

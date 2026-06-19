@@ -120,9 +120,10 @@ export const approveGpsCapture = (captureId, data)  => api.patch(`/gps-captures/
 export const rejectGpsCapture  = (captureId)         => api.delete(`/gps-captures/${captureId}`)
 
 // Training
-export const getMyTraining       = ()             => api.get('/training/my')
+export const getMyTraining        = ()             => api.get('/training/my')
 export const submitTrainingModule = (mod, score)  => api.post(`/training/module/${mod}`, { score })
 export const getTrainingAdmin     = ()             => api.get('/training/admin')
+export const sendTrainingReminder = ()             => api.post('/training/remind')
 
 // Incidents
 export const submitIncident   = (fd)  => api.post('/incidents/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })

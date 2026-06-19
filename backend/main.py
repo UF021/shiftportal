@@ -287,6 +287,8 @@ def _ensure_columns():
             "ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS address_line2 VARCHAR(500)",
             # Messages — recipient_ids for multi-select sending
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS recipient_ids TEXT",
+            # Users — staff_type for payroll vs subcontract classification
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS staff_type VARCHAR(20) DEFAULT 'payroll'",
         ]
         for s in stmts:
             db.execute(text(s))

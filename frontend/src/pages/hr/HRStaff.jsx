@@ -345,6 +345,7 @@ export default function HRStaff() {
       pay_rate:              !payStr ? '' : isPreset ? payStr : 'other',
       assigned_site_id:      String(s.assigned_site_id||''),
       right_to_work:         s.right_to_work !== false,
+      staff_type:            s.staff_type || 'payroll',
       // SIA
       ni_number:             s.ni_number||'',
       sia_licence:           s.sia_licence||'',
@@ -383,6 +384,7 @@ export default function HRStaff() {
         assigned_site_id:      firstSite ? firstSite.id : (form.assigned_site_id ? parseInt(form.assigned_site_id) : null),
         assigned_sites:        assignedSites,
         right_to_work:         form.right_to_work,
+        staff_type:            form.staff_type || 'payroll',
         // SIA
         ni_number:             form.ni_number || null,
         sia_licence:           form.sia_licence || null,
@@ -453,7 +455,7 @@ export default function HRStaff() {
                   title={allSelected ? 'Deselect all' : 'Select all'} />
               </th>
               <th>Name</th><th>Staff ID</th><th>SIA Licence</th><th>SIA Expiry</th>
-              <th>Pay</th><th>Start Date</th><th>Sites</th><th>Status</th><th>Actions</th>
+              <th>Pay</th><th>Category</th><th>Start Date</th><th>Sites</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>
               {filtered.map(s => (
@@ -497,6 +499,13 @@ export default function HRStaff() {
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.sia_licence||'—'}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(s.sia_expiry)}</td>
                   <td style={{ fontFamily:'DM Mono,monospace', color:'var(--green)' }}>{s.pay_rate?`£${s.pay_rate}/hr`:'—'}</td>
+                  <td>
+                    <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10,
+                      background: s.staff_type === 'subcontract' ? 'rgba(103,58,183,.12)' : 'rgba(106,191,63,.12)',
+                      color: s.staff_type === 'subcontract' ? '#512da8' : '#2e7d32' }}>
+                      {s.staff_type === 'subcontract' ? '🔧 Subcontract' : '💼 Payroll'}
+                    </span>
+                  </td>
                   <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{fmtDate(s.employment_start_date)}</td>
                   <td>
                     {(() => {
@@ -714,6 +723,17 @@ export default function HRStaff() {
                         style={{ accentColor:'var(--green)', width:15, height:15 }} />
                       Right to work confirmed
                     </label>
+                    <div style={{ marginTop:12 }}>
+                      <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:8 }}>Staff Category</label>
+                      <div style={{ display:'flex', gap:12 }}>
+                        {[['payroll','💼 Payroll Staff'],['subcontract','🔧 Subcontract Staff']].map(([val,lbl]) => (
+                          <label key={val} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer', padding:'8px 14px', borderRadius:8, border:`1.5px solid ${form.staff_type===val?'var(--green)':'var(--border)'}`, background:form.staff_type===val?'rgba(106,191,63,.08)':'transparent', flex:1, justifyContent:'center' }}>
+                            <input type="radio" name="staff_type" value={val} checked={form.staff_type===val} onChange={()=>setForm(f=>({...f,staff_type:val}))} style={{ accentColor:'var(--green)' }} />
+                            {lbl}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </>
                 ),
               },

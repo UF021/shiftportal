@@ -74,6 +74,7 @@ def list_staff(
             "assigned_site_id":      u.assigned_site_id,
             "assigned_sites":        u.assigned_sites,
             "right_to_work":         u.right_to_work,
+            "staff_type":            u.staff_type or 'payroll',
             # SIA / compliance
             "ni_number":             u.ni_number,
             "sia_licence":           u.sia_licence,
@@ -119,6 +120,7 @@ def update_staff(
     if req.assigned_site_id      is not None: u.assigned_site_id      = req.assigned_site_id
     if req.assigned_sites        is not None: u.assigned_sites        = req.assigned_sites or None
     if req.right_to_work         is not None: u.right_to_work         = req.right_to_work
+    if req.staff_type            is not None: u.staff_type            = req.staff_type if req.staff_type in ('payroll', 'subcontract') else 'payroll'
     # SIA / compliance
     if req.ni_number             is not None: u.ni_number             = req.ni_number.upper() if req.ni_number else None
     if req.sia_licence           is not None: u.sia_licence           = req.sia_licence

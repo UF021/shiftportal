@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getTrainingAdmin } from '../../api/client'
+import { getTrainingAdmin, sendTrainingReminder } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 const MODULES = ['module1', 'module2', 'module3']
@@ -44,11 +44,13 @@ function OverallBadge({ row }) {
 export default function HRTraining() {
   const { colour }       = useBrand()
   const c                = colour || '#6abf3f'
-  const [data,    setData]   = useState([])
-  const [loading, setLoad]   = useState(true)
-  const [filter,  setFilter] = useState('all')   // all | complete | incomplete | overdue
-  const [search,  setSearch] = useState('')
-  const [detail,  setDetail] = useState(null)
+  const [data,      setData]      = useState([])
+  const [loading,   setLoad]      = useState(true)
+  const [filter,    setFilter]    = useState('all')   // all | complete | incomplete | overdue
+  const [search,    setSearch]    = useState('')
+  const [detail,    setDetail]    = useState(null)
+  const [reminding, setReminding] = useState(false)
+  const [remindMsg, setRemindMsg] = useState('')
 
   useEffect(() => {
     getTrainingAdmin()
@@ -88,9 +90,34 @@ export default function HRTraining() {
 
   return (
     <>
-      <div style={{ marginBottom: 26 }}>
-        <h2 style={{ fontSize: 23, fontWeight: 700, marginBottom: 4 }}>Training Monitor</h2>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>Track staff completion of the Security Officer Training Programme</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 26, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ fontSize: 23, fontWeight: 700, marginBottom: 4 }}>Training Monitor</h2>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>Track staff completion of the Security Officer Training Programme</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <button
+            onClick={async () => {
+              setReminding(true); setRemindMsg('')
+              try {
+                const res = await sendTrainingReminder()
+                setRemindMsg(`✅ ${res.data.message}`)
+              } catch (ex) {
+                setRemindMsg(`❌ ${ex.response?.data?.detail || 'Failed to send reminders'}`)
+              } finally { setReminding(false) }
+            }}
+            disabled={reminding || loading}
+            className="btn"
+            style={{ background: '#e65100', color: '#fff', border: 'none', whiteSpace: 'nowrap' }}
+          >
+            {reminding ? '⏳ Sending…' : '📧 Send Training Reminders'}
+          </button>
+          {remindMsg && (
+            <div style={{ fontSize: 12, fontWeight: 600, color: remindMsg.startsWith('✅') ? '#2e7d32' : '#c62828', maxWidth: 300, textAlign: 'right' }}>
+              {remindMsg}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stat cards */}

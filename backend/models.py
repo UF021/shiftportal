@@ -165,6 +165,7 @@ class User(Base):
     employment_start_date = Column(Date, nullable=True)
     pay_rate        = Column(Float, nullable=True)
     assigned_site_id= Column(Integer, ForeignKey("sites.id"), nullable=True)
+    staff_type      = Column(String(20), nullable=True, default='payroll')  # 'payroll' | 'subcontract'
 
     # Personal (from registration)
     title           = Column(String(10),  nullable=True)
