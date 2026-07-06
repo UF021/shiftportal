@@ -1,5 +1,5 @@
 // HRApplications.jsx
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getApplications, getApplication, updateAppStatus, resendRegistrationEmail, deleteApplication } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 import { fmtDateTime } from '../../api/utils'
@@ -20,6 +20,79 @@ const TABS = [
   { key:'accepted',     label:'Accepted' },
   { key:'rejected',     label:'Rejected' },
 ]
+
+function AppToast({ toast }) {
+  if (!toast) return null
+  const bg  = toast.type === 'error' ? 'rgba(224,85,85,.15)' : 'rgba(106,191,63,.15)'
+  const col = toast.type === 'error' ? '#e05555' : 'var(--green)'
+  return (
+    <div style={{
+      position:'fixed', top:20, right:20, zIndex:9999,
+      background:bg, border:`1px solid ${col}`, borderRadius:10,
+      padding:'12px 20px', fontSize:14, fontWeight:600, color:col,
+      boxShadow:'0 4px 20px rgba(0,0,0,.25)', maxWidth:340,
+    }}>{toast.msg}</div>
+  )
+}
+
+function AppMergeModal({ pair, onConfirm, onCancel, busy }) {
+  const [keepId, setKeepId] = useState(pair[0].id)
+  const keep   = pair.find(r => r.id === keepId)
+  const remove = pair.find(r => r.id !== keepId)
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="modal" style={{ width:600 }}>
+        <h3 style={{ marginBottom:6 }}>Merge Duplicate Applications</h3>
+        <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:20, lineHeight:1.5 }}>
+          These applications appear to be from the same person. Select which one to keep — the other will be permanently deleted.
+        </p>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+          {pair.map(r => {
+            const selected = r.id === keepId
+            return (
+              <div key={r.id} onClick={() => setKeepId(r.id)} style={{
+                padding:14, borderRadius:10, cursor:'pointer', transition:'all .15s',
+                border:`2px solid ${selected ? 'var(--green)' : 'var(--border)'}`,
+                background: selected ? 'rgba(106,191,63,.08)' : 'var(--navy-light)',
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                  <input type="radio" checked={selected} onChange={() => setKeepId(r.id)} style={{ accentColor:'var(--green)' }} />
+                  <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color: selected ? 'var(--green)' : 'var(--text-muted)' }}>
+                    {selected ? '✓ Keep' : 'Delete'}
+                  </span>
+                </div>
+                <div style={{ fontWeight:700, fontSize:14, marginBottom:2 }}>{r.full_name}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)' }}>Ref: {r.reference || '—'}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{r.email}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{r.phone}</div>
+                {r.ni_number   && <div style={{ fontSize:10, color:'var(--text-dim)', marginTop:4 }}>NI: {r.ni_number}</div>}
+                {r.sia_licence && <div style={{ fontSize:10, color:'var(--text-dim)' }}>SIA: {r.sia_licence}</div>}
+                <div style={{ fontSize:10, color:'var(--text-dim)', marginTop:6 }}>
+                  Submitted: {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-GB') : '—'}
+                </div>
+                <div style={{ marginTop:8 }}><SBadge status={r.status} /></div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ background:'rgba(224,85,85,.08)', border:'1px solid rgba(224,85,85,.25)', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#c02020', marginBottom:20, lineHeight:1.5 }}>
+          ⚠ The application from <strong>{remove?.full_name}</strong> (Ref: {remove?.reference}) will be permanently deleted. This cannot be undone.
+        </div>
+
+        <div className="modal-footer">
+          <button onClick={onCancel} className="btn btn-outline" disabled={busy}>Cancel</button>
+          <button onClick={() => onConfirm(keepId, remove?.id)} disabled={busy}
+            className="btn" style={{ background:'var(--green)', color:'#fff', border:'none' }}>
+            {busy ? 'Processing…' : `Keep ${keep?.full_name?.split(' ')[0]} — Delete Duplicate →`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function Section({ label, children }) {
   return (
@@ -319,12 +392,76 @@ export default function HRApplications() {
   const [selectedId,  setSelectedId]= useState(null)
   const [sortField,   setSortField] = useState('submitted_at')
   const [sortDir,     setSortDir]   = useState('desc')
+  const [appDupPair,  setAppDupPair]= useState(null)
+  const [mergingApp,  setMergingApp]= useState(false)
+  const [toast,       setToast]     = useState(null)
+
+  function showToast(msg, type = 'success') {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 4500)
+  }
 
   function load() {
     getApplications().then(r => setApps(r.data || [])).catch(() => setApps([]))
   }
 
   useEffect(() => { load() }, [])
+
+  const appDuplicateIds = useMemo(() => {
+    if (!apps) return new Set()
+    const emailMap = {}, niMap = {}, siaMap = {}, nameMap = {}, ids = new Set()
+    apps.forEach(a => {
+      if (a.email)       { const k = a.email.toLowerCase();      (emailMap[k] = emailMap[k] || []).push(a.id) }
+      if (a.ni_number)   { const k = a.ni_number.toUpperCase();  (niMap[k]    = niMap[k]    || []).push(a.id) }
+      if (a.sia_licence) { const k = a.sia_licence;              (siaMap[k]   = siaMap[k]   || []).push(a.id) }
+      if (a.first_name && a.last_name && a.date_of_birth && a.phone) {
+        const k = `${a.first_name.toLowerCase()}|${a.last_name.toLowerCase()}|${a.date_of_birth}|${a.phone}`
+        ;(nameMap[k] = nameMap[k] || []).push(a.id)
+      }
+    })
+    Object.values(emailMap).forEach(arr => arr.length > 1 && arr.forEach(id => ids.add(id)))
+    Object.values(niMap).forEach(arr   => arr.length > 1 && arr.forEach(id => ids.add(id)))
+    Object.values(siaMap).forEach(arr  => arr.length > 1 && arr.forEach(id => ids.add(id)))
+    Object.values(nameMap).forEach(arr => arr.length > 1 && arr.forEach(id => ids.add(id)))
+    return ids
+  }, [apps])
+
+  function getDupPairForApp(a) {
+    const all = apps || []
+    const seen = new Set([a.id])
+    const candidates = []
+    const checks = [
+      a.email       ? all.filter(x => !seen.has(x.id) && x.email?.toLowerCase() === a.email.toLowerCase()) : [],
+      a.ni_number   ? all.filter(x => !seen.has(x.id) && x.ni_number?.toUpperCase() === a.ni_number.toUpperCase()) : [],
+      a.sia_licence ? all.filter(x => !seen.has(x.id) && x.sia_licence === a.sia_licence) : [],
+      (a.first_name && a.last_name && a.date_of_birth && a.phone)
+        ? all.filter(x => !seen.has(x.id)
+            && x.first_name?.toLowerCase() === a.first_name?.toLowerCase()
+            && x.last_name?.toLowerCase()  === a.last_name?.toLowerCase()
+            && x.date_of_birth === a.date_of_birth && x.phone === a.phone)
+        : [],
+    ]
+    for (const arr of checks) {
+      for (const x of arr) {
+        if (!seen.has(x.id)) { seen.add(x.id); candidates.push(x) }
+      }
+    }
+    return candidates.length > 0 ? [a, candidates[0]] : null
+  }
+
+  async function handleAppMerge(keepId, deleteId) {
+    setMergingApp(true)
+    try {
+      await deleteApplication(deleteId)
+      showToast('✅ Duplicate application removed.')
+      setAppDupPair(null)
+      load()
+    } catch (ex) {
+      showToast(ex.response?.data?.detail || 'Failed to remove duplicate', 'error')
+    } finally {
+      setMergingApp(false)
+    }
+  }
 
   function handleSort(field) {
     if (sortField === field) {
@@ -363,6 +500,8 @@ export default function HRApplications() {
 
   return (
     <>
+      <AppToast toast={toast} />
+
       <div style={{ marginBottom:26 }}>
         <h2 style={{ fontSize:23, fontWeight:700, marginBottom:4 }}>Applications</h2>
         <p style={{ fontSize:14, color:'var(--text-muted)' }}>Job applications submitted via the public apply form</p>
@@ -426,25 +565,46 @@ export default function HRApplications() {
                 <tr><td colSpan={9} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={9} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>No applications found.</td></tr>
-              ) : filtered.map(a => (
-                <tr key={a.id}>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12, fontWeight:700, color:'var(--green)', whiteSpace:'nowrap' }}>{a.reference || '—'}</td>
-                  <td style={{ fontWeight:600, whiteSpace:'nowrap' }}>{a.full_name}</td>
-                  <td style={{ fontSize:12 }}>{a.city || '—'}</td>
-                  <td style={{ fontSize:12, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>{a.postcode || '—'}</td>
-                  <td style={{ fontSize:12 }}>{a.email}</td>
-                  <td style={{ fontSize:12, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>{a.phone || '—'}</td>
-                  <td style={{ fontFamily:'DM Mono,monospace', fontSize:12, whiteSpace:'nowrap' }}>
-                    {a.submitted_at ? fmtDateTime(a.submitted_at) : '—'}
-                  </td>
-                  <td><SBadge status={a.status} /></td>
-                  <td>
-                    <button onClick={() => setSelectedId(a.id)} className="btn btn-outline" style={{ fontSize:12, padding:'5px 12px' }}>
-                      View →
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              ) : filtered.map(a => {
+                const isDup = appDuplicateIds.has(a.id)
+                return (
+                  <tr key={a.id} style={{ background: isDup ? 'rgba(255,160,0,.04)' : undefined }}>
+                    <td style={{ fontFamily:'DM Mono,monospace', fontSize:12, fontWeight:700, color:'var(--green)', whiteSpace:'nowrap' }}>{a.reference || '—'}</td>
+                    <td style={{ fontWeight:600, whiteSpace:'nowrap' }}>
+                      {a.full_name}
+                      {isDup && (
+                        <span
+                          onClick={() => { const p = getDupPairForApp(a); if (p) setAppDupPair(p) }}
+                          title="Potential duplicate — click to review"
+                          style={{ display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:10, cursor:'pointer', background:'rgba(255,160,0,.18)', color:'#7a4400', verticalAlign:'middle', border:'1px solid rgba(255,160,0,.4)' }}
+                        >⚠ Duplicate</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize:12 }}>{a.city || '—'}</td>
+                    <td style={{ fontSize:12, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>{a.postcode || '—'}</td>
+                    <td style={{ fontSize:12 }}>{a.email}</td>
+                    <td style={{ fontSize:12, fontFamily:'DM Mono,monospace', whiteSpace:'nowrap' }}>{a.phone || '—'}</td>
+                    <td style={{ fontFamily:'DM Mono,monospace', fontSize:12, whiteSpace:'nowrap' }}>
+                      {a.submitted_at ? fmtDateTime(a.submitted_at) : '—'}
+                    </td>
+                    <td><SBadge status={a.status} /></td>
+                    <td>
+                      <div style={{ display:'flex', gap:4 }}>
+                        <button onClick={() => setSelectedId(a.id)} className="btn btn-outline" style={{ fontSize:12, padding:'5px 12px' }}>
+                          View →
+                        </button>
+                        {isDup && (
+                          <button
+                            onClick={() => { const p = getDupPairForApp(a); if (p) setAppDupPair(p) }}
+                            title="Merge duplicate application"
+                            style={{ padding:'5px 8px', borderRadius:6, border:'1px solid rgba(255,160,0,.5)', background:'rgba(255,160,0,.14)', color:'#7a4400', cursor:'pointer', fontSize:11, fontWeight:700 }}
+                          >Merge</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -455,6 +615,15 @@ export default function HRApplications() {
           appId={selectedId}
           onClose={() => setSelectedId(null)}
           onUpdated={() => { load(); }}
+        />
+      )}
+
+      {appDupPair && (
+        <AppMergeModal
+          pair={appDupPair}
+          onConfirm={handleAppMerge}
+          onCancel={() => setAppDupPair(null)}
+          busy={mergingApp}
         />
       )}
     </>

@@ -59,10 +59,19 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
     const bTime = b.activated_at || b.registered_at || ''
     return aTime >= bTime ? a.id : b.id
   })()
-  const [primaryId, setPrimaryId] = useState(newestId)
+  const [primaryId,     setPrimaryId]     = useState(newestId)
+  const [staffIdChoice, setStaffIdChoice] = useState('primary')
+  const [customId,      setCustomId]      = useState('')
 
   const primary   = pair.records.find(r => r.id === primaryId)
   const secondary = pair.records.find(r => r.id !== primaryId)
+
+  function selectPrimary(id) { setPrimaryId(id); setStaffIdChoice('primary') }
+
+  const resolvedStaffId =
+    staffIdChoice === 'secondary' ? secondary?.staff_id :
+    staffIdChoice === 'custom'    ? customId.trim() :
+    primary?.staff_id
 
   const reasonText = pair.reason === 'ni_number'     ? 'NI number'
                    : pair.reason === 'sia_licence'   ? 'SIA licence'
@@ -70,24 +79,27 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div className="modal" style={{ width: 580 }}>
+      <div className="modal" style={{ width: 600, maxHeight:'90vh', overflowY:'auto' }}>
         <h3 style={{ marginBottom:6 }}>Merge Duplicate Records</h3>
         <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:18, lineHeight:1.5 }}>
-          These two records share the same {reasonText}. The newest account is pre-selected to keep — it will absorb all shifts, incidents, holidays and other history from the duplicate, which will then be deleted.
+          These two records share the same {reasonText}. Choose which to keep — all shifts, holidays and history will be transferred to it.
         </p>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+        <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.07em', color:'var(--text-muted)', marginBottom:10 }}>
+          Step 1 — Which record should we keep?
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:22 }}>
           {pair.records.map(r => {
             const selected = r.id === primaryId
             const isNewest = r.id === newestId
             return (
-              <div key={r.id} onClick={() => setPrimaryId(r.id)} style={{
+              <div key={r.id} onClick={() => selectPrimary(r.id)} style={{
                 padding:14, borderRadius:10, cursor:'pointer', transition:'all .15s',
                 border: `2px solid ${selected ? 'var(--green)' : 'var(--border)'}`,
                 background: selected ? 'rgba(106,191,63,.08)' : 'var(--navy-light)',
               }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                  <input type="radio" checked={selected} onChange={() => setPrimaryId(r.id)} style={{ accentColor:'var(--green)' }} />
+                  <input type="radio" checked={selected} onChange={() => selectPrimary(r.id)} style={{ accentColor:'var(--green)' }} />
                   <span style={{ fontSize:12, fontWeight:700, color: selected ? 'var(--green)' : 'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em' }}>
                     {selected ? '✓ Keep this' : 'Discard this'}
                   </span>
@@ -98,7 +110,7 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
                   )}
                 </div>
                 <div style={{ fontWeight:700, fontSize:14 }}>{r.full_name}</div>
-                <div style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'DM Mono,monospace', marginTop:2 }}>{r.staff_id}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'DM Mono,monospace', marginTop:2 }}>{r.staff_id || 'TBC'}</div>
                 <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{r.email}</div>
                 <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:6 }}>
                   Registered: {r.registered_at ? new Date(r.registered_at).toLocaleDateString('en-GB') : '—'}
@@ -108,15 +120,47 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
           })}
         </div>
 
+        <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.07em', color:'var(--text-muted)', marginBottom:10 }}>
+          Step 2 — Which Staff ID should be applied?
+        </div>
+        <div style={{ background:'var(--navy-light)', border:'1px solid var(--border)', borderRadius:10, padding:'14px 16px', marginBottom:20 }}>
+          {[
+            { key:'primary',   label: primary?.staff_id || 'TBC',   sub:`From the record being kept (${primary?.full_name})` },
+            { key:'secondary', label: secondary?.staff_id || 'TBC', sub:`From the record being deleted (${secondary?.full_name})` },
+            { key:'custom',    label:'Enter a different Staff ID',   sub:'Type a custom ID below' },
+          ].map(opt => (
+            <label key={opt.key} style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:10, cursor:'pointer' }}>
+              <input type="radio" name="sidChoice" checked={staffIdChoice === opt.key}
+                onChange={() => setStaffIdChoice(opt.key)}
+                style={{ accentColor:'var(--green)', marginTop:2 }} />
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, fontFamily:'DM Mono,monospace' }}>{opt.label}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{opt.sub}</div>
+              </div>
+            </label>
+          ))}
+          {staffIdChoice === 'custom' && (
+            <input value={customId} onChange={e => setCustomId(e.target.value)}
+              placeholder="e.g. IFM-099"
+              style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy)', color:'var(--text)', fontFamily:'DM Mono,monospace', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+          )}
+          {resolvedStaffId && (
+            <div style={{ marginTop:10, padding:'7px 12px', background:'rgba(106,191,63,.08)', border:'1px solid rgba(106,191,63,.2)', borderRadius:8, fontSize:12, color:'var(--green)' }}>
+              ✓ Staff ID that will be applied: <strong style={{ fontFamily:'DM Mono,monospace' }}>{resolvedStaffId}</strong>
+            </div>
+          )}
+        </div>
+
         <div style={{ background:'rgba(224,85,85,.08)', border:'1px solid rgba(224,85,85,.25)', borderRadius:8, padding:'10px 14px', fontSize:12, color:'#c02020', marginBottom:20 }}>
-          ⚠ This will permanently delete <strong>{secondary?.full_name}</strong> and transfer all their records to <strong>{primary?.full_name}</strong>. This cannot be undone.
+          ⚠ This will permanently delete <strong>{secondary?.full_name}</strong> and transfer all their records to <strong>{primary?.full_name}</strong>. Staff will be emailed their confirmed Staff ID. This cannot be undone.
         </div>
 
         <div className="modal-footer">
           <button onClick={onCancel} className="btn btn-outline" disabled={busy}>Cancel</button>
-          <button onClick={() => onConfirm(primaryId, secondary?.id)} disabled={busy}
+          <button onClick={() => onConfirm(primaryId, secondary?.id, resolvedStaffId || null)}
+            disabled={busy || (staffIdChoice === 'custom' && !customId.trim())}
             className="btn" style={{ background:'var(--green)', color:'#fff', border:'none' }}>
-            {busy ? 'Merging…' : `Merge — Keep ${primary?.full_name}`}
+            {busy ? 'Merging…' : 'Merge & Notify Staff →'}
           </button>
         </div>
       </div>
@@ -294,10 +338,10 @@ export default function HRStaff() {
     }
   }
 
-  async function handleMerge(primaryId, secondaryId) {
+  async function handleMerge(primaryId, secondaryId, keepStaffId) {
     setMerging(true)
     try {
-      const res = await mergeStaff(primaryId, secondaryId)
+      const res = await mergeStaff(primaryId, secondaryId, keepStaffId)
       showToast(`✅ ${res.data.message}`)
       setMergePair(null)
       load()
@@ -459,7 +503,7 @@ export default function HRStaff() {
             </tr></thead>
             <tbody>
               {filtered.map(s => (
-                <tr key={s.id} style={{ background: selected.has(s.id) ? 'rgba(224,85,85,.05)' : undefined }}>
+                <tr key={s.id} style={{ background: selected.has(s.id) ? 'rgba(224,85,85,.05)' : duplicateIds.has(s.id) ? 'rgba(255,160,0,.04)' : undefined }}>
                   <td style={{ textAlign: 'center' }}>
                     <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleRow(s.id)} />
                   </td>
@@ -536,6 +580,13 @@ export default function HRStaff() {
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => openEdit(s)} className="btn btn-outline" style={{ fontSize:11, padding:'5px 10px' }}>Edit</button>
+                      {duplicateIds.has(s.id) && (
+                        <button
+                          onClick={() => { const p = getDuplicatePairFor(s); if (p) setMergePair(p) }}
+                          title="Merge duplicate records"
+                          style={{ padding:'5px 8px', borderRadius:6, border:'1px solid rgba(255,160,0,.5)', background:'rgba(255,160,0,.14)', color:'#7a4400', cursor:'pointer', fontSize:11, fontWeight:700 }}
+                        >⚠ Merge</button>
+                      )}
                       <button
                         onClick={() => handleToggleBlock(s)}
                         disabled={blockingId === s.id}

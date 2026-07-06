@@ -496,6 +496,8 @@ def _summary(a: models.JobApplication) -> dict:
         "title":        a.title,
         "email":        a.email,
         "phone":        a.phone,
+        "ni_number":    a.ni_number,
+        "sia_licence":  a.sia_licence,
         "date_of_birth": a.date_of_birth,
         "address":      a.address,
         "address_line2": a.address_line2,
