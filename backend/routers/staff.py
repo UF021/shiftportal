@@ -1,4 +1,6 @@
 import json
+import os
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -9,6 +11,75 @@ from database import get_db
 from schemas import EditUserRequest
 from auth_utils import get_current_user, require_hr, org_guard
 import models
+
+log = logging.getLogger(__name__)
+
+
+def _send_merge_email(primary: models.User, secondary_email: str, secondary_name: str):
+    api_key   = os.getenv("RESEND_API_KEY")
+    from_addr = os.getenv("EMAIL_FROM", "hr@ikanfm.co.uk")
+    if not api_key:
+        log.info("[MERGE] RESEND_API_KEY not set — would notify %s", primary.email)
+        return
+    try:
+        import resend
+        resend.api_key = api_key
+
+        subject = f"Your staff record has been merged — Staff ID: {primary.staff_id or 'TBC'}"
+        body = f"""Dear {primary.first_name},
+
+We are writing to inform you that we identified more than one staff record in our system under your name or details.
+
+Your records have now been merged into a single account. Please use the following details when logging into the staff portal:
+
+  Staff ID:  {primary.staff_id or 'TBC'}
+  Email:     {primary.email}
+
+All shift records, holidays, training and other history associated with any previous accounts have been transferred to your main record.
+
+If you believe this has been done in error, or if you have any questions, please contact HR at hr@ikanfm.co.uk.
+
+Yours sincerely,
+
+HR Department
+Ikan Facilities Management Ltd
+Web: www.ikanfm.co.uk"""
+
+        resend.Emails.send({
+            "from":    f"Ikan FM HR <{from_addr}>",
+            "to":      [primary.email],
+            "subject": subject,
+            "text":    body,
+        })
+
+        # If the secondary had a different email, notify that address too
+        if secondary_email and secondary_email.lower() != primary.email.lower():
+            sec_body = f"""Dear {secondary_name},
+
+We are writing to inform you that we identified more than one staff record in our system for you.
+
+Your records have been consolidated. Your active staff account is now:
+
+  Email:    {primary.email}
+  Staff ID: {primary.staff_id or 'TBC'}
+
+Please use the above email address to log in going forward. If you have any questions please contact HR at hr@ikanfm.co.uk.
+
+Yours sincerely,
+
+HR Department
+Ikan Facilities Management Ltd
+Web: www.ikanfm.co.uk"""
+            resend.Emails.send({
+                "from":    f"Ikan FM HR <{from_addr}>",
+                "to":      [secondary_email],
+                "subject": "Your staff account has been consolidated",
+                "text":    sec_body,
+            })
+
+        log.info("[MERGE] Merge notification sent to %s", primary.email)
+    except Exception as exc:
+        log.error("[MERGE] Failed to send merge notification: %s", exc)
 
 router = APIRouter()
 
@@ -354,8 +425,9 @@ def list_duplicates(
 
 
 class MergeRequest(BaseModel):
-    primary_id:   int   # record to keep (newer — takes field primacy)
-    secondary_id: int   # record to absorb then delete
+    primary_id:    int         # record to keep (newer — takes field primacy)
+    secondary_id:  int         # record to absorb then delete
+    keep_staff_id: str | None = None  # explicit staff ID to apply; None = keep primary's existing ID
 
 
 @router.post("/merge")
@@ -425,7 +497,18 @@ def merge_staff(
         else:
             sp.user_id = primary.id
 
-    secondary_name = secondary.full_name
+    secondary_name  = secondary.full_name
+    secondary_email = secondary.email
+
+    # Apply the chosen staff ID before deleting secondary
+    if req.keep_staff_id and req.keep_staff_id.strip():
+        primary.staff_id = req.keep_staff_id.strip()
+
     db.delete(secondary)
     db.commit()
+
+    # Refresh primary to get updated staff_id before emailing
+    db.refresh(primary)
+    _send_merge_email(primary, secondary_email, secondary_name)
+
     return {"message": f"Merged: {secondary_name} absorbed into {primary.full_name}", "primary_id": primary.id}

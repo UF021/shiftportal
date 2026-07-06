@@ -8,6 +8,7 @@ const NAV = [
   { path:'/hr/applications',    icon:'📝', label:'Applications' },
   { path:'/hr/registrations',   icon:'📋', label:'Registrations' },
   { path:'/hr/staff',           icon:'👥', label:'Staff Records' },
+  { path:'/hr/duplicates',      icon:'🔀', label:'Merge Duplicates' },
   { path:'/hr/timelogs',        icon:'⏱',  label:'Time Report' },
   { path:'/hr/holidays',        icon:'🌴', label:'Holidays' },
   { path:'/hr/manual',          icon:'✏️', label:'Manual Entry' },

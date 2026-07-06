@@ -41,6 +41,7 @@ import HRApplications   from './pages/hr/HRApplications'
 import HRGPSCaptures    from './pages/hr/HRGPSCaptures'
 import HRIncidents      from './pages/hr/HRIncidents'
 import HRTraining       from './pages/hr/HRTraining'
+import HRDuplicates    from './pages/hr/HRDuplicates'
 
 // Superadmin
 import SuperLayout  from './pages/superadmin/SuperLayout'
@@ -123,6 +124,7 @@ export default function App() {
         <Route path="incidents"     element={<HRIncidents />} />
         <Route path="training"      element={<HRTraining />} />
         <Route path="gps"           element={<HRGPSCaptures />} />
+        <Route path="duplicates"    element={<HRDuplicates />} />
         <Route path="settings"      element={<HRSettings />} />
       </Route>
 

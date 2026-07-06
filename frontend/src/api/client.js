@@ -48,7 +48,7 @@ export const bulkBlockStaff            = (ids)    => api.post('/staff/bulk/block
 export const getProfileChanges         = ()              => api.get('/staff/profile-changes')
 export const acknowledgeProfileChange  = (id)            => api.post(`/staff/profile-changes/${id}/acknowledge`)
 export const getStaffDuplicates        = ()              => api.get('/staff/duplicates')
-export const mergeStaff               = (primary_id, secondary_id) => api.post('/staff/merge', { primary_id, secondary_id })
+export const mergeStaff               = (primary_id, secondary_id, keep_staff_id = null) => api.post('/staff/merge', { primary_id, secondary_id, ...(keep_staff_id ? { keep_staff_id } : {}) })
 
 // Registrations
 export const getPending   = ()       => api.get('/registrations/pending')
