@@ -182,6 +182,7 @@ def send_lateness_warnings():
                     models.ClockEvent.organisation_id == org.id,
                     models.ClockEvent.event_type      == models.ClockEventType.clock_in,
                     models.ClockEvent.is_late         == True,
+                    models.ClockEvent.minutes_late    >  10,
                     models.ClockEvent.timestamp       >= week_ago,
                 )
                 .order_by(models.ClockEvent.timestamp.asc())

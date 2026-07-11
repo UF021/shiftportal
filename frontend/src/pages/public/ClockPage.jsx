@@ -747,33 +747,59 @@ export default function ClockPage() {
           </div>
 
           {/* Scheduled Start — clock-in only */}
-          {isIn && (
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ ...fieldLabel, color: '#1B5E20', fontWeight: 800, fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>
-                What time was your shift scheduled to start? <span style={{ color: '#C62828' }}>*</span>
-              </label>
-              <input
-                type="time"
-                value={form.scheduledStart}
-                onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
-                style={{
-                  ...fieldInput,
-                  fontFamily: 'DM Mono, monospace', fontSize: 17,
-                  border: '1.5px solid #2E7D32', background: '#f0f9f0',
-                }}
-              />
-              {minsLate != null && minsLate > 0 && (
-                <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#fde8e8', border: '1px solid #f0aaaa', fontSize: 13, color: '#a02020', fontWeight: 700 }}>
-                  ⚠️ You are {minsLate} minute{minsLate !== 1 ? 's' : ''} late
+          {isIn && (() => {
+            const schedParts  = form.scheduledStart ? form.scheduledStart.split(':') : null
+            const schedH      = schedParts ? parseInt(schedParts[0]) : null
+            const schedM      = schedParts ? parseInt(schedParts[1]) : null
+            const unusualTime = schedM != null && schedM % 30 !== 0
+            const nearHour    = schedH != null ? `${String(schedH).padStart(2,'0')}:00` : null
+            const nearHalf    = schedH != null ? `${String(schedH).padStart(2,'0')}:30` : null
+            const nextHour    = schedH != null ? `${String((schedH + 1) % 24).padStart(2,'0')}:00` : null
+            // Pick the two most sensible suggestions
+            const suggA = schedM != null && schedM < 15 ? nearHour : nearHalf
+            const suggB = schedM != null && schedM < 15 ? nearHalf : (schedM >= 45 ? nextHour : nearHour)
+
+            return (
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ ...fieldLabel, color: '#1B5E20', fontWeight: 800, fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>
+                  What time was your shift scheduled to start? <span style={{ color: '#C62828' }}>*</span>
+                </label>
+                <input
+                  type="time"
+                  value={form.scheduledStart}
+                  onChange={e => setForm(f => ({ ...f, scheduledStart: e.target.value }))}
+                  style={{
+                    ...fieldInput,
+                    fontFamily: 'DM Mono, monospace', fontSize: 17,
+                    border: `1.5px solid ${unusualTime ? AMBER : '#2E7D32'}`,
+                    background: unusualTime ? '#fffbf0' : '#f0f9f0',
+                  }}
+                />
+                {/* Guidance note — always visible once a time is entered or field is blank */}
+                <div style={{ marginTop: 7, fontSize: 12, color: '#555', lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <span style={{ flexShrink: 0 }}>ℹ</span>
+                  <span>Enter the time your rota shift was scheduled to start — usually on the hour (e.g. 07:00) or half past (e.g. 07:30).</span>
                 </div>
-              )}
-              {minsLate != null && minsLate <= 0 && (
-                <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#E8F5E9', border: '1px solid #A5D6A7', fontSize: 13, color: '#2E7D32', fontWeight: 700 }}>
-                  ✅ On time
-                </div>
-              )}
-            </div>
-          )}
+                {/* Unusual-time flag */}
+                {unusualTime && (
+                  <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, background: '#fff8e6', border: `1px solid ${AMBER}`, fontSize: 13, color: '#6d4c00', lineHeight: 1.5 }}>
+                    <strong>⚠ Check the time</strong><br />
+                    Shifts usually start on the hour or at :30. Did you mean <strong>{suggA}</strong> or <strong>{suggB}</strong>?
+                  </div>
+                )}
+                {minsLate != null && minsLate > 0 && (
+                  <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#fde8e8', border: '1px solid #f0aaaa', fontSize: 13, color: '#a02020', fontWeight: 700 }}>
+                    ⚠️ You are {minsLate} minute{minsLate !== 1 ? 's' : ''} late
+                  </div>
+                )}
+                {minsLate != null && minsLate <= 0 && (
+                  <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 8, background: '#E8F5E9', border: '1px solid #A5D6A7', fontSize: 13, color: '#2E7D32', fontWeight: 700 }}>
+                    ✅ On time
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Error */}
           {formError && (
