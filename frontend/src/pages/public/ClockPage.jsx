@@ -96,9 +96,10 @@ export default function ClockPage() {
   const [pageLoadTime]              = useState(() => new Date())
 
   // Manager override state
-  const [overrideAction, setOverrideAction] = useState('in')
-  const [overrideError,  setOverrideError]  = useState('')
-  const [overrideForm,   setOverrideForm]   = useState({
+  const [overrideAction,    setOverrideAction]    = useState('in')
+  const [overrideError,     setOverrideError]      = useState('')
+  const [overrideConfirmed, setOverrideConfirmed] = useState(false)
+  const [overrideForm,      setOverrideForm]       = useState({
     managerName:    '',
     clockTime:      '',
     scheduledStart: '',
@@ -151,6 +152,7 @@ export default function ClockPage() {
   function openOverride(targetAction) {
     setOverrideAction(targetAction)
     setOverrideError('')
+    setOverrideConfirmed(false)
     setOverrideForm(f => ({
       ...f,
       clockTime:      nowHHMM(),
@@ -507,6 +509,19 @@ export default function ClockPage() {
           <div style={{ fontSize: 12, fontWeight: 700, color: AMBER, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>
             Duty Manager Details
           </div>
+
+          {/* Declaration banner */}
+          <div style={{
+            background: '#fff8e6', border: `1px solid ${AMBER}`, borderRadius: 10,
+            padding: '11px 14px', marginBottom: 14,
+            display: 'flex', gap: 10, alignItems: 'flex-start',
+          }}>
+            <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>⚠</span>
+            <div style={{ fontSize: 13, color: '#6d4c00', lineHeight: 1.5 }}>
+              This override is for <strong>Site Duty Managers only</strong>. By proceeding you confirm you are the Duty Manager currently on duty at this location and are authorising this sign-{overrideAction}.
+            </div>
+          </div>
+
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 5 }}>Duty Manager Full Name *</label>
             <input
@@ -516,6 +531,19 @@ export default function ClockPage() {
               placeholder="e.g. Jane Wilson"
             />
           </div>
+
+          {/* Confirmation checkbox */}
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={overrideConfirmed}
+              onChange={e => setOverrideConfirmed(e.target.checked)}
+              style={{ width: 18, height: 18, marginTop: 1, accentColor: AMBER, flexShrink: 0, cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 13, color: '#444', lineHeight: 1.5 }}>
+              I confirm I am the <strong>Site Duty Manager</strong> on duty at this location and I am authorising this sign-{overrideAction}
+            </span>
+          </label>
         </div>
 
         {/* Time + reason */}
@@ -571,12 +599,14 @@ export default function ClockPage() {
         {/* Submit */}
         <button
           onClick={submitOverride}
-          disabled={submitting}
+          disabled={submitting || !overrideConfirmed}
           style={{
             width: '100%', padding: '17px 0', fontSize: 17, fontWeight: 800,
             letterSpacing: '.06em', borderRadius: 12, border: 'none',
-            background: submitting ? '#aaa' : AMBER,
-            color: '#fff', cursor: submitting ? 'wait' : 'pointer',
+            background: (submitting || !overrideConfirmed) ? '#ccc' : AMBER,
+            color: (submitting || !overrideConfirmed) ? '#999' : '#fff',
+            cursor: (submitting || !overrideConfirmed) ? 'not-allowed' : 'pointer',
+            transition: 'background .2s, color .2s',
           }}
         >
           {submitting ? '…' : `AUTHORISE SIGN ${overrideAction.toUpperCase()}`}
