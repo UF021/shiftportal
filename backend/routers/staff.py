@@ -211,22 +211,17 @@ def list_staff(
             .distinct()
             .all()
         }
-        # Only auto-archive staff who have at least one clock-in ever (not brand-new)
-        ever_clocked = {
-            row.user_id for row in db.query(models.ClockEvent.user_id)
-            .filter(
-                models.ClockEvent.user_id.in_(cand_ids),
-                models.ClockEvent.event_type == models.ClockEventType.clock_in,
-            )
-            .distinct()
-            .all()
-        }
         archived_any = False
         for u in candidates:
-            if u.id in ever_clocked and u.id not in recent_users:
-                u.is_archived = True
-                u.archived_at = datetime.now(timezone.utc)
-                archived_any = True
+            if u.id in recent_users:
+                continue  # clocked in within 6 weeks — keep active
+            # Grace period: skip staff activated or registered within the last 6 weeks
+            account_date = u.activated_at or u.registered_at
+            if account_date and account_date >= cutoff:
+                continue  # brand-new account — don't archive yet
+            u.is_archived = True
+            u.archived_at = datetime.now(timezone.utc)
+            archived_any = True
         if archived_any:
             db.commit()
 

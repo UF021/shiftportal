@@ -289,6 +289,10 @@ def _ensure_columns():
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS recipient_ids TEXT",
             # Users — staff_type for payroll vs subcontract classification
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS staff_type VARCHAR(20) DEFAULT 'payroll'",
+            # Users — archive system (staff with no hours in 6 weeks)
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false",
+            "UPDATE users SET is_archived = false WHERE is_archived IS NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ",
         ]
         for s in stmts:
             db.execute(text(s))
