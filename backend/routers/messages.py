@@ -38,6 +38,7 @@ def send_message(
             models.User.role            == models.UserRole.staff,
             models.User.is_blocked      == False,
             models.User.is_active       == True,
+            models.User.is_archived.isnot(True),
         ).all()
         if not targets:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No valid recipients found")
@@ -162,6 +163,7 @@ def all_messages(
         models.User.role            == models.UserRole.staff,
         models.User.is_active       == True,
         models.User.is_blocked      == False,
+        models.User.is_archived.isnot(True),
     ).count()
 
     rows = (

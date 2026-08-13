@@ -201,6 +201,8 @@ def send_lateness_warnings():
                 user = db.query(models.User).filter(models.User.id == user_id).first()
                 if not user or not user.email:
                     continue
+                if user.is_blocked or getattr(user, 'is_archived', False):
+                    continue
 
                 # ── Escalation: count warnings already sent this calendar month ──
                 warnings_this_month = (

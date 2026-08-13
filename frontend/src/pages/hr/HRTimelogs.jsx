@@ -549,20 +549,43 @@ export function HRTimelogs() {
                   <tr key={e.id} style={{
                     background: selected.has(e.id)
                       ? 'rgba(106,191,63,.06)'
-                      : e.is_bank_holiday
-                        ? 'rgba(245,158,11,.08)'
-                        : e.is_late
-                          ? 'rgba(224,85,85,.05)'
-                          : e.shift_minutes > 720
-                            ? 'rgba(181,71,8,.06)'
-                            : undefined,
-                    borderLeft: e.is_bank_holiday ? '3px solid #f59e0b' : undefined,
+                      : e.is_staff_archived || e.is_staff_blocked
+                        ? 'rgba(120,120,140,.08)'
+                        : e.is_bank_holiday
+                          ? 'rgba(245,158,11,.08)'
+                          : e.is_late
+                            ? 'rgba(224,85,85,.05)'
+                            : e.shift_minutes > 720
+                              ? 'rgba(181,71,8,.06)'
+                              : undefined,
+                    borderLeft: e.is_staff_archived
+                      ? '3px solid #94a3b8'
+                      : e.is_staff_blocked
+                        ? '3px solid #e05555'
+                        : e.is_bank_holiday
+                          ? '3px solid #f59e0b'
+                          : undefined,
+                    opacity: (e.is_staff_archived || e.is_staff_blocked) ? 0.8 : 1,
                   }}>
                     <td style={{ textAlign: 'center' }}>
                       <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleRow(e.id)} />
                     </td>
                     <td>
                       <strong>{e.user_name || '—'}</strong>
+                      {e.is_staff_archived && (
+                        <div style={{ marginTop: 3 }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', background: '#e2e8f0', padding: '1px 6px', borderRadius: 4, letterSpacing: '.03em' }}>
+                            📦 ARCHIVED
+                          </span>
+                        </div>
+                      )}
+                      {e.is_staff_blocked && !e.is_staff_archived && (
+                        <div style={{ marginTop: 3 }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: '#c0392b', background: '#fde8e8', padding: '1px 6px', borderRadius: 4, letterSpacing: '.03em' }}>
+                            🚫 BLOCKED
+                          </span>
+                        </div>
+                      )}
                       {e.entry_notes && (
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>📝 {e.entry_notes}</div>
                       )}

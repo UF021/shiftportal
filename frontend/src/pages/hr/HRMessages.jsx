@@ -29,7 +29,7 @@ function PBadge({ priority }) {
 function RecipientPicker({ staff, mode, setMode, selectedIds, setSelectedIds }) {
   const [search, setSearch] = useState('')
 
-  const active = staff.filter(s => !s.is_blocked && s.is_active)
+  const active = staff.filter(s => !s.is_blocked && s.is_active && !s.is_archived)
   const visible = active.filter(s =>
     !search || s.full_name.toLowerCase().includes(search.toLowerCase())
   )

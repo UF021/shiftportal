@@ -520,6 +520,8 @@ def all_events(
             "entry_notes":      ci.entry_notes or None,
             "gps_verified":     ci.gps_verified,
             "is_bank_holiday":  is_bank_holiday(date_str),
+            "is_staff_archived": getattr(ci.user, 'is_archived', False) if ci.user else False,
+            "is_staff_blocked":  ci.user.is_blocked if ci.user else False,
         })
         if shift_minutes:
             total_mins += shift_minutes
@@ -1064,6 +1066,9 @@ def clock_in(
 
     if user.is_blocked:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account access has been suspended. Please contact HR.")
+
+    if getattr(user, 'is_archived', False):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been archived. Please contact HR.")
 
     # ── Scheduled start is mandatory for every clock-in ──────────────────────
     if not body.scheduled_start or not body.scheduled_start.strip():
