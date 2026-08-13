@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -84,27 +85,19 @@ Web: www.ikanfm.co.uk"""
 router = APIRouter()
 
 
-@router.get("/all")
-def list_staff(
-    db: Session = Depends(get_db),
-    hr: models.User = Depends(require_hr),
-):
-    q = db.query(models.User).filter(
-        models.User.role == models.UserRole.staff,
-    )
-    if hr.role != models.UserRole.superadmin:
-        q = q.filter(models.User.organisation_id == hr.organisation_id)
-
-    users = q.order_by(models.User.last_name).all()
-
-    # First clock-in date per user (one query for all users)
+def _build_staff_response(users, db):
+    """Shared serialiser for both active and archived staff lists."""
+    import pytz
+    uk = pytz.timezone('Europe/London')
     user_ids = [u.id for u in users]
+
     first_clocks = {}
+    last_clocks  = {}
     if user_ids:
-        rows = (
+        first_rows = (
             db.query(
                 models.ClockEvent.user_id,
-                func.min(models.ClockEvent.timestamp).label('first_ts'),
+                func.min(models.ClockEvent.timestamp).label('ts'),
             )
             .filter(
                 models.ClockEvent.user_id.in_(user_ids),
@@ -113,13 +106,27 @@ def list_staff(
             .group_by(models.ClockEvent.user_id)
             .all()
         )
-        import pytz
-        uk = pytz.timezone('Europe/London')
-        for row in rows:
-            first_clocks[row.user_id] = row.first_ts.astimezone(uk).date().isoformat()
+        for row in first_rows:
+            first_clocks[row.user_id] = row.ts.astimezone(uk).date().isoformat()
+
+        last_rows = (
+            db.query(
+                models.ClockEvent.user_id,
+                func.max(models.ClockEvent.timestamp).label('ts'),
+            )
+            .filter(
+                models.ClockEvent.user_id.in_(user_ids),
+                models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            )
+            .group_by(models.ClockEvent.user_id)
+            .all()
+        )
+        for row in last_rows:
+            last_clocks[row.user_id] = row.ts.astimezone(uk).date().isoformat()
 
     return [
         {
+            "last_clock_in":         last_clocks.get(u.id),
             # Identity
             "id":                    u.id,
             "staff_id":              u.staff_id,
@@ -165,11 +172,89 @@ def list_staff(
             # Meta
             "is_active":             u.is_active,
             "is_blocked":            u.is_blocked,
+            "is_archived":           bool(u.is_archived),
+            "archived_at":           u.archived_at.isoformat() if u.archived_at else None,
             "registered_at":         u.registered_at.isoformat() if u.registered_at else None,
             "activated_at":          u.activated_at.isoformat() if u.activated_at else None,
         }
         for u in users
     ]
+
+
+@router.get("/all")
+def list_staff(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    import pytz
+    uk      = pytz.timezone('Europe/London')
+    cutoff  = datetime.now(timezone.utc) - timedelta(weeks=6)
+    org_id  = hr.organisation_id
+
+    # Auto-archive: active, non-archived staff with no clock-in in the last 6 weeks
+    candidates = db.query(models.User).filter(
+        models.User.role        == models.UserRole.staff,
+        models.User.is_active   == True,
+        models.User.is_archived.isnot(True),
+        models.User.organisation_id == org_id,
+    ).all()
+
+    if candidates:
+        cand_ids = [u.id for u in candidates]
+        recent_users = {
+            row.user_id for row in db.query(models.ClockEvent.user_id)
+            .filter(
+                models.ClockEvent.user_id.in_(cand_ids),
+                models.ClockEvent.event_type == models.ClockEventType.clock_in,
+                models.ClockEvent.timestamp  >= cutoff,
+            )
+            .distinct()
+            .all()
+        }
+        # Only auto-archive staff who have at least one clock-in ever (not brand-new)
+        ever_clocked = {
+            row.user_id for row in db.query(models.ClockEvent.user_id)
+            .filter(
+                models.ClockEvent.user_id.in_(cand_ids),
+                models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            )
+            .distinct()
+            .all()
+        }
+        archived_any = False
+        for u in candidates:
+            if u.id in ever_clocked and u.id not in recent_users:
+                u.is_archived = True
+                u.archived_at = datetime.now(timezone.utc)
+                archived_any = True
+        if archived_any:
+            db.commit()
+
+    q = db.query(models.User).filter(
+        models.User.role            == models.UserRole.staff,
+        models.User.is_archived.isnot(True),
+    )
+    if hr.role != models.UserRole.superadmin:
+        q = q.filter(models.User.organisation_id == org_id)
+
+    users = q.order_by(models.User.last_name).all()
+    return _build_staff_response(users, db)
+
+
+@router.get("/archived")
+def list_archived_staff(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    q = db.query(models.User).filter(
+        models.User.role        == models.UserRole.staff,
+        models.User.is_archived == True,
+    )
+    if hr.role != models.UserRole.superadmin:
+        q = q.filter(models.User.organisation_id == hr.organisation_id)
+
+    users = q.order_by(models.User.last_name).all()
+    return _build_staff_response(users, db)
 
 
 @router.patch("/{user_id}")
@@ -295,6 +380,42 @@ def unblock_staff(
     u.is_blocked = False
     db.commit()
     return {"message": "Access restored", "id": u.id}
+
+
+@router.post("/{user_id}/archive")
+def archive_staff(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "User not found")
+    org_guard(hr, u.organisation_id)
+    if u.role != models.UserRole.staff:
+        raise HTTPException(403, "Can only archive staff accounts")
+    u.is_archived = True
+    u.archived_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"message": f"{u.full_name} archived", "id": u.id}
+
+
+@router.post("/{user_id}/unarchive")
+def unarchive_staff(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "User not found")
+    org_guard(hr, u.organisation_id)
+    if u.role != models.UserRole.staff:
+        raise HTTPException(403, "Can only unarchive staff accounts")
+    u.is_archived = False
+    u.archived_at = None
+    db.commit()
+    return {"message": f"{u.full_name} restored to active records", "id": u.id}
 
 
 @router.post("/bulk/block")

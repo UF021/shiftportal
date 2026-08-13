@@ -84,7 +84,7 @@ export default function HRManualShift() {
         entry_notes:     form.entry_notes || null,
       })
       setOk('✅ Shift entry created successfully.')
-      setForm(f => ({ ...f, user_id: '', site_id: '', date: '', clock_out_time: '', overnight: false, entry_notes: '' }))
+      setForm({ user_id: '', site_id: '', date: '', clock_in_time: '09:00', clock_out_time: '', scheduled_start: '09:00', overnight: false, entry_notes: '' })
     } catch(ex) { setErr(ex.response?.data?.detail || 'Failed to create entry.') }
     finally { setBusy(false) }
   }

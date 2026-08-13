@@ -159,6 +159,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active       = Column(Boolean, default=False)  # False until HR activates
     is_blocked      = Column(Boolean, default=False)  # HR can block portal + clock-in access
+    is_archived     = Column(Boolean, default=False)  # Auto-set when no hours in 6 weeks
+    archived_at     = Column(DateTime(timezone=True), nullable=True)
 
     # HR-assigned
     staff_id        = Column(String(30), nullable=True, default="TBC")

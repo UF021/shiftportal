@@ -481,10 +481,18 @@ def all_events(
                 break
         return True, manager_name
 
+    # Track used clock-out IDs per user so one clock-out can't be paired to
+    # multiple clock-ins (this is what caused manual backdated entries to
+    # "steal" the clock-out from an existing shift).
+    from collections import defaultdict as _dd
+    used_out_ids: dict[int, set] = _dd(set)
+
     entries    = []
     total_mins = 0
     for ci in clock_ins:
-        co            = next((o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp), None)
+        co            = next((o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp and o.id not in used_out_ids[ci.user_id]), None)
+        if co:
+            used_out_ids[ci.user_id].add(co.id)
         site_name     = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
         shift_minutes = co.shift_minutes if co else None
         is_override, manager_name = _parse_override(ci.entry_notes)
@@ -625,7 +633,7 @@ def manual_shift(
     db.add(in_event)
 
     shift_minutes = None
-    out_id = None
+    out_event     = None
     if body.clock_out_time:
         out_h, out_m = map(int, body.clock_out_time.split(':'))
         clock_out_dt = _localize_uk(body.date.year, body.date.month, body.date.day, out_h, out_m)
@@ -643,14 +651,15 @@ def manual_shift(
             entry_notes     = notes,
         )
         db.add(out_event)
-        out_id = out_event.id
 
+    # Flush so DB assigns IDs before we read them
+    db.flush()
     db.commit()
 
     return {
         "message":       "Clock-in entry created",
         "in_id":         in_event.id,
-        "out_id":        out_id,
+        "out_id":        out_event.id if out_event else None,
         "shift_minutes": shift_minutes,
         "is_late":       is_late,
         "minutes_late":  minutes_late,

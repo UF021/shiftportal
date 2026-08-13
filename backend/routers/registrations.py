@@ -32,8 +32,9 @@ def pending_registrations(
     hr:  models.User = Depends(require_hr),
 ):
     q = db.query(models.User).filter(
-        models.User.is_active == False,
-        models.User.role      == models.UserRole.staff,
+        models.User.is_active   == False,
+        models.User.role        == models.UserRole.staff,
+        models.User.is_archived.isnot(True),
     )
     if hr.role != models.UserRole.superadmin:
         q = q.filter(models.User.organisation_id == hr.organisation_id)

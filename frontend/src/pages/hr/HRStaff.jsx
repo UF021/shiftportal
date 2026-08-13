@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getAllStaff, updateStaff, getMySites, deleteStaff, bulkDeleteStaff, blockStaff, unblockStaff, bulkBlockStaff, mergeStaff } from '../../api/client'
+import { getAllStaff, getArchivedStaff, archiveStaff, unarchiveStaff, updateStaff, getMySites, deleteStaff, bulkDeleteStaff, blockStaff, unblockStaff, bulkBlockStaff, mergeStaff } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
 const PRESET_PAY = ['12.71','12.80','12.90','13.00']
@@ -169,7 +169,9 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
 }
 
 export default function HRStaff() {
+  const [tab,    setTab]    = useState('active')   // 'active' | 'archived'
   const [staff,  setStaff]  = useState([])
+  const [archived, setArchived] = useState([])
   const [sites,  setSites]  = useState([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('')
@@ -208,8 +210,14 @@ export default function HRStaff() {
     toastTimer.current = setTimeout(() => setToast(null), 4000)
   }
 
-  const load = () => getAllStaff().then(r => { setStaff(r.data || []); setSelected(new Set()) }).catch(() => {})
-  useEffect(() => { load(); getMySites().then(r => setSites(r.data || [])).catch(() => {}) }, [])
+  const load         = () => getAllStaff().then(r => { setStaff(r.data || []); setSelected(new Set()) }).catch(() => {})
+  const loadArchived = () => getArchivedStaff().then(r => setArchived(r.data || [])).catch(() => {})
+
+  useEffect(() => {
+    load()
+    loadArchived()
+    getMySites().then(r => setSites(r.data || [])).catch(() => {})
+  }, [])
 
   // Compute duplicate IDs from loaded staff (by NI, SIA, or name+DOB+phone)
   const duplicateIds = useMemo(() => {
@@ -251,6 +259,11 @@ export default function HRStaff() {
     const mF = !filter
       || (filter === 'blocked' ? s.is_blocked : siaStatus(s.sia_expiry) === filter)
     return mQ && mF
+  }).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||''))
+
+  const filteredArchived = archived.filter(s => {
+    const q = search.toLowerCase()
+    return !q || [s.full_name,s.email,s.sia_licence,s.ni_number].some(f=>f?.toLowerCase().includes(q))
   }).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||''))
 
   // Selection helpers
@@ -335,6 +348,26 @@ export default function HRStaff() {
       setConfirmBulkBlock(false)
     } finally {
       setBlocking(false)
+    }
+  }
+
+  async function handleArchive(s) {
+    try {
+      await archiveStaff(s.id)
+      showToast(`📦 ${s.full_name} moved to archive.`)
+      load(); loadArchived()
+    } catch (ex) {
+      showToast(ex.response?.data?.detail || 'Failed to archive', 'error')
+    }
+  }
+
+  async function handleUnarchive(s) {
+    try {
+      await unarchiveStaff(s.id)
+      showToast(`✅ ${s.full_name} restored to active records.`)
+      load(); loadArchived()
+    } catch (ex) {
+      showToast(ex.response?.data?.detail || 'Failed to unarchive', 'error')
     }
   }
 
@@ -447,27 +480,93 @@ export default function HRStaff() {
     <>
       <Toast toast={toast} />
 
-      <div style={{ marginBottom:26 }}>
-        <h2 style={{ fontSize:23, fontWeight:700, marginBottom:4 }}>Staff Records</h2>
-        <p style={{ fontSize:14, color:'var(--text-muted)' }}>{filtered.length} of {staff.length} employees</p>
+      <div style={{ marginBottom:20, display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+        <div>
+          <h2 style={{ fontSize:23, fontWeight:700, marginBottom:4 }}>Staff Records</h2>
+          <p style={{ fontSize:14, color:'var(--text-muted)' }}>
+            {tab === 'active'
+              ? `${filtered.length} of ${staff.length} active employees`
+              : `${filteredArchived.length} archived employees`}
+          </p>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          <button onClick={() => { setTab('active'); setSearch(''); setFilter('') }}
+            className="btn" style={{ fontSize:13, padding:'7px 18px',
+              background: tab === 'active' ? 'var(--green)' : 'var(--navy-light)',
+              color: tab === 'active' ? '#fff' : 'var(--text-muted)',
+              border: `1px solid ${tab === 'active' ? 'var(--green)' : 'var(--border)'}` }}>
+            Active
+          </button>
+          <button onClick={() => { setTab('archived'); setSearch(''); setFilter('') }}
+            className="btn" style={{ fontSize:13, padding:'7px 18px',
+              background: tab === 'archived' ? 'var(--amber,#f0a030)' : 'var(--navy-light)',
+              color: tab === 'archived' ? '#fff' : 'var(--text-muted)',
+              border: `1px solid ${tab === 'archived' ? 'var(--amber,#f0a030)' : 'var(--border)'}` }}>
+            Archived {archived.length > 0 && `(${archived.length})`}
+          </button>
+        </div>
       </div>
 
       <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="Search name, SIA, NI, email…"
           style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none', width:240 }}/>
-        <select value={filter} onChange={e=>setFilter(e.target.value)}
-          style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13 }}>
-          <option value="">All Status</option>
-          <option value="valid">SIA Valid</option>
-          <option value="expiring">SIA Expiring (&lt;60 days)</option>
-          <option value="expired">SIA Expired</option>
-          <option value="blocked">Access Blocked</option>
-        </select>
+        {tab === 'active' && (
+          <select value={filter} onChange={e=>setFilter(e.target.value)}
+            style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13 }}>
+            <option value="">All Status</option>
+            <option value="valid">SIA Valid</option>
+            <option value="expiring">SIA Expiring (&lt;60 days)</option>
+            <option value="expired">SIA Expired</option>
+            <option value="blocked">Access Blocked</option>
+          </select>
+        )}
       </div>
 
-      {/* Bulk action bar */}
-      {selected.size > 0 && (
+      {tab === 'archived' && (
+        <div className="card" style={{ padding: 0 }}>
+          <div className="tw">
+            <table>
+              <thead><tr>
+                <th>Name</th>
+                <th>Staff ID</th>
+                <th>SIA Licence</th>
+                <th>SIA Expiry</th>
+                <th>Last Clock-In</th>
+                <th>Archived</th>
+                <th>Action</th>
+              </tr></thead>
+              <tbody>
+                {filteredArchived.length === 0 && (
+                  <tr><td colSpan={7} style={{ textAlign:'center', color:'var(--text-muted)', padding:24 }}>No archived staff records</td></tr>
+                )}
+                {filteredArchived.map(s => (
+                  <tr key={s.id}>
+                    <td>
+                      <div style={{ fontWeight:600 }}>{s.full_name}</div>
+                      <div style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</div>
+                    </td>
+                    <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.staff_id || '—'}</td>
+                    <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.sia_licence || '—'}</td>
+                    <td><Badge st={siaStatus(s.sia_expiry)} /></td>
+                    <td style={{ fontSize:12, color:'var(--text-muted)' }}>{s.last_clock_in ? fmtDate(s.last_clock_in) : 'Never'}</td>
+                    <td style={{ fontSize:12, color:'var(--text-muted)' }}>{s.archived_at ? new Date(s.archived_at).toLocaleDateString('en-GB') : '—'}</td>
+                    <td>
+                      <button onClick={() => handleUnarchive(s)}
+                        className="btn" style={{ fontSize:11, padding:'4px 12px', background:'var(--green)', color:'#fff', border:'none' }}>
+                        Restore
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk action bar — active tab only */}
+      {tab === 'active' && selected.size > 0 && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12,
           background: 'rgba(224,85,85,.08)', border: '1px solid rgba(224,85,85,.3)',
@@ -490,7 +589,7 @@ export default function HRStaff() {
         </div>
       )}
 
-      <div className="card" style={{ padding:0 }}>
+      {tab === 'active' && <div className="card" style={{ padding:0 }}>
         <div className="tw">
           <table>
             <thead><tr>
@@ -600,6 +699,11 @@ export default function HRStaff() {
                         }}
                       >{blockingId === s.id ? '…' : s.is_blocked ? '🔓' : '🔒'}</button>
                       <button
+                        onClick={() => handleArchive(s)}
+                        title="Move to archive"
+                        style={{ padding:'5px 8px', borderRadius:6, border:'1px solid rgba(240,160,48,.4)', background:'rgba(240,160,48,.1)', color:'#b07000', cursor:'pointer', fontSize:13 }}
+                      >📦</button>
+                      <button
                         onClick={() => setConfirmSingle(s)}
                         title="Delete staff member"
                         style={{ padding:'5px 8px', borderRadius:6, border:'1px solid rgba(224,85,85,.4)', background:'rgba(224,85,85,.08)', color:'#e05555', cursor:'pointer', fontSize:13 }}
@@ -614,7 +718,7 @@ export default function HRStaff() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
       {/* Edit modal */}
       {editing && (
