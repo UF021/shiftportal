@@ -172,8 +172,14 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
 export default function HRStaff() {
   const { pathname } = useLocation()
   const navigate     = useNavigate()
-  const isArchivedRoute = pathname.endsWith('/archived')
-  const [tab,    setTab]    = useState(isArchivedRoute ? 'archived' : 'active')
+  const [tab,    setTab]    = useState(pathname.endsWith('/archived') ? 'archived' : 'active')
+
+  // Sync tab when React Router reuses this component across /hr/staff ↔ /hr/staff/archived
+  useEffect(() => {
+    setTab(pathname.endsWith('/archived') ? 'archived' : 'active')
+    setSearch('')
+    setFilter('')
+  }, [pathname])
   const [staff,  setStaff]  = useState([])
   const [archived, setArchived] = useState([])
   const [sites,  setSites]  = useState([])
