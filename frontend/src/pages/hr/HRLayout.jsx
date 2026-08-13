@@ -8,6 +8,7 @@ const NAV = [
   { path:'/hr/applications',    icon:'📝', label:'Applications' },
   { path:'/hr/registrations',   icon:'📋', label:'Registrations' },
   { path:'/hr/staff',           icon:'👥', label:'Staff Records' },
+  { path:'/hr/staff/archived',  icon:'📦', label:'Archived Staff', indent: true },
   { path:'/hr/duplicates',      icon:'🔀', label:'Merge Duplicates' },
   { path:'/hr/timelogs',        icon:'⏱',  label:'Time Report' },
   { path:'/hr/holidays',        icon:'🌴', label:'Holidays' },
@@ -65,18 +66,25 @@ export default function HRLayout() {
           <div style={{ padding:'0 0 8px 18px', fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.08em' }}>
             HR Management
           </div>
-          {NAV.map(({ path, icon, label }) => {
-            const active = pathname === path || (path !== '/hr' && pathname.startsWith(path))
+          {NAV.map(({ path, icon, label, indent }) => {
+            // Exact match wins; for prefix match, yield to a more-specific child nav item
+            const active = pathname === path || (
+              path !== '/hr' &&
+              pathname.startsWith(path) &&
+              !NAV.some(n => n.path !== path && n.path.startsWith(path) && pathname.startsWith(n.path))
+            )
             return (
               <div key={path} onClick={() => nav(path)} style={{
-                display:'flex', alignItems:'center', gap:10, padding:'10px 18px',
-                fontSize:13, cursor:'pointer', transition:'all .15s',
+                display:'flex', alignItems:'center', gap:10,
+                padding: indent ? '8px 18px 8px 34px' : '10px 18px',
+                fontSize: indent ? 12 : 13,
+                cursor:'pointer', transition:'all .15s',
                 borderLeft:`3px solid ${active ? c : 'transparent'}`,
                 background: active ? c + '18' : 'transparent',
-                color: active ? c : 'var(--text-muted)',
+                color: active ? c : indent ? 'var(--text-dim)' : 'var(--text-muted)',
                 fontWeight: active ? 700 : 400,
               }}>
-                <span style={{ fontSize:15, width:20, textAlign:'center' }}>{icon}</span>
+                <span style={{ fontSize: indent ? 13 : 15, width:20, textAlign:'center' }}>{icon}</span>
                 {label}
               </div>
             )

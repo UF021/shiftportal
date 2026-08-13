@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { getAllStaff, getArchivedStaff, archiveStaff, unarchiveStaff, updateStaff, getMySites, deleteStaff, bulkDeleteStaff, blockStaff, unblockStaff, bulkBlockStaff, mergeStaff } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
@@ -169,7 +170,10 @@ function MergeModal({ pair, onConfirm, onCancel, busy }) {
 }
 
 export default function HRStaff() {
-  const [tab,    setTab]    = useState('active')   // 'active' | 'archived'
+  const { pathname } = useLocation()
+  const navigate     = useNavigate()
+  const isArchivedRoute = pathname.endsWith('/archived')
+  const [tab,    setTab]    = useState(isArchivedRoute ? 'archived' : 'active')
   const [staff,  setStaff]  = useState([])
   const [archived, setArchived] = useState([])
   const [sites,  setSites]  = useState([])
@@ -490,14 +494,14 @@ export default function HRStaff() {
           </p>
         </div>
         <div style={{ display:'flex', gap:6 }}>
-          <button onClick={() => { setTab('active'); setSearch(''); setFilter('') }}
+          <button onClick={() => { setTab('active'); setSearch(''); setFilter(''); navigate('/hr/staff') }}
             className="btn" style={{ fontSize:13, padding:'7px 18px',
               background: tab === 'active' ? 'var(--green)' : 'var(--navy-light)',
               color: tab === 'active' ? '#fff' : 'var(--text-muted)',
               border: `1px solid ${tab === 'active' ? 'var(--green)' : 'var(--border)'}` }}>
             Active
           </button>
-          <button onClick={() => { setTab('archived'); setSearch(''); setFilter('') }}
+          <button onClick={() => { setTab('archived'); setSearch(''); setFilter(''); navigate('/hr/staff/archived') }}
             className="btn" style={{ fontSize:13, padding:'7px 18px',
               background: tab === 'archived' ? 'var(--amber,#f0a030)' : 'var(--navy-light)',
               color: tab === 'archived' ? '#fff' : 'var(--text-muted)',

@@ -112,7 +112,8 @@ export default function App() {
       }>
         <Route index                element={<HRDashboard />} />
         <Route path="registrations" element={<HRRegistrations />} />
-        <Route path="staff"         element={<HRStaff />} />
+        <Route path="staff"          element={<HRStaff />} />
+        <Route path="staff/archived" element={<HRStaff />} />
         <Route path="timelogs"      element={<HRTimelogs />} />
         <Route path="holidays"      element={<HRHolidays />} />
         <Route path="manual"        element={<HRManualShift />} />
