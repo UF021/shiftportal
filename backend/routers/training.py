@@ -123,6 +123,8 @@ def admin_progress(
             models.User.organisation_id == hr.organisation_id,
             models.User.role            == models.UserRole.staff,
             models.User.is_active       == True,
+            models.User.is_blocked.isnot(True),
+            models.User.is_archived.isnot(True),
         )
         .order_by(models.User.last_name)
         .all()
@@ -165,7 +167,8 @@ def send_training_reminders(
             models.User.organisation_id == hr.organisation_id,
             models.User.role            == models.UserRole.staff,
             models.User.is_active       == True,
-            models.User.is_blocked      == False,
+            models.User.is_blocked.isnot(True),
+            models.User.is_archived.isnot(True),
         )
         .all()
     )

@@ -214,10 +214,75 @@ export default function HRStaff() {
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
 
+  // Bulk edit
+  const [bulkEditMode, setBulkEditMode] = useState(false)
+  const [bulkEdits,    setBulkEdits]    = useState({})
+  const [bulkSaving,   setBulkSaving]   = useState(false)
+
   function showToast(msg, type = 'success') {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast({ msg, type })
     toastTimer.current = setTimeout(() => setToast(null), 4000)
+  }
+
+  function enterBulkEdit() {
+    const initial = {}
+    filtered.forEach(s => {
+      initial[s.id] = {
+        pay_rate:              s.pay_rate != null ? String(parseFloat(s.pay_rate).toFixed(2)) : '',
+        staff_type:            s.staff_type || 'payroll',
+        employment_start_date: s.employment_start_date || '',
+        sia_licence:           s.sia_licence || '',
+        sia_expiry:            s.sia_expiry || '',
+        ni_number:             s.ni_number || '',
+      }
+    })
+    setBulkEdits(initial)
+    setBulkEditMode(true)
+  }
+
+  function cancelBulkEdit() {
+    setBulkEdits({})
+    setBulkEditMode(false)
+  }
+
+  function bCell(userId, field, value) {
+    setBulkEdits(prev => ({ ...prev, [userId]: { ...prev[userId], [field]: value } }))
+  }
+
+  function isChanged(s, field) {
+    const orig = field === 'pay_rate'
+      ? (s.pay_rate != null ? String(parseFloat(s.pay_rate).toFixed(2)) : '')
+      : (s[field] || '')
+    return (bulkEdits[s.id]?.[field] ?? '') !== orig
+  }
+
+  async function saveBulkEdits() {
+    setBulkSaving(true)
+    const fields = ['pay_rate','staff_type','employment_start_date','sia_licence','sia_expiry','ni_number']
+    const toSave = filtered.filter(s => fields.some(f => isChanged(s, f)))
+    if (!toSave.length) { cancelBulkEdit(); return }
+    try {
+      await Promise.all(toSave.map(s => {
+        const e = bulkEdits[s.id]
+        return updateStaff(s.id, {
+          pay_rate:              e.pay_rate              ? parseFloat(e.pay_rate) : null,
+          staff_type:            e.staff_type            || 'payroll',
+          employment_start_date: e.employment_start_date || null,
+          sia_licence:           e.sia_licence           || null,
+          sia_expiry:            e.sia_expiry            || null,
+          ni_number:             e.ni_number             ? e.ni_number.toUpperCase() : null,
+        })
+      }))
+      showToast(`✅ ${toSave.length} staff record${toSave.length !== 1 ? 's' : ''} updated.`)
+      setBulkEditMode(false)
+      setBulkEdits({})
+      load()
+    } catch(ex) {
+      showToast(ex.response?.data?.detail || 'Some updates failed — check individual records', 'error')
+    } finally {
+      setBulkSaving(false)
+    }
   }
 
   const load         = () => getAllStaff().then(r => { setStaff(r.data || []); setSelected(new Set()) }).catch(() => {})
@@ -517,11 +582,12 @@ export default function HRStaff() {
         </div>
       </div>
 
-      <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap', alignItems:'center' }}>
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="Search name, SIA, NI, email…"
-          style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none', width:240 }}/>
-        {tab === 'active' && (
+          disabled={bulkEditMode}
+          style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13, outline:'none', width:240, opacity: bulkEditMode ? .5 : 1 }}/>
+        {tab === 'active' && !bulkEditMode && (
           <select value={filter} onChange={e=>setFilter(e.target.value)}
             style={{ padding:'9px 13px', borderRadius:8, border:'1px solid var(--border)', background:'var(--navy-light)', color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:13 }}>
             <option value="">All Status</option>
@@ -530,6 +596,25 @@ export default function HRStaff() {
             <option value="expired">SIA Expired</option>
             <option value="blocked">Access Blocked</option>
           </select>
+        )}
+        {tab === 'active' && !bulkEditMode && (
+          <button onClick={enterBulkEdit} className="btn btn-outline" style={{ fontSize:13, padding:'7px 16px', marginLeft:'auto' }}>
+            ✏ Bulk Edit
+          </button>
+        )}
+        {tab === 'active' && bulkEditMode && (
+          <>
+            <span style={{ fontSize:13, color:'var(--text-muted)', marginLeft:'auto' }}>
+              {filtered.filter(s => ['pay_rate','staff_type','employment_start_date','sia_licence','sia_expiry','ni_number'].some(f => isChanged(s, f))).length} row{filtered.filter(s => ['pay_rate','staff_type','employment_start_date','sia_licence','sia_expiry','ni_number'].some(f => isChanged(s, f))).length !== 1 ? 's' : ''} changed
+            </span>
+            <button onClick={cancelBulkEdit} className="btn btn-outline" style={{ fontSize:13, padding:'7px 16px' }} disabled={bulkSaving}>
+              Cancel
+            </button>
+            <button onClick={saveBulkEdits} disabled={bulkSaving}
+              className="btn" style={{ fontSize:13, padding:'7px 20px', background:'var(--green)', color:'#fff', border:'none' }}>
+              {bulkSaving ? 'Saving…' : 'Save All'}
+            </button>
+          </>
         )}
       </div>
 
@@ -599,7 +684,102 @@ export default function HRStaff() {
         </div>
       )}
 
-      {tab === 'active' && <div className="card" style={{ padding:0 }}>
+      {tab === 'active' && bulkEditMode && (
+        <div className="card" style={{ padding:0 }}>
+          <div style={{ padding:'10px 16px', background:'rgba(240,160,48,.07)', borderBottom:'1px solid rgba(240,160,48,.2)', fontSize:12, color:'#9a6800', fontWeight:600 }}>
+            ✏ Bulk Edit Mode — edit any cell below, then click <strong>Save All</strong>. Amber cells have unsaved changes.
+          </div>
+          <div className="tw" style={{ overflowX:'auto' }}>
+            <table>
+              <thead><tr>
+                <th style={{ width:36 }}>
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} title={allSelected ? 'Deselect all' : 'Select all'} />
+                </th>
+                <th>Name</th>
+                <th>Pay/hr</th>
+                <th>Category</th>
+                <th>Start Date</th>
+                <th>SIA Licence</th>
+                <th>SIA Expiry</th>
+                <th>NI Number</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map(s => {
+                  const e = bulkEdits[s.id] || {}
+                  const chStyle = field => isChanged(s, field) ? {
+                    background: 'rgba(240,160,48,.10)',
+                    boxShadow: 'inset 3px 0 0 #f0a030',
+                  } : {}
+                  const inp = {
+                    background:'var(--navy)', border:'1px solid var(--border)',
+                    borderRadius:6, padding:'5px 8px',
+                    color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:12,
+                    outline:'none', boxSizing:'border-box',
+                  }
+                  return (
+                    <tr key={s.id} style={{ background: selected.has(s.id) ? 'rgba(106,191,63,.04)' : undefined }}>
+                      <td style={{ textAlign:'center' }}>
+                        <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleRow(s.id)} />
+                      </td>
+                      <td>
+                        <div style={{ fontWeight:600, fontSize:13 }}>{s.full_name}</div>
+                        <div style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</div>
+                      </td>
+                      <td style={chStyle('pay_rate')}>
+                        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                          <span style={{ fontSize:12, color:'var(--text-muted)', flexShrink:0 }}>£</span>
+                          <input type="number" step="0.01" min="0"
+                            value={e.pay_rate ?? ''}
+                            onChange={ev => bCell(s.id, 'pay_rate', ev.target.value)}
+                            placeholder="—"
+                            style={{ ...inp, width:68 }} />
+                        </div>
+                      </td>
+                      <td style={chStyle('staff_type')}>
+                        <select value={e.staff_type ?? 'payroll'}
+                          onChange={ev => bCell(s.id, 'staff_type', ev.target.value)}
+                          style={{ ...inp, width:140 }}>
+                          <option value="payroll">💼 Payroll</option>
+                          <option value="subcontract">🔧 Subcontract</option>
+                        </select>
+                      </td>
+                      <td style={chStyle('employment_start_date')}>
+                        <input type="date"
+                          value={e.employment_start_date ?? ''}
+                          onChange={ev => bCell(s.id, 'employment_start_date', ev.target.value)}
+                          style={{ ...inp, width:140 }} />
+                      </td>
+                      <td style={chStyle('sia_licence')}>
+                        <input value={e.sia_licence ?? ''}
+                          onChange={ev => bCell(s.id, 'sia_licence', ev.target.value)}
+                          placeholder="Licence no."
+                          style={{ ...inp, width:120 }} />
+                      </td>
+                      <td style={chStyle('sia_expiry')}>
+                        <input type="date"
+                          value={e.sia_expiry ?? ''}
+                          onChange={ev => bCell(s.id, 'sia_expiry', ev.target.value)}
+                          style={{ ...inp, width:140 }} />
+                      </td>
+                      <td style={chStyle('ni_number')}>
+                        <input value={e.ni_number ?? ''}
+                          onChange={ev => bCell(s.id, 'ni_number', ev.target.value.toUpperCase())}
+                          placeholder="AB123456C"
+                          style={{ ...inp, width:110, textTransform:'uppercase', fontFamily:'DM Mono,monospace', fontSize:11 }} />
+                      </td>
+                    </tr>
+                  )
+                })}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={8} style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>No staff found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'active' && !bulkEditMode && <div className="card" style={{ padding:0 }}>
         <div className="tw">
           <table>
             <thead><tr>
