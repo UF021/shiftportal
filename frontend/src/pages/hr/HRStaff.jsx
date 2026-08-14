@@ -229,7 +229,7 @@ export default function HRStaff() {
     const initial = {}
     filtered.forEach(s => {
       initial[s.id] = {
-        pay_rate:              s.pay_rate != null ? String(parseFloat(s.pay_rate).toFixed(2)) : '',
+        pay_rate:              s.pay_rate != null ? String(parseFloat(s.pay_rate).toFixed(2)) : '12.71',
         staff_type:            s.staff_type || 'payroll',
         employment_start_date: s.employment_start_date || '',
         sia_licence:           s.sia_licence || '',
@@ -494,7 +494,7 @@ export default function HRStaff() {
       // Employment
       staff_id:              s.staff_id||'TBC',
       employment_start_date: s.employment_start_date||'',
-      pay_rate:              !payStr ? '' : isPreset ? payStr : 'other',
+      pay_rate:              !payStr ? '12.71' : isPreset ? payStr : 'other',
       assigned_site_id:      String(s.assigned_site_id||''),
       right_to_work:         s.right_to_work !== false,
       staff_type:            s.staff_type || 'payroll',
