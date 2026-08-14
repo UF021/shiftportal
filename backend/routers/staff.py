@@ -191,10 +191,12 @@ def list_staff(
     cutoff  = datetime.now(timezone.utc) - timedelta(weeks=6)
     org_id  = hr.organisation_id
 
-    # Auto-archive: active, non-archived staff with no clock-in in the last 6 weeks
+    # Auto-archive: registered (is_active=True) staff with no clock-in in 6 weeks.
+    # Pending/awaiting-registration staff (is_active=False) are excluded — they are
+    # visible in the Registrations panel and should not be silently swept to archive.
     candidates = db.query(models.User).filter(
-        models.User.role        == models.UserRole.staff,
-        models.User.is_active   == True,
+        models.User.role            == models.UserRole.staff,
+        models.User.is_active       == True,
         models.User.is_archived.isnot(True),
         models.User.organisation_id == org_id,
     ).all()
@@ -226,21 +228,27 @@ def list_staff(
         archived_any = False
         for u in candidates:
             if u.id in recent_users:
-                continue  # clocked in within 6 weeks — keep active
+                continue  # clocked in within 6 weeks — keep
             if u.id in holiday_exempt:
-                continue  # on approved holiday — keep active
-            # Grace period: skip staff activated or registered within the last 6 weeks
-            account_date = u.activated_at or u.registered_at
-            if account_date and account_date >= cutoff:
-                continue  # brand-new account — don't archive yet
+                continue  # on approved holiday — keep
+            # Grace period using activated_at only. registered_at is unreliable
+            # because ALTER TABLE DEFAULT NOW() stamps all pre-existing rows with
+            # the migration timestamp, which is always < 6 weeks old on a fresh
+            # deploy — causing the old fallback to skip everyone permanently.
+            if u.activated_at and u.activated_at >= cutoff:
+                continue  # recently activated — give grace
             u.is_archived = True
             u.archived_at = datetime.now(timezone.utc)
             archived_any = True
         if archived_any:
             db.commit()
 
+    # Active list: only registered staff (is_active=True), not archived.
+    # is_active=False (awaiting registration) staff are excluded here — they belong
+    # in the Registrations panel, not in Staff Records.
     q = db.query(models.User).filter(
         models.User.role            == models.UserRole.staff,
+        models.User.is_active       == True,
         models.User.is_archived.isnot(True),
     )
     if hr.role != models.UserRole.superadmin:
