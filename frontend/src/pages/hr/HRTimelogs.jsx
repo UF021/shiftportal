@@ -551,20 +551,24 @@ export function HRTimelogs() {
                       ? 'rgba(106,191,63,.06)'
                       : e.is_staff_archived || e.is_staff_blocked
                         ? 'rgba(120,120,140,.08)'
-                        : e.is_bank_holiday
-                          ? 'rgba(245,158,11,.08)'
-                          : e.is_late
-                            ? 'rgba(224,85,85,.05)'
-                            : e.shift_minutes > 720
-                              ? 'rgba(181,71,8,.06)'
-                              : undefined,
+                        : e.is_holiday_pay
+                          ? 'rgba(99,102,241,.07)'
+                          : e.is_bank_holiday
+                            ? 'rgba(245,158,11,.08)'
+                            : e.is_late
+                              ? 'rgba(224,85,85,.05)'
+                              : e.shift_minutes > 720
+                                ? 'rgba(181,71,8,.06)'
+                                : undefined,
                     borderLeft: e.is_staff_archived
                       ? '3px solid #94a3b8'
                       : e.is_staff_blocked
                         ? '3px solid #e05555'
-                        : e.is_bank_holiday
-                          ? '3px solid #f59e0b'
-                          : undefined,
+                        : e.is_holiday_pay
+                          ? '3px solid #818cf8'
+                          : e.is_bank_holiday
+                            ? '3px solid #f59e0b'
+                            : undefined,
                     opacity: (e.is_staff_archived || e.is_staff_blocked) ? 0.8 : 1,
                   }}>
                     <td style={{ textAlign: 'center' }}>
@@ -621,20 +625,22 @@ export function HRTimelogs() {
                       )}
                     </td>
                     <td>
-                      {e.is_override
-                        ? (
-                          <>
-                            <span className="badge badge-amber">⚠️ Override</span>
-                            {e.manager_name && (
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                by {e.manager_name}
-                              </div>
-                            )}
-                          </>
-                        )
-                        : e.is_manual
-                          ? <span className="badge badge-blue">✏️ Manual</span>
-                          : <span className="badge badge-green">📱 QR</span>
+                      {e.is_holiday_pay
+                        ? <span className="badge" style={{ background:'rgba(99,102,241,.15)', color:'#4f46e5', fontWeight:700 }}>🏖️ Holiday Pay</span>
+                        : e.is_override
+                          ? (
+                            <>
+                              <span className="badge badge-amber">⚠️ Override</span>
+                              {e.manager_name && (
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                  by {e.manager_name}
+                                </div>
+                              )}
+                            </>
+                          )
+                          : e.is_manual
+                            ? <span className="badge badge-blue">✏️ Manual</span>
+                            : <span className="badge badge-green">📱 QR</span>
                       }
                     </td>
                     <td>

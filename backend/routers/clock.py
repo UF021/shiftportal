@@ -495,8 +495,9 @@ def all_events(
             used_out_ids[ci.user_id].add(co.id)
         site_name     = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
         shift_minutes = co.shift_minutes if co else None
+        is_holiday_pay = ci.entry_notes == '[HOLIDAY PAY]'
         is_override, manager_name = _parse_override(ci.entry_notes)
-        is_manual     = bool(ci.entry_notes) and not is_override
+        is_manual     = bool(ci.entry_notes) and not is_override and not is_holiday_pay
 
         ci_uk     = ci.timestamp.astimezone(UK_TZ)
         date_str  = ci_uk.date().isoformat()
@@ -515,6 +516,7 @@ def all_events(
             "minutes_late":     ci.minutes_late,
             "scheduled_start":  ci.scheduled_start,
             "is_manual":        is_manual,
+            "is_holiday_pay":   is_holiday_pay,
             "is_override":      is_override,
             "manager_name":     manager_name,
             "entry_notes":      ci.entry_notes or None,

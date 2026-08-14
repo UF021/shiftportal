@@ -211,10 +211,24 @@ def list_staff(
             .distinct()
             .all()
         }
+        # Staff with an approved holiday ending after the 6-week cutoff are exempt
+        holiday_exempt = {
+            row.user_id for row in db.query(models.Holiday.user_id)
+            .filter(
+                models.Holiday.user_id.in_(cand_ids),
+                models.Holiday.status   == models.HolidayStatus.approved,
+                models.Holiday.to_date  >= cutoff.date(),
+            )
+            .distinct()
+            .all()
+        }
+
         archived_any = False
         for u in candidates:
             if u.id in recent_users:
                 continue  # clocked in within 6 weeks — keep active
+            if u.id in holiday_exempt:
+                continue  # on approved holiday — keep active
             # Grace period: skip staff activated or registered within the last 6 weeks
             account_date = u.activated_at or u.registered_at
             if account_date and account_date >= cutoff:
