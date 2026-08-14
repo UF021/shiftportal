@@ -1,6 +1,6 @@
 // HRTimelogs.jsx
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getAllClockEvents, getAllStaff, getAllHols, getMySites,
+import { getAllClockEvents, getAllStaff, getArchivedStaff, getAllHols, getMySites,
          editShift, deleteShift, bulkDeleteShifts, recalculateShifts } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
@@ -244,7 +244,12 @@ export function HRTimelogs() {
   }
 
   useEffect(() => {
-    getAllStaff().then(r => setStaff((r.data || []).slice().sort((a, b) => a.full_name.localeCompare(b.full_name)))).catch(() => {})
+    Promise.all([getAllStaff().catch(() => ({ data: [] })), getArchivedStaff().catch(() => ({ data: [] }))])
+      .then(([active, archived]) => {
+        const combined = [...(active.data || []), ...(archived.data || [])]
+        combined.sort((a, b) => a.full_name.localeCompare(b.full_name))
+        setStaff(combined)
+      })
     getAllHols({ status_filter: 'approved' }).then(r => setHols(r.data || [])).catch(() => {})
     getMySites().then(r => setSites(r.data || [])).catch(() => {})
     // Load all records on mount with no filters
@@ -440,7 +445,10 @@ export function HRTimelogs() {
                           })
                         }} style={{ accentColor: 'var(--green)', width: 16, height: 16, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: checked ? 700 : 400, color: checked ? 'var(--green)' : 'var(--text)' }}>{s.full_name}</div>
+                          <div style={{ fontSize: 13, fontWeight: checked ? 700 : 400, color: checked ? 'var(--green)' : s.is_archived ? 'var(--text-muted)' : 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {s.full_name}
+                            {s.is_archived && <span style={{ fontSize: 9, fontWeight: 800, color: '#64748b', background: '#e2e8f0', padding: '1px 5px', borderRadius: 3, letterSpacing: '.04em', flexShrink: 0 }}>ARCHIVED</span>}
+                          </div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace', marginTop: 2 }}>{s.staff_id}</div>
                         </div>
                         {checked && <span style={{ color: 'var(--green)', fontSize: 14, flexShrink: 0 }}>✓</span>}
