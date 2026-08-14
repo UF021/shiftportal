@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getContactMessages, markContactRead } from '../../api/client'
+import { getContactMessages, markContactRead, replyToContact } from '../../api/client'
 
 function fmtDT(iso) {
   if (!iso) return '—'
@@ -11,9 +11,13 @@ function fmtDT(iso) {
 }
 
 export default function HRContacts() {
-  const [messages, setMessages] = useState(null)
-  const [selected, setSelected] = useState(null)
-  const [filter,   setFilter]   = useState('all') // 'all' | 'unread' | 'read'
+  const [messages,    setMessages]    = useState(null)
+  const [selected,    setSelected]    = useState(null)
+  const [filter,      setFilter]      = useState('all') // 'all' | 'unread' | 'read'
+  const [replyText,   setReplyText]   = useState('')
+  const [replySending, setReplySending] = useState(false)
+  const [replyError,  setReplyError]  = useState('')
+  const [replyDone,   setReplyDone]   = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -25,11 +29,35 @@ export default function HRContacts() {
 
   async function openMessage(msg) {
     setSelected(msg)
+    setReplyText('')
+    setReplyError('')
+    setReplyDone(false)
     if (!msg.is_read) {
       try {
         await markContactRead(msg.id)
         setMessages(ms => ms.map(m => m.id === msg.id ? { ...m, is_read: true } : m))
       } catch {}
+    }
+  }
+
+  async function sendReply() {
+    if (!replyText.trim()) return
+    setReplySending(true)
+    setReplyError('')
+    try {
+      await replyToContact(selected.id, replyText.trim())
+      const now = new Date().toISOString()
+      setMessages(ms => ms.map(m => m.id === selected.id
+        ? { ...m, replied_at: now, reply_body: replyText.trim(), is_read: true }
+        : m
+      ))
+      setSelected(s => ({ ...s, replied_at: now, reply_body: replyText.trim() }))
+      setReplyDone(true)
+      setReplyText('')
+    } catch (e) {
+      setReplyError(e?.response?.data?.detail || 'Failed to send reply. Please try again.')
+    } finally {
+      setReplySending(false)
     }
   }
 
@@ -109,6 +137,9 @@ export default function HRContacts() {
                     {msg.company && (
                       <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>· {msg.company}</span>
                     )}
+                    {msg.replied_at && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,.15)', color: '#6366f1', padding: '1px 7px', borderRadius: 10, flexShrink: 0 }}>Replied</span>
+                    )}
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {msg.subject}
@@ -178,17 +209,75 @@ export default function HRContacts() {
               {selected.message}
             </div>
 
-            <a
-              href={`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.subject)}`}
-              style={{
-                display: 'block', marginTop: 20, padding: '11px', textAlign: 'center',
-                background: '#6abf3f', color: '#fff', borderRadius: 8,
-                fontFamily: 'DM Sans,sans-serif', fontSize: 14, fontWeight: 700,
-                textDecoration: 'none',
-              }}
-            >
-              Reply by Email →
-            </a>
+            {/* Reply section */}
+            <div style={{ marginTop: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 8 }}>
+                Reply
+              </div>
+
+              {selected.replied_at && !replyDone ? (
+                <div style={{ background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.25)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: '#818cf8', fontWeight: 700, marginBottom: 4 }}>
+                    Previously replied · {fmtDT(selected.replied_at)}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
+                    {selected.reply_body}
+                  </div>
+                </div>
+              ) : null}
+
+              {replyDone ? (
+                <div style={{ background: 'rgba(106,191,63,.1)', border: '1px solid rgba(106,191,63,.3)', borderRadius: 8, padding: '12px 14px', fontSize: 14, color: '#6abf3f', fontWeight: 600 }}>
+                  Reply sent successfully to {selected.email}
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    placeholder={`Write your reply to ${selected.name}…`}
+                    rows={5}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      background: 'var(--navy-light)', border: '1px solid var(--border)',
+                      borderRadius: 8, padding: '10px 12px',
+                      color: 'var(--text)', fontSize: 13, fontFamily: 'DM Sans,sans-serif',
+                      resize: 'vertical', outline: 'none',
+                    }}
+                  />
+                  {replyError && (
+                    <div style={{ fontSize: 12, color: '#e05555', marginTop: 6 }}>{replyError}</div>
+                  )}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <button
+                      onClick={sendReply}
+                      disabled={replySending || !replyText.trim()}
+                      style={{
+                        flex: 1, padding: '10px', background: replySending || !replyText.trim() ? 'var(--navy-light)' : '#6abf3f',
+                        color: replySending || !replyText.trim() ? 'var(--text-muted)' : '#fff',
+                        border: 'none', borderRadius: 8, cursor: replySending || !replyText.trim() ? 'default' : 'pointer',
+                        fontSize: 14, fontWeight: 700, fontFamily: 'DM Sans,sans-serif',
+                        transition: 'background .15s',
+                      }}
+                    >
+                      {replySending ? 'Sending…' : 'Send Reply'}
+                    </button>
+                    <a
+                      href={`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.subject)}`}
+                      style={{
+                        padding: '10px 14px', background: 'var(--navy-light)', color: 'var(--text-muted)',
+                        border: '1px solid var(--border)', borderRadius: 8,
+                        fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans,sans-serif',
+                        textDecoration: 'none', whiteSpace: 'nowrap',
+                      }}
+                      title="Open in mail client"
+                    >
+                      Open in Mail
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

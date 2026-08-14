@@ -36,6 +36,7 @@ export const updateMyDetails = data             => api.patch('/auth/me/details',
 // Contact enquiries
 export const getContactMessages = ()        => api.get('/contact/')
 export const markContactRead    = id        => api.patch(`/contact/${id}/read`)
+export const replyToContact     = (id, body) => api.post(`/contact/${id}/reply`, { body })
 
 // Staff
 export const getAllStaff      = ()           => api.get('/staff/all')

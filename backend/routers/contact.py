@@ -8,6 +8,8 @@ Spam protection (server-side):
   4. In-memory rate limit: max 3 submissions per IP per hour.
 """
 
+import os
+import resend
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
@@ -162,18 +164,66 @@ def list_contacts_hr(
     )
     return [
         {
-            "id":         m.id,
-            "name":       m.name,
-            "email":      m.email,
-            "phone":      m.phone,
-            "company":    m.company,
-            "subject":    m.subject,
-            "message":    m.message,
-            "is_read":    m.is_read,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "id":          m.id,
+            "name":        m.name,
+            "email":       m.email,
+            "phone":       m.phone,
+            "company":     m.company,
+            "subject":     m.subject,
+            "message":     m.message,
+            "is_read":     m.is_read,
+            "created_at":  m.created_at.isoformat() if m.created_at else None,
+            "replied_at":  getattr(m, 'replied_at', None) and m.replied_at.isoformat(),
+            "reply_body":  getattr(m, 'reply_body', None),
         }
         for m in msgs
     ]
+
+
+class ReplyBody(BaseModel):
+    body: str
+
+
+@router.post("/{msg_id}/reply")
+def reply_to_contact(
+    msg_id: int,
+    payload: ReplyBody,
+    db:      Session     = Depends(get_db),
+    me:      models.User = Depends(get_current_user),
+):
+    if me.role.value not in ("hr", "superadmin"):
+        raise HTTPException(403, "Not authorised.")
+    msg = db.query(models.ContactMessage).filter(
+        models.ContactMessage.id              == msg_id,
+        models.ContactMessage.organisation_id == me.organisation_id,
+    ).first()
+    if not msg:
+        raise HTTPException(404, "Message not found.")
+
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(400, "Reply body cannot be empty.")
+
+    api_key = os.getenv("RESEND_API_KEY")
+    if not api_key:
+        raise HTTPException(500, "Email service not configured.")
+
+    resend.api_key = api_key
+    resend.Emails.send({
+        "from":    "IKAN FM HR <hr@ikanfm.co.uk>",
+        "to":      [msg.email],
+        "reply_to": "hr@ikanfm.co.uk",
+        "subject": f"Re: {msg.subject}",
+        "html":    body.replace("\n", "<br>"),
+        "text":    body,
+    })
+
+    msg.replied_at    = datetime.now(timezone.utc)
+    msg.reply_body    = body
+    msg.replied_by_id = me.id
+    msg.is_read       = True
+    db.commit()
+    return {"ok": True}
 
 
 @router.patch("/{msg_id}/read")

@@ -293,6 +293,10 @@ def _ensure_columns():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false",
             "UPDATE users SET is_archived = false WHERE is_archived IS NULL",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ",
+            # ContactMessage — reply tracking
+            "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ",
+            "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS reply_body TEXT",
+            "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS replied_by_id INTEGER",
         ]
         for s in stmts:
             db.execute(text(s))
