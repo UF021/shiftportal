@@ -194,11 +194,24 @@ def list_staff(
     # Auto-archive: registered (is_active=True) staff with no clock-in in 6 weeks.
     # Pending/awaiting-registration staff (is_active=False) are excluded — they are
     # visible in the Registrations panel and should not be silently swept to archive.
+    #
+    # Grace period is enforced at the SQL level (activated_at < cutoff) so there is
+    # no risk of Python timezone-comparison edge cases silently skipping the check.
+    # Staff with NULL activated_at (pre-feature rows) are always included as candidates.
+    # Staff restored from archive get activated_at = now() on unarchive, so they are
+    # excluded from candidates for the next 6 weeks — preventing immediate re-archival.
+    from sqlalchemy import or_ as _or
     candidates = db.query(models.User).filter(
         models.User.role            == models.UserRole.staff,
         models.User.is_active       == True,
         models.User.is_archived.isnot(True),
         models.User.organisation_id == org_id,
+        # Only consider staff whose activation/restore is older than the cutoff.
+        # NULL activated_at = legacy rows activated before this column existed; include them.
+        _or(
+            models.User.activated_at.is_(None),
+            models.User.activated_at < cutoff,
+        ),
     ).all()
 
     if candidates:
@@ -231,12 +244,6 @@ def list_staff(
                 continue  # clocked in within 6 weeks — keep
             if u.id in holiday_exempt:
                 continue  # on approved holiday — keep
-            # Grace period using activated_at only. registered_at is unreliable
-            # because ALTER TABLE DEFAULT NOW() stamps all pre-existing rows with
-            # the migration timestamp, which is always < 6 weeks old on a fresh
-            # deploy — causing the old fallback to skip everyone permanently.
-            if u.activated_at and u.activated_at >= cutoff:
-                continue  # recently activated — give grace
             u.is_archived = True
             u.archived_at = datetime.now(timezone.utc)
             archived_any = True
