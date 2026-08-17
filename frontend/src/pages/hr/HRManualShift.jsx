@@ -83,8 +83,9 @@ export default function HRManualShift() {
         overnight:       form.overnight,
         entry_notes:     form.entry_notes || null,
       })
-      setOk('✅ Shift entry created successfully.')
-      setForm({ user_id: '', site_id: '', date: '', clock_in_time: '09:00', clock_out_time: '', scheduled_start: '09:00', overnight: false, entry_notes: '' })
+      const staffName = staff.find(s => String(s.id) === String(form.user_id))?.full_name || 'staff member'
+      setOk(`✅ Shift saved for ${staffName}. Staff, site and date kept — update as needed.`)
+      setForm(f => ({ ...f, clock_in_time: '09:00', clock_out_time: '', scheduled_start: '09:00', overnight: false, entry_notes: '' }))
     } catch(ex) { setErr(ex.response?.data?.detail || 'Failed to create entry.') }
     finally { setBusy(false) }
   }
