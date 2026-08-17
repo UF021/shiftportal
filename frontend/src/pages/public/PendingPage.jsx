@@ -14,6 +14,17 @@ export default function PendingPage() {
           {state?.email && <>You will be notified at <strong>{state.email}</strong> once your account is activated.<br /><br /></>}
           If your registration is not activated within 24hrs, please contact hr@ikanfm.co.uk
         </p>
+        <div style={{
+          background:'#fff8e6', border:'1.5px solid #f0c060', borderRadius:12,
+          padding:'14px 16px', marginTop:8, textAlign:'left', fontSize:13, color:'#6a4000', lineHeight:1.7,
+        }}>
+          <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>📋 Important — once activated:</div>
+          <ol style={{ margin:0, paddingLeft:18 }}>
+            <li>Log into your staff portal and go to your <strong>Dashboard</strong></li>
+            <li>Your <strong>Staff ID</strong> will be displayed there</li>
+            <li><strong>Take a screenshot and save it</strong> — you will need this ID every time you clock in or out at a site. You cannot sign on for a shift without it.</li>
+          </ol>
+        </div>
         <Link to="/login">
           <button style={{ marginTop:22, padding:'11px 24px', borderRadius:20, border:'1.5px solid #c0d8c0', background:'#fff', color:'#4e9a28', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:600, cursor:'pointer' }}>
             ← Back to Sign In

@@ -164,12 +164,20 @@ export default function ClockPage() {
   // ── Normal submit ────────────────────────────────────────────────────────
 
   async function submit(targetAction) {
-    if (!form.staffId.trim() || !form.fullName.trim()) {
-      setFormError('Please enter both your full name and staff ID.')
+    if (!form.staffId.trim() && !form.fullName.trim()) {
+      setFormError('Please enter your Full Name and Staff ID to continue. Your Staff ID is shown on your staff portal dashboard — it looks like IFM-045.')
+      return
+    }
+    if (!form.staffId.trim()) {
+      setFormError('Please enter your Staff ID. You can find it on your staff portal dashboard or in your activation email — it looks like IFM-045.')
+      return
+    }
+    if (!form.fullName.trim()) {
+      setFormError('Please enter your full name exactly as it was registered — e.g. John Smith.')
       return
     }
     if (targetAction === 'in' && !form.scheduledStart) {
-      setFormError('Please enter your scheduled start time.')
+      setFormError('Please enter your scheduled start time — this is the time your rota shift was due to begin, e.g. 08:00 or 14:30.')
       return
     }
     setAction(targetAction)
@@ -192,13 +200,27 @@ export default function ClockPage() {
       const data = await r.json()
 
       if (r.status === 409 && data.detail === 'already_clocked_in') {
-        setFormError('You are already clocked in. Please use CLOCK OUT.')
+        setFormError('You are already clocked in — please use CLOCK OUT. If you believe this is a mistake, ask your Duty Manager to use the Manager Override option.')
       } else if (!r.ok) {
-        const detail = data.detail || ''
-        if (targetAction === 'out' && detail.toLowerCase().includes('no active clock-in')) {
-          setFormError('You are not currently clocked in.')
+        const detail = (data.detail || '').toLowerCase()
+        if (targetAction === 'out' && detail.includes('no active clock-in')) {
+          setFormError('No active clock-in was found for your Staff ID. If you completed a shift and forgot to clock out, please inform your Duty Manager so they can correct your timesheet.')
+        } else if (detail.includes('staff id not recognised') || detail.includes('id not recognised')) {
+          setFormError('Your Staff ID was not recognised. Please double-check it — it should look like IFM-045. You can find it on your staff portal dashboard or in your activation email. If you\'ve lost it, contact HR.')
+        } else if (detail.includes('name not recognised')) {
+          setFormError('Your name does not match our records for that Staff ID. Enter your full name exactly as you registered — e.g. John Smith. If you\'re still having trouble, speak to your Duty Manager.')
+        } else if (detail.includes('not yet activated')) {
+          setFormError('Your account has not been activated yet. Please contact HR to complete your registration before you can clock in.')
+        } else if (detail.includes('suspended') || detail.includes('blocked')) {
+          setFormError('Your account access has been suspended. Please contact HR before your next shift.')
+        } else if (detail.includes('archived')) {
+          setFormError('Your account is no longer active. Please contact HR.')
+        } else if (detail.includes('scheduled start')) {
+          setFormError('A scheduled start time is required to clock in. Enter the time your rota shift was due to start — e.g. 08:00 or 14:30.')
+        } else if (detail.includes('gps') || detail.includes('70 metres') || detail.includes('location')) {
+          setFormError(data.detail || 'Location check failed. Make sure you are on site and your GPS is enabled, then try again.')
         } else {
-          setFormError(detail || 'An error occurred. Please try again.')
+          setFormError(data.detail || 'Something went wrong. Please try again, or ask your Duty Manager to use the Manager Override if the problem continues.')
         }
       } else {
         setResult({ ...data, submittedAction: targetAction })
@@ -769,11 +791,15 @@ export default function ClockPage() {
           <div style={{ marginBottom: isIn ? 16 : 20 }}>
             <label style={fieldLabel}>Staff ID <span style={{ color: '#C62828' }}>*</span></label>
             <input
-              type="text" inputMode="text" autoCapitalize="none" placeholder="e.g. IFM-045"
+              type="text" inputMode="text" autoCapitalize="characters" placeholder="e.g. IFM-045"
               value={form.staffId}
-              onChange={e => setForm(f => ({ ...f, staffId: e.target.value }))}
+              onChange={e => setForm(f => ({ ...f, staffId: e.target.value.toUpperCase() }))}
               style={{ ...fieldInput, fontFamily: 'DM Mono, monospace', fontSize: 17, letterSpacing: '.06em' }}
             />
+            <div style={{ marginTop: 6, fontSize: 12, color: '#888', lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+              <span style={{ flexShrink: 0 }}>ℹ</span>
+              <span>Your Staff ID is on your staff portal dashboard — screenshot it and keep it handy. It looks like <strong>IFM-045</strong>.</span>
+            </div>
           </div>
 
           {/* Scheduled Start — clock-in only */}

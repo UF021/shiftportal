@@ -224,8 +224,21 @@ export default function StaffDashboard() {
             {user?.staff_id || 'TBC'}
           </div>
         </div>
-        <div style={{ fontSize:12, color:'rgba(255,255,255,.5)', marginTop:8 }}>
-          Use this ID to clock in at any site
+        <div style={{ fontSize:12, color:'rgba(255,255,255,.5)', marginTop:6 }}>
+          Use this ID every time you clock in or out at any site
+        </div>
+        <div style={{
+          display:'flex', alignItems:'center', gap:10,
+          background:'rgba(255,220,0,.15)', border:'1px solid rgba(255,220,0,.4)',
+          borderRadius:10, padding:'10px 14px', marginTop:12,
+        }}>
+          <span style={{ fontSize:20, flexShrink:0 }}>📸</span>
+          <div>
+            <div style={{ fontSize:13, fontWeight:800, color:'#ffe082' }}>Save your Staff ID</div>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,.75)', lineHeight:1.5, marginTop:2 }}>
+              Take a screenshot of this screen and keep it somewhere safe. You will need your Staff ID to clock in and out at every site — without it you cannot sign on for a shift.
+            </div>
+          </div>
         </div>
       </div>
 
