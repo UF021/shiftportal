@@ -514,7 +514,9 @@ def all_events(
         shift_minutes = co.shift_minutes if co else None
         is_holiday_pay = ci.entry_notes == '[HOLIDAY PAY]'
         is_override, manager_name = _parse_override(ci.entry_notes)
-        is_manual     = bool(ci.entry_notes) and not is_override and not is_holiday_pay
+        # QR clock-ins have entry_notes=NULL; manual entries have entry_notes="" or a string.
+        # Using `is not None` correctly identifies manual entries even when HR added no notes.
+        is_manual     = ci.entry_notes is not None and not is_override and not is_holiday_pay
 
         ci_uk     = ci.timestamp.astimezone(UK_TZ)
         date_str  = ci_uk.date().isoformat()
