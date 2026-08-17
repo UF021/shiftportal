@@ -445,19 +445,20 @@ def all_events(
         to_end = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc)
         q = q.filter(models.ClockEvent.timestamp <= to_end)
 
-    # Exclude future-dated HOLIDAY PAY entries only. Holiday pay for approved future
-    # holidays creates clock_in events with timestamps weeks ahead, which sit at the
-    # top of the DESC-ordered query and displace real recent shifts within the 500-record
-    # window. Regular clock-ins can legitimately have future timestamps: _effective_start()
-    # stores the scheduled_start as the timestamp when staff arrive early, so filtering
-    # all future entries would hide early-arrival clock-ins.
+    # Exclude future-dated HOLIDAY PAY entries. These are created weeks ahead when HR
+    # approves future holidays and would otherwise sit at the top of the DESC-ordered
+    # LIMIT 500 query, displacing real recent shifts.
+    #
+    # Written as an OR so NULL-handling is unambiguous (avoiding ~and_ which can
+    # mis-generate NOT A AND NOT B instead of NOT (A AND B) in some SQLAlchemy versions).
+    # Equivalent SQL: entry_notes != '[HOLIDAY PAY]' OR timestamp <= now
     if not to_date:
-        from sqlalchemy import and_
+        from sqlalchemy import or_ as _or_, func as _func
         now_utc = datetime.now(timezone.utc)
         q = q.filter(
-            ~and_(
-                models.ClockEvent.entry_notes == '[HOLIDAY PAY]',
-                models.ClockEvent.timestamp   > now_utc,
+            _or_(
+                _func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
+                models.ClockEvent.timestamp <= now_utc,
             )
         )
 
