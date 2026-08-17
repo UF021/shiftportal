@@ -431,6 +431,10 @@ def unarchive_staff(
         raise HTTPException(403, "Can only unarchive staff accounts")
     u.is_archived = False
     u.archived_at = None
+    # Reset activated_at so the auto-archive grace period (6 weeks from activated_at)
+    # protects this person on the next GET /staff/all call. Without this, the loop
+    # immediately re-archives them because their last clock-in is still > 6 weeks ago.
+    u.activated_at = datetime.now(timezone.utc)
     db.commit()
     return {"message": f"{u.full_name} restored to active records", "id": u.id}
 
