@@ -281,15 +281,16 @@ export function HRTimelogs() {
   }
 
   function exportCSV() {
-    if (!data?.entries?.length) return
-    const rows = [['Employee', 'Date', 'Start', 'End', 'Site', 'Hours', 'Source', 'Late?', 'Notes']]
-    data.entries.forEach(e => {
+    if (!entries.length) return
+    const rows = [['Employee', 'Date', 'Start', 'End', 'Site', 'Hours', 'Source', 'Late?', 'Notes', 'Status']]
+    entries.forEach(e => {
       rows.push([
         e.user_name || '—', e.date, e.start_time, e.end_time || '—',
         e.site_name || '—', fmtM(e.shift_minutes),
         e.is_override ? 'Override' : e.is_manual ? 'Manual' : 'QR',
         e.scheduled_start ? (e.is_late ? `Late ${e.minutes_late}m` : 'On time') : '—',
         e.entry_notes || '',
+        e.is_staff_archived ? 'Archived' : e.is_staff_blocked ? 'Blocked' : 'Active',
       ])
     })
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
