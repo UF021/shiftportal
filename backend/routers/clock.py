@@ -817,8 +817,7 @@ def edit_shift(
         # Auto overnight: if clock-out <= clock-in, shift crosses midnight
         if clock_out_dt <= clock_in_dt:
             clock_out_dt += timedelta(days=1)
-        eff_start = _effective_start(clock_in_dt, body.scheduled_start)
-        shift_minutes = int((clock_out_dt - eff_start).total_seconds() / 60)
+        shift_minutes = int((clock_out_dt - clock_in_dt).total_seconds() / 60)
         if co:
             # Update existing clock_out
             co.timestamp     = clock_out_dt
