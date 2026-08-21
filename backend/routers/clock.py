@@ -779,6 +779,12 @@ def edit_shift(
     # Always auto-calculate lateness — no manual override
     is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
 
+    # Capture the original clock-in timestamp BEFORE overwriting it.
+    # The clock-out search must use this original value so we find the clock-out
+    # that was actually paired with this shift — not one from an adjacent shift
+    # whose window happens to overlap with the newly-entered time.
+    original_ts = ci.timestamp
+
     # Update clock_in event
     ci.timestamp       = clock_in_dt
     ci.site_id         = body.site_id
@@ -787,16 +793,18 @@ def edit_shift(
     ci.minutes_late    = minutes_late
     ci.entry_notes     = body.entry_notes
 
-    # Flush so the co query uses the updated clock_in timestamp
     db.flush()
 
-    # Find and update the matching clock_out
+    # Find the clock-out that belongs to THIS clock-in: the first clock-out that
+    # occurred after the ORIGINAL clock-in time, capped at +24 h so we never
+    # cross into the next shift's window.
     co = (
         db.query(models.ClockEvent)
         .filter(
             models.ClockEvent.user_id    == ci.user_id,
             models.ClockEvent.event_type == models.ClockEventType.clock_out,
-            models.ClockEvent.timestamp  > clock_in_dt - timedelta(hours=24),
+            models.ClockEvent.timestamp  >  original_ts,
+            models.ClockEvent.timestamp  <= original_ts + timedelta(hours=24),
         )
         .order_by(models.ClockEvent.timestamp.asc())
         .first()
