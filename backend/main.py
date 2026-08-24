@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
-from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training
+from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing
 from scheduled import send_lateness_warnings
 
 log = logging.getLogger(__name__)
@@ -297,6 +297,13 @@ def _ensure_columns():
             "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ",
             "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS reply_body TEXT",
             "ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS replied_by_id INTEGER",
+            # Subscriptions — site limits and add-ons (billing phase 1)
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS site_limit INTEGER DEFAULT 1",
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS extra_staff INTEGER DEFAULT 0",
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS extra_sites INTEGER DEFAULT 0",
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id VARCHAR(100)",
+            # Subscriptions — update seat_limit default for existing trial rows
+            "UPDATE subscriptions SET seat_limit = 10 WHERE seat_limit = 25 AND plan = 'trial'",
         ]
         for s in stmts:
             db.execute(text(s))
@@ -364,6 +371,7 @@ app.include_router(gps_captures.router,  prefix="/api/gps-captures",  tags=["GPS
 app.include_router(contact.router,       prefix="/api/contact",       tags=["Contact"])
 app.include_router(incidents.router,     prefix="/api/incidents",     tags=["Incidents"])
 app.include_router(training.router,      prefix="/api/training",      tags=["Training"])
+app.include_router(billing.router,       prefix="/api/billing",       tags=["Billing"])
 
 
 @app.get("/")

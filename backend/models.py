@@ -49,10 +49,11 @@ class HolidayStatus(str, enum.Enum):
 
 
 class SubscriptionPlan(str, enum.Enum):
-    trial      = "trial"       # 30-day free trial
-    starter    = "starter"     # £49/mo — up to 25 staff
-    growth     = "growth"      # £99/mo — up to 75 staff
-    enterprise = "enterprise"  # £199/mo — unlimited
+    trial      = "trial"       # 30-day free trial — up to 10 staff, 1 site
+    starter    = "starter"     # £149/mo — up to 50 staff, 3 sites
+    growth     = "growth"      # £299/mo — up to 200 staff, 10 sites
+    enterprise = "enterprise"  # Custom — unlimited staff and sites
+    hybrid     = "hybrid"      # £39–99/mo platform fee + £1.50–2.00 per active staff
 
 
 class SubscriptionStatus(str, enum.Enum):
@@ -111,12 +112,16 @@ class Subscription(Base):
 
     plan            = Column(SAEnum(SubscriptionPlan), default=SubscriptionPlan.trial)
     status          = Column(SAEnum(SubscriptionStatus), default=SubscriptionStatus.trial)
-    seat_limit      = Column(Integer, default=25)      # max active staff
+    seat_limit      = Column(Integer, default=10)      # max active staff (overridden by plan)
+    site_limit      = Column(Integer, default=1)       # max active sites (overridden by plan)
+    extra_staff     = Column(Integer, default=0)       # purchased add-on seats
+    extra_sites     = Column(Integer, default=0)       # purchased add-on sites
     trial_ends_at   = Column(DateTime(timezone=True), nullable=True)
 
-    # Stripe
+    # Stripe (populated when billing goes live)
     stripe_customer_id      = Column(String(100), nullable=True)
     stripe_subscription_id  = Column(String(100), nullable=True)
+    stripe_price_id         = Column(String(100), nullable=True)
 
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), onupdate=func.now())

@@ -21,6 +21,7 @@ const NAV = [
   { path:'/hr/training',         icon:'🎓', label:'Training' },
   { path:'/hr/gps',             icon:'📍', label:'GPS Captures' },
   { path:'/hr/settings',        icon:'⚙️', label:'Settings' },
+  { path:'/hr/billing',         icon:'💳', label:'Billing & Plan' },
 ]
 
 export default function HRLayout() {

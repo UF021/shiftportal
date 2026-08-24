@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { listOrgs, toggleOrg, extendTrial } from '../../api/client'
+import { listOrgs, toggleOrg, extendTrial, assignPlan } from '../../api/client'
 
-const PLAN_C = { trial:'#f0a030', starter:'#4a9fd4', growth:'#6abf3f', enterprise:'#a855f7', none:'#6a8a6a' }
+const PLAN_C = { trial:'#f0a030', starter:'#4a9fd4', growth:'#6abf3f', enterprise:'#a855f7', hybrid:'#f97316', none:'#6a8a6a' }
+const PLANS  = ['trial', 'starter', 'growth', 'enterprise', 'hybrid']
 
 export default function SuperOrgs() {
   const [orgs, setOrgs]   = useState([])
@@ -32,6 +33,23 @@ export default function SuperOrgs() {
       setMsg(`✅ Trial extended by ${days} days`)
       load()
     } catch { setMsg('❌ Failed to extend trial') }
+    finally { setBusy(null) }
+  }
+
+  async function changePlan(org) {
+    const plan = prompt(
+      `Change plan for "${org.name}".\n\nAvailable: ${PLANS.join(', ')}\n\nCurrent: ${org.plan}`,
+      org.plan,
+    )
+    if (!plan || !PLANS.includes(plan)) return
+    const extraStaff = parseInt(prompt('Extra staff add-on seats (0 if none):', '0') || '0')
+    const extraSites = parseInt(prompt('Extra site add-on slots (0 if none):', '0') || '0')
+    setBusy(org.id)
+    try {
+      await assignPlan({ org_id: org.id, plan, extra_staff: extraStaff || 0, extra_sites: extraSites || 0 })
+      setMsg(`✅ Plan updated to "${plan}" for ${org.name}`)
+      load()
+    } catch (ex) { setMsg(`❌ ${ex.response?.data?.detail || 'Failed to update plan'}`) }
     finally { setBusy(null) }
   }
 
@@ -93,6 +111,9 @@ export default function SuperOrgs() {
                       ⏳ Extend Trial
                     </button>
                   )}
+                  <button onClick={() => changePlan(org)} disabled={busy===org.id} style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${PLAN_C[org.plan]||PLAN_C.none}55`, background:`${PLAN_C[org.plan]||PLAN_C.none}15`, color:PLAN_C[org.plan]||PLAN_C.none, fontFamily:'DM Sans,sans-serif', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    📋 Change Plan
+                  </button>
                   <button onClick={() => toggle(org.id, org.name, org.is_active)} disabled={busy===org.id} style={{ padding:'8px 14px', borderRadius:8, border:`1px solid ${org.is_active?'rgba(224,85,85,.4)':'rgba(106,191,63,.4)'}`, background:org.is_active?'rgba(224,85,85,.1)':'rgba(106,191,63,.1)', color:org.is_active?'#e05555':'#6abf3f', fontFamily:'DM Sans,sans-serif', fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {busy===org.id ? '…' : org.is_active ? '⏸ Suspend' : '▶ Reactivate'}
                   </button>
