@@ -43,6 +43,7 @@ import HRGPSCaptures    from './pages/hr/HRGPSCaptures'
 import HRIncidents      from './pages/hr/HRIncidents'
 import HRTraining       from './pages/hr/HRTraining'
 import HRDuplicates       from './pages/hr/HRDuplicates'
+import HRImportCSV        from './pages/hr/HRImportCSV'
 import HRShiftScheduler  from './pages/hr/HRShiftScheduler'
 import HRBilling          from './pages/hr/HRBilling'
 import HRAuditLog     from './pages/hr/HRAuditLog'
@@ -122,6 +123,7 @@ export default function App() {
         <Route path="registrations" element={<HRRegistrations />} />
         <Route path="staff"          element={<HRStaff />} />
         <Route path="staff/archived" element={<HRStaff />} />
+        <Route path="import"         element={<HRImportCSV />} />
         <Route path="timelogs"      element={<HRTimelogs />} />
         <Route path="holidays"      element={<HRHolidays />} />
         <Route path="shifts"         element={<HRShiftScheduler />} />

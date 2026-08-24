@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 from database import get_db
 from schemas import EditUserRequest
@@ -666,3 +666,130 @@ def merge_staff(
     _send_merge_email(primary, secondary_email, secondary_name)
 
     return {"message": f"Merged: {secondary_name} absorbed into {primary.full_name}", "primary_id": primary.id}
+
+
+# ── Bulk CSV import ───────────────────────────────────────────────────────────
+
+class ImportRow(BaseModel):
+    first_name:            str
+    last_name:             str
+    email:                 str
+    phone:                 Optional[str] = None
+    date_of_birth:         Optional[str] = None
+    nationality:           Optional[str] = None
+    ni_number:             Optional[str] = None
+    sia_licence:           Optional[str] = None
+    sia_expiry:            Optional[str] = None
+    address_line1:         Optional[str] = None
+    address_line2:         Optional[str] = None
+    city:                  Optional[str] = None
+    postcode:              Optional[str] = None
+    staff_id:              Optional[str] = None
+    employment_start_date: Optional[str] = None
+    nok_name:              Optional[str] = None
+    nok_phone:             Optional[str] = None
+    nok_relation:          Optional[str] = None
+
+
+class ImportRequest(BaseModel):
+    staff: List[ImportRow]
+
+
+@router.post("/import")
+def import_staff_csv(
+    body: ImportRequest,
+    db:   Session     = Depends(get_db),
+    hr:   models.User = Depends(require_hr),
+):
+    import re
+    import uuid
+    from datetime import date
+    from auth_utils import hash_password
+
+    EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+    existing_emails = {
+        u.email.lower()
+        for u in db.query(models.User.email).filter(
+            models.User.organisation_id == hr.organisation_id
+        ).all()
+    }
+
+    created = 0
+    skipped = 0
+    errors  = []
+
+    for i, row in enumerate(body.staff, start=1):
+        email = (row.email or '').strip().lower()
+
+        if not email or not EMAIL_RE.match(email):
+            errors.append({'row': i, 'email': email, 'reason': 'Invalid or missing email'})
+            continue
+        if not (row.first_name or '').strip() or not (row.last_name or '').strip():
+            errors.append({'row': i, 'email': email, 'reason': 'First name and last name are required'})
+            continue
+        if email in existing_emails:
+            skipped += 1
+            continue
+
+        dob = None
+        if row.date_of_birth:
+            try:
+                dob = date.fromisoformat(row.date_of_birth.strip())
+            except ValueError:
+                errors.append({'row': i, 'email': email, 'reason': f'Invalid date_of_birth: {row.date_of_birth}'})
+                continue
+
+        sia_exp = None
+        if row.sia_expiry:
+            try:
+                sia_exp = date.fromisoformat(row.sia_expiry.strip())
+            except ValueError:
+                errors.append({'row': i, 'email': email, 'reason': f'Invalid sia_expiry: {row.sia_expiry}'})
+                continue
+
+        emp_start = None
+        if row.employment_start_date:
+            try:
+                emp_start = date.fromisoformat(row.employment_start_date.strip())
+            except ValueError:
+                pass  # non-fatal — leave as None
+
+        u = models.User(
+            organisation_id       = hr.organisation_id,
+            role                  = models.UserRole.staff,
+            email                 = email,
+            hashed_password       = hash_password(str(uuid.uuid4())),
+            is_active             = True,
+            activated_at          = datetime.now(timezone.utc),
+            first_name            = row.first_name.strip(),
+            last_name             = row.last_name.strip(),
+            phone                 = row.phone or None,
+            date_of_birth         = dob,
+            nationality           = row.nationality or None,
+            ni_number             = row.ni_number.strip().upper() if row.ni_number else None,
+            sia_licence           = row.sia_licence or None,
+            sia_expiry            = sia_exp,
+            address_line1         = row.address_line1 or None,
+            address_line2         = row.address_line2 or None,
+            city                  = row.city or None,
+            postcode              = row.postcode.strip().upper() if row.postcode else None,
+            staff_id              = row.staff_id.strip() if row.staff_id else 'TBC',
+            employment_start_date = emp_start,
+            nok_name              = row.nok_name or None,
+            nok_phone             = row.nok_phone or None,
+            nok_relation          = row.nok_relation or None,
+        )
+        db.add(u)
+        existing_emails.add(email)
+        created += 1
+
+    if created:
+        log_action(
+            db, hr.organisation_id, hr,
+            'staff.import', 'staff', None, None,
+            detail={'created': created, 'skipped': skipped, 'errors': len(errors)},
+        )
+    db.commit()
+
+    return {'created': created, 'skipped': skipped, 'errors': errors}

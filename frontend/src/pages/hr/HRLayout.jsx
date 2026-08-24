@@ -9,6 +9,7 @@ const NAV = [
   { path:'/hr/registrations',   icon:'📋', label:'Registrations' },
   { path:'/hr/staff',           icon:'👥', label:'Staff Records' },
   { path:'/hr/staff/archived',  icon:'📦', label:'Archived Staff', indent: true },
+  { path:'/hr/import',          icon:'📤', label:'Bulk Import',    indent: true },
   { path:'/hr/duplicates',      icon:'🔀', label:'Merge Duplicates' },
   { path:'/hr/timelogs',        icon:'⏱',  label:'Time Report' },
   { path:'/hr/holidays',        icon:'🌴', label:'Holidays' },

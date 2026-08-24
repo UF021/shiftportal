@@ -53,6 +53,7 @@ export const getProfileChanges         = ()              => api.get('/staff/prof
 export const acknowledgeProfileChange  = (id)            => api.post(`/staff/profile-changes/${id}/acknowledge`)
 export const getStaffDuplicates        = ()              => api.get('/staff/duplicates')
 export const mergeStaff               = (primary_id, secondary_id, keep_staff_id = null) => api.post('/staff/merge', { primary_id, secondary_id, ...(keep_staff_id ? { keep_staff_id } : {}) })
+export const importStaffCSV           = (staff)     => api.post('/staff/import', { staff })
 
 // Registrations
 export const getPending   = ()       => api.get('/registrations/pending')

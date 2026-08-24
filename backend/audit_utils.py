@@ -26,6 +26,7 @@ ACTION_LABELS = {
     'org.toggle':          'Organisation toggled',
     'org.trial_extend':    'Trial extended',
     'gdpr.erase':          'Personal data erased (GDPR)',
+    'staff.import':        'Bulk CSV import',
 }
 
 
