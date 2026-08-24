@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from auth_utils import get_current_user, require_hr
+from audit_utils import log_action
 import models
 from bank_holidays import is_bank_holiday
 
@@ -677,6 +678,10 @@ def manual_shift(
 
     # Flush so DB assigns IDs before we read them
     db.flush()
+    log_action(db, hr.organisation_id, hr, 'shift.manual_add', 'shift', in_event.id,
+               staff.full_name,
+               {"date": body.date.isoformat(), "clock_in": body.clock_in_time,
+                "clock_out": body.clock_out_time, "shift_minutes": shift_minutes})
     db.commit()
 
     return {
@@ -841,6 +846,11 @@ def edit_shift(
         co.site_id     = body.site_id
         co.entry_notes = body.entry_notes
 
+    staff_user = db.query(models.User).filter(models.User.id == ci.user_id).first()
+    log_action(db, hr.organisation_id, hr, 'shift.edit', 'shift', event_id,
+               staff_user.full_name if staff_user else 'Unknown',
+               {"date": body.date.isoformat(), "clock_in": body.clock_in_time,
+                "clock_out": body.clock_out_time, "shift_minutes": shift_minutes})
     db.commit()
     return {"message": "Shift updated", "shift_minutes": shift_minutes}
 
@@ -872,8 +882,13 @@ def delete_shift(
         .order_by(models.ClockEvent.timestamp.asc())
         .first()
     )
+    staff_user  = db.query(models.User).filter(models.User.id == ci.user_id).first()
+    shift_date  = ci.timestamp.date().isoformat() if ci.timestamp else None
     if co:
         db.delete(co)
+    log_action(db, hr.organisation_id, hr, 'shift.delete', 'shift', event_id,
+               staff_user.full_name if staff_user else 'Unknown',
+               {"date": shift_date})
     db.delete(ci)
     db.commit()
     return {"message": "Shift deleted"}

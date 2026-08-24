@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from database import get_db
 from schemas import ActivateRequest
 from auth_utils import get_current_user, require_hr, org_guard
+from audit_utils import log_action
 import models
 
 router = APIRouter()
@@ -102,6 +103,8 @@ def activate(
     u.assigned_sites        = req.assigned_sites
     u.activated_at          = datetime.now(timezone.utc)
 
+    log_action(db, u.organisation_id, hr, 'staff.activate', 'staff', u.id, u.full_name,
+               {"staff_id": u.staff_id, "pay_rate": str(req.pay_rate) if req.pay_rate else None})
     db.commit()
     return {"message": f"{u.full_name} activated successfully", "staff_id": u.staff_id}
 
@@ -116,7 +119,10 @@ def reject(
     if not u:
         raise HTTPException(404, "User not found")
     org_guard(hr, u.organisation_id)
-    name = u.full_name
+    name    = u.full_name
+    org_id  = u.organisation_id
+    uid     = u.id
+    log_action(db, org_id, hr, 'staff.reject', 'staff', uid, name)
     db.delete(u)
     db.commit()
     return {"message": f"Registration for {name} rejected and removed"}

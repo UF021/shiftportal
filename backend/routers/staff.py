@@ -11,6 +11,7 @@ from typing import List
 from database import get_db
 from schemas import EditUserRequest
 from auth_utils import get_current_user, require_hr, org_guard
+from audit_utils import log_action
 import models
 
 log = logging.getLogger(__name__)
@@ -385,6 +386,7 @@ def block_staff(
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only block staff accounts")
     u.is_blocked = True
+    log_action(db, u.organisation_id, hr, 'staff.block', 'staff', u.id, u.full_name)
     db.commit()
     return {"message": "Access blocked", "id": u.id}
 
@@ -402,6 +404,7 @@ def unblock_staff(
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only unblock staff accounts")
     u.is_blocked = False
+    log_action(db, u.organisation_id, hr, 'staff.unblock', 'staff', u.id, u.full_name)
     db.commit()
     return {"message": "Access restored", "id": u.id}
 
@@ -420,6 +423,7 @@ def archive_staff(
         raise HTTPException(403, "Can only archive staff accounts")
     u.is_archived = True
     u.archived_at = datetime.now(timezone.utc)
+    log_action(db, u.organisation_id, hr, 'staff.archive', 'staff', u.id, u.full_name)
     db.commit()
     return {"message": f"{u.full_name} archived", "id": u.id}
 
@@ -442,6 +446,7 @@ def unarchive_staff(
     # protects this person on the next GET /staff/all call. Without this, the loop
     # immediately re-archives them because their last clock-in is still > 6 weeks ago.
     u.activated_at = datetime.now(timezone.utc)
+    log_action(db, u.organisation_id, hr, 'staff.unarchive', 'staff', u.id, u.full_name)
     db.commit()
     return {"message": f"{u.full_name} restored to active records", "id": u.id}
 

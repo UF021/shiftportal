@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from auth_utils import get_current_user, require_hr, require_superadmin
+from audit_utils import log_action
 import models
 
 router = APIRouter()
@@ -330,9 +331,9 @@ def my_subscription(
 
 @router.post("/assign", status_code=200)
 def assign_plan(
-    body: AssignPlanBody,
-    db:   Session = Depends(get_db),
-    _:    models.User = Depends(require_superadmin),
+    body:       AssignPlanBody,
+    db:         Session = Depends(get_db),
+    superadmin: models.User = Depends(require_superadmin),
 ):
     """Superadmin — assign a plan to an org (used before Stripe is live)."""
     if body.plan not in PLAN_CONFIG:
@@ -362,6 +363,8 @@ def assign_plan(
     if body.trial_days is not None:
         sub.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=body.trial_days)
 
+    log_action(db, body.org_id, superadmin, 'org.plan_change', 'org', body.org_id,
+               org.name, {"plan": body.plan, "extra_staff": body.extra_staff, "extra_sites": body.extra_sites})
     db.commit()
     return {
         "message":    f"Plan updated to '{body.plan}' for org {body.org_id}",

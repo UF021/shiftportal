@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone, timedelta
 from database import get_db
 from schemas import HolidayCreate, HolidayOut, HolidaySummary
 from auth_utils import get_current_user, require_hr, org_guard
+from audit_utils import log_action
 import models
 
 UK_TZ = pytz.timezone('Europe/London')
@@ -127,6 +128,10 @@ def approve(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depend
                 db.add(co)
             current += timedelta(days=1)
 
+    staff = db.query(models.User).filter(models.User.id == h.user_id).first()
+    log_action(db, h.organisation_id, hr, 'holiday.approve', 'holiday', h.id,
+               staff.full_name if staff else 'Unknown',
+               {"from_date": str(h.from_date), "to_date": str(h.to_date), "days": h.days})
     db.commit()
     return {"message": "Approved", "holiday_pay_hours": h.holiday_pay_hours}
 
@@ -139,6 +144,10 @@ def reject(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depends
     h.status = models.HolidayStatus.rejected
     h.reviewed_at = datetime.now(timezone.utc)
     h.reviewed_by_id = hr.id
+    staff = db.query(models.User).filter(models.User.id == h.user_id).first()
+    log_action(db, h.organisation_id, hr, 'holiday.reject', 'holiday', h.id,
+               staff.full_name if staff else 'Unknown',
+               {"from_date": str(h.from_date), "to_date": str(h.to_date), "days": h.days})
     db.commit()
     return {"message": "Rejected"}
 

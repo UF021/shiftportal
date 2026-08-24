@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 
 from database import get_db
 from auth_utils import require_superadmin, hash_password
+from audit_utils import log_action
 from config import get_settings
 import models
 
@@ -65,29 +66,34 @@ def seed_superadmin(db: Session = Depends(get_db)):
 
 @router.post("/organisations/{org_id}/toggle-active")
 def toggle_org(
-    org_id: int,
-    db:     Session = Depends(get_db),
-    _:      models.User = Depends(require_superadmin),
+    org_id:     int,
+    db:         Session = Depends(get_db),
+    superadmin: models.User = Depends(require_superadmin),
 ):
     org = db.query(models.Organisation).filter(models.Organisation.id == org_id).first()
     if not org:
         raise HTTPException(404, "Organisation not found")
     org.is_active = not org.is_active
+    log_action(db, org_id, superadmin, 'org.toggle', 'org', org_id, org.name,
+               {"is_active": org.is_active})
     db.commit()
     return {"message": f"Organisation {'activated' if org.is_active else 'deactivated'}", "is_active": org.is_active}
 
 
 @router.post("/organisations/{org_id}/extend-trial")
 def extend_trial(
-    org_id: int,
-    days:   int = 30,
-    db:     Session = Depends(get_db),
-    _:      models.User = Depends(require_superadmin),
+    org_id:     int,
+    days:       int = 30,
+    db:         Session = Depends(get_db),
+    superadmin: models.User = Depends(require_superadmin),
 ):
     sub = db.query(models.Subscription).filter(models.Subscription.organisation_id == org_id).first()
     if not sub:
         raise HTTPException(404, "Subscription not found")
     base = sub.trial_ends_at or datetime.now(timezone.utc)
     sub.trial_ends_at = base + timedelta(days=days)
+    org = db.query(models.Organisation).filter(models.Organisation.id == org_id).first()
+    log_action(db, org_id, superadmin, 'org.trial_extend', 'org', org_id,
+               org.name if org else str(org_id), {"days_added": days})
     db.commit()
     return {"message": f"Trial extended by {days} days", "trial_ends_at": sub.trial_ends_at.isoformat()}

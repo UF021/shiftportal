@@ -624,3 +624,21 @@ class TrainingProgress(Base):
     user            = relationship("User", foreign_keys=[user_id])
 
     __table_args__  = (UniqueConstraint('user_id', 'module', name='uq_user_training_module'),)
+
+
+# ── AuditLog ──────────────────────────────────────────────────────────────────
+
+class AuditLog(Base):
+    __tablename__ = 'audit_logs'
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=True, index=True)
+    actor_id        = Column(Integer, nullable=True)   # intentionally not FK — survives user deletion
+    actor_name      = Column(String(200))              # denormalized for the same reason
+    actor_role      = Column(String(50))
+    action          = Column(String(100), index=True)  # e.g. 'shift.edit', 'staff.archive'
+    entity_type     = Column(String(50))               # 'shift', 'staff', 'holiday', 'org', …
+    entity_id       = Column(String(100), nullable=True)
+    entity_name     = Column(String(200), nullable=True)
+    detail          = Column(Text, nullable=True)      # JSON blob with before/after or context
+    created_at      = Column(DateTime(timezone=True), server_default=func.now(), index=True)
