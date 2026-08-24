@@ -144,7 +144,7 @@ def week_view(
         "week_start": mon.isoformat(),
         "week_end":   sun.isoformat(),
         "shifts":     [_serialise(s, _compute_status(s, events_by_user, now_uk)) for s in shifts],
-        "staff":      [{"id": u.id, "full_name": u.full_name, "staff_type": u.staff_type} for u in all_staff],
+        "staff":      [{"id": u.id, "full_name": u.full_name, "staff_type": u.staff_type, "email": u.email} for u in all_staff],
         "sites":      [{"id": s.id, "name": s.name, "code": s.code} for s in all_sites],
     }
 

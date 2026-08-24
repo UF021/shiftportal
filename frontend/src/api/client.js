@@ -135,9 +135,11 @@ export const getReminderLogs       = ()            => api.get('/training/reminde
 
 // Incidents
 export const submitIncident   = (fd)  => api.post('/incidents/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-export const getMyIncidents   = ()    => api.get('/incidents/my')
-export const getIncidents     = ()    => api.get('/incidents/')
-export const reviewIncident   = (id)  => api.patch(`/incidents/${id}/review`)
+export const getMyIncidents          = ()           => api.get('/incidents/my')
+export const getIncidents            = ()           => api.get('/incidents/')
+export const reviewIncident          = (id)         => api.patch(`/incidents/${id}/review`)
+export const forwardIncident         = (id, emails) => api.post(`/incidents/${id}/forward`, { emails })
+export const triggerIncidentReminders= ()           => api.post('/incidents/trigger-reminders')
 
 // Scheduled shifts
 export const getShiftWeek         = (week)   => api.get('/shifts/week', { params: { week } })

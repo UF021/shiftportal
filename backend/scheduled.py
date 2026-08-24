@@ -596,3 +596,185 @@ def send_weekly_payroll_training_reminder():
         log.error("[TRAINING-REMINDER] Weekly job failed: %s", exc)
     finally:
         db.close()
+
+
+def send_incident_filing_reminders():
+    """
+    Weekly job: remind active staff who worked 2+ shifts in the last 7 days
+    but filed zero incident reports in the last 14 days.
+    Fires at most once per 14-day window per staff member.
+    """
+    import os as _os
+    from email_utils import send_email as _send, org_sender, org_reply_to
+
+    now     = datetime.now(timezone.utc)
+    cutoff7 = now - timedelta(days=7)
+    cutoff14= now - timedelta(days=14)
+
+    db = SessionLocal()
+    try:
+        orgs = db.query(models.Organisation).filter(
+            models.Organisation.is_active == True
+        ).all()
+
+        total_sent = 0
+        for org in orgs:
+            org_name   = org.brand_name or org.name
+            portal_url = _os.getenv("FRONTEND_URL", "https://portal.ikanfm.co.uk")
+            reply_to   = org_reply_to(org)
+
+            staff_list = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.staff,
+                models.User.is_active       == True,
+                models.User.is_blocked.isnot(True),
+                models.User.is_archived.isnot(True),
+            ).all()
+
+            for s in staff_list:
+                # Already reminded within the last 14 days?
+                if s.incident_reminder_sent_at:
+                    last = s.incident_reminder_sent_at.replace(tzinfo=timezone.utc) if s.incident_reminder_sent_at.tzinfo is None else s.incident_reminder_sent_at
+                    if last > cutoff14:
+                        continue
+
+                # Count clock-in events in the last 7 days (proxy for shifts worked)
+                shifts_worked = db.query(models.ClockEvent).filter(
+                    models.ClockEvent.user_id    == s.id,
+                    models.ClockEvent.event_type == models.ClockEventType.clock_in,
+                    models.ClockEvent.timestamp  >= cutoff7,
+                ).count()
+
+                if shifts_worked < 2:
+                    continue
+
+                # Count incident reports in the last 14 days
+                incidents_filed = db.query(models.IncidentReport).filter(
+                    models.IncidentReport.user_id      == s.id,
+                    models.IncidentReport.submitted_at >= cutoff14,
+                ).count()
+
+                if incidents_filed > 0:
+                    continue
+
+                # Send reminder
+                _send_incident_reminder_email(s, org_name, portal_url, reply_to)
+
+                s.incident_reminder_sent_at = now
+                total_sent += 1
+
+        db.commit()
+        log.info("[INCIDENT-REMINDER] Sent %d reminder(s)", total_sent)
+    except Exception as exc:
+        db.rollback()
+        log.error("[INCIDENT-REMINDER] Job failed: %s", exc)
+    finally:
+        db.close()
+
+
+def _send_incident_reminder_email(user, org_name: str, portal_url: str, reply_to: str):
+    from email_utils import send_email
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
+        <tr>
+          <td style="background:#0f1923;padding:28px 32px;text-align:center;">
+            <div style="color:#6abf3f;font-size:22px;font-weight:900;letter-spacing:-0.5px;">{org_name}</div>
+            <div style="color:#7a9a7a;font-size:13px;margin-top:4px;">HR Department</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#e3f2fd;border-bottom:3px solid #1565c0;padding:20px 32px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:6px;">📋</div>
+            <div style="font-size:18px;font-weight:700;color:#0d47a1;">A Friendly Reminder — Incident Reporting</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#1a1a1a;">Dear <strong>{user.first_name}</strong>,</p>
+            <p style="margin:0 0 16px;font-size:14px;color:#333;line-height:1.7;">
+              We hope you're well. Our records show that you've completed shifts recently but haven't
+              filed an incident report in the past two weeks. We wanted to reach out as a friendly
+              reminder — not a concern, but a prompt.
+            </p>
+            <div style="background:#f3f8ff;border:1px solid #bbdefb;border-radius:8px;padding:18px 20px;margin:20px 0;">
+              <div style="font-weight:700;font-size:14px;color:#1565c0;margin-bottom:12px;">
+                Why incident reporting matters:
+              </div>
+              <table cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="padding:6px 0;font-size:13px;color:#333;line-height:1.6;">
+                    <strong style="color:#1565c0;">🛡 Your safety</strong> — documented reports create a clear record if a situation escalates or if you need support.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;font-size:13px;color:#333;line-height:1.6;">
+                    <strong style="color:#1565c0;">👁 Site awareness</strong> — it demonstrates to clients and management that you are actively engaged and alert to your environment.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;font-size:13px;color:#333;line-height:1.6;">
+                    <strong style="color:#1565c0;">📊 Risk assessment</strong> — even minor observations contribute to identifying patterns that help keep everyone safer.
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;color:#5d4037;line-height:1.6;">
+              <strong>A nil report is just as valid.</strong> If nothing notable has occurred, filing a nil report is equally encouraged. The habit of reporting, regardless of severity, is what we're building across the team.
+            </div>
+            <div style="text-align:center;margin:28px 0;">
+              <a href="{portal_url}/staff/incidents"
+                 style="display:inline-block;background:#1565c0;color:#ffffff;font-size:15px;font-weight:700;
+                        text-decoration:none;padding:14px 32px;border-radius:8px;letter-spacing:0.3px;">
+                File an Incident Report →
+              </a>
+            </div>
+            <p style="font-size:13px;color:#555;line-height:1.6;margin:0;">
+              Thank you for everything you do on site. If you have any questions about what constitutes a
+              reportable incident, please don't hesitate to contact HR.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f5f5f5;padding:16px 32px;text-align:center;border-top:1px solid #e0e0e0;">
+            <div style="font-size:12px;color:#999;">Best regards — {org_name} HR Team</div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    text = f"""Dear {user.first_name},
+
+We hope you're well. Our records show that you've completed shifts recently but haven't filed an incident report in the past two weeks. We wanted to reach out as a friendly reminder.
+
+Incident reporting isn't just about recording serious events. It's an important part of your day-to-day role on site:
+
+- YOUR SAFETY: documented reports create a clear record if a situation escalates.
+- SITE AWARENESS: it demonstrates to clients and management that you are actively engaged.
+- RISK ASSESSMENT: even minor observations help identify patterns that keep everyone safer.
+
+A nil report is just as valid — if nothing notable has occurred, filing a nil report is equally encouraged.
+
+File a report: {portal_url}/staff/incidents
+
+Thank you for everything you do on site.
+
+Best regards,
+{org_name} HR Team"""
+
+    send_email(
+        to        = user.email,
+        subject   = f"A Friendly Reminder — Incident Reporting | {org_name}",
+        body      = text,
+        html      = html,
+        from_name = f"{org_name} HR",
+        reply_to  = reply_to,
+    )

@@ -4,6 +4,7 @@ import {
   getShiftWeek, createScheduledShift, updateScheduledShift,
   deleteScheduledShift, copyShiftWeek,
 } from '../../api/client'
+import HRShiftGrid from './HRShiftGrid'
 
 const STATUS = {
   scheduled:  { bg: 'rgba(59,130,246,.14)',  border: '#3b82f6', text: '#93c5fd', label: 'Scheduled' },
@@ -68,16 +69,17 @@ export default function HRShiftScheduler() {
   const { colour } = useBrand()
   const c = colour || '#6abf3f'
 
-  const [weekStart, setWeekStart] = useState(() => weekMonday(null))
-  const [data,      setData]      = useState(null)
-  const [loading,   setLoading]   = useState(true)
-  const [modal,     setModal]     = useState(null)
-  const [copyOpen,  setCopyOpen]  = useState(false)
-  const [saving,    setSaving]    = useState(false)
-  const [err,       setErr]       = useState('')
-  const [form,      setForm]      = useState({})
+  const [weekStart,  setWeekStart]  = useState(() => weekMonday(null))
+  const [data,       setData]       = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [modal,      setModal]      = useState(null)
+  const [copyOpen,   setCopyOpen]   = useState(false)
+  const [saving,     setSaving]     = useState(false)
+  const [err,        setErr]        = useState('')
+  const [form,       setForm]       = useState({})
   const [copyForm,   setCopyForm]   = useState({ to_week: '' })
   const [typeFilter, setTypeFilter] = useState('all')
+  const [viewMode,   setViewMode]   = useState('calendar')
 
   const load = useCallback((ws) => {
     setLoading(true)
@@ -215,6 +217,20 @@ export default function HRShiftScheduler() {
         </button>
       </div>
 
+      {/* View toggle tabs */}
+      <div style={{ display: 'flex', gap: 2, marginBottom: 18, background: 'var(--navy-mid)', borderRadius: 10, padding: 3, width: 'fit-content', border: '1px solid var(--border)' }}>
+        {[['calendar','📅 Calendar'],['grid','⊞ Site Grid']].map(([v,l]) => (
+          <button key={v} onClick={() => setViewMode(v)} style={{
+            padding: '7px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', fontSize: 13,
+            border: 'none',
+            background: viewMode===v ? c : 'transparent',
+            color: viewMode===v ? '#fff' : 'var(--text-muted)',
+            fontWeight: viewMode===v ? 700 : 400,
+            transition: 'all .15s',
+          }}>{l}</button>
+        ))}
+      </div>
+
       {/* Staff type toggle */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
         {[['all','All Staff'],['payroll','Payroll'],['subcontract','Subcontractors']].map(([v,l]) => (
@@ -227,6 +243,17 @@ export default function HRShiftScheduler() {
         ))}
       </div>
 
+      {/* Grid view */}
+      {viewMode === 'grid' && (
+        <HRShiftGrid
+          weekStart={weekStart}
+          data={data}
+          loading={loading}
+          onRefresh={() => load(weekStart)}
+        />
+      )}
+
+      {viewMode !== 'grid' && <>
       {/* Week navigation */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <button onClick={prevWeek} style={navBtn}>‹ Prev</button>
@@ -340,6 +367,8 @@ export default function HRShiftScheduler() {
           </div>
         </>
       )}
+
+      </>}
 
       {/* ── Add / Edit modal ── */}
       {modal && (

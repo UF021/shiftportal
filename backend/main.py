@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
 from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts, manager, payroll, reports
-from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts, send_weekly_payroll_training_reminder
+from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts, send_weekly_payroll_training_reminder, send_incident_filing_reminders
 
 log = logging.getLogger(__name__)
 
@@ -322,6 +322,8 @@ def _ensure_columns():
             "UPDATE users SET is_erased = false WHERE is_erased IS NULL",
             # Organisations — uploaded logo stored as data URI
             "ALTER TABLE organisations ADD COLUMN IF NOT EXISTS brand_logo_data TEXT",
+            # Users — track when incident-filing reminder was last sent
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS incident_reminder_sent_at TIMESTAMPTZ",
         ]
         for s in stmts:
             db.execute(text(s))
@@ -379,6 +381,12 @@ async def lifespan(app: FastAPI):
         send_weekly_payroll_training_reminder,
         CronTrigger(day_of_week='mon', hour=9, minute=30, timezone=pytz.timezone('Europe/London')),
         id='weekly_training_reminder',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        send_incident_filing_reminders,
+        CronTrigger(day_of_week='mon', hour=10, minute=0, timezone=pytz.timezone('Europe/London')),
+        id='incident_filing_reminders',
         replace_existing=True,
     )
     scheduler.start()

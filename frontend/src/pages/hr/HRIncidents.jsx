@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getIncidents, reviewIncident } from '../../api/client'
+import { getIncidents, reviewIncident, forwardIncident, triggerIncidentReminders } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 const BASE = (import.meta.env.VITE_API_URL || '/api')
@@ -66,7 +66,7 @@ function PhotoThumb({ src, label }) {
   )
 }
 
-function IncidentDetail({ inc, onClose, onReview, colour }) {
+function IncidentDetail({ inc, onClose, onReview, onForward, colour }) {
   const c = colour || '#6abf3f'
   const token = localStorage.getItem('sp_token')
   const photoUrl = (n) =>
@@ -108,7 +108,15 @@ function IncidentDetail({ inc, onClose, onReview, colour }) {
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Incident Report #{inc.id}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Submitted {fmtDt(inc.submitted_at)}</div>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => onForward(inc)}
+              style={{
+                padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600,
+              }}
+            >↗ Forward</button>
             {!inc.reviewed && (
               <button
                 onClick={() => onReview(inc.id)}
@@ -211,10 +219,16 @@ export default function HRIncidents() {
   const { colour } = useBrand()
   const c          = colour || '#6abf3f'
 
-  const [data,     setData]    = useState(null)
-  const [selected, setSelected] = useState(null)
-  const [filter,   setFilter]  = useState('all')   // 'all' | 'pending' | 'reviewed'
-  const [search,   setSearch]  = useState('')
+  const [data,          setData]         = useState(null)
+  const [selected,      setSelected]     = useState(null)
+  const [filter,        setFilter]       = useState('all')
+  const [search,        setSearch]       = useState('')
+  const [forwardInc,    setForwardInc]   = useState(null)   // incident being forwarded
+  const [forwardEmails, setForwardEmails] = useState('')
+  const [forwarding,    setForwarding]   = useState(false)
+  const [forwardResult, setForwardResult] = useState(null)  // {ok, msg}
+  const [triggerBusy,   setTriggerBusy]  = useState(false)
+  const [triggerMsg,    setTriggerMsg]   = useState('')
 
   const load = () =>
     getIncidents()
@@ -226,7 +240,40 @@ export default function HRIncidents() {
   async function handleReview(id) {
     await reviewIncident(id)
     await load()
-    setSelected(s => s ? { ...s, reviewed: true, reviewed_at: new Date().toISOString() } : s)
+    setSelected(null)
+  }
+
+  function openForward(inc) {
+    setForwardInc(inc)
+    setForwardEmails('')
+    setForwardResult(null)
+  }
+
+  async function handleForward() {
+    if (!forwardEmails.trim()) return
+    setForwarding(true); setForwardResult(null)
+    try {
+      await forwardIncident(forwardInc.id, forwardEmails)
+      setForwardResult({ ok: true, msg: `Forwarded to ${forwardEmails}` })
+      setTimeout(() => { setForwardInc(null); setForwardResult(null) }, 2500)
+    } catch (ex) {
+      setForwardResult({ ok: false, msg: ex.response?.data?.detail || 'Forward failed.' })
+    } finally {
+      setForwarding(false)
+    }
+  }
+
+  async function handleTriggerReminders() {
+    setTriggerBusy(true); setTriggerMsg('')
+    try {
+      await triggerIncidentReminders()
+      setTriggerMsg('Reminder emails are being sent to qualifying staff.')
+    } catch {
+      setTriggerMsg('Failed to trigger reminders.')
+    } finally {
+      setTriggerBusy(false)
+      setTimeout(() => setTriggerMsg(''), 6000)
+    }
   }
 
   const filtered = (data || []).filter(r => {
@@ -252,6 +299,21 @@ export default function HRIncidents() {
         <div>
           <h1 className="hr-page-title">Incident Reports</h1>
           <p className="hr-page-subtitle">Review and manage staff-submitted incident reports</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {triggerMsg && (
+            <span style={{ fontSize: 12, color: triggerMsg.includes('Fail') ? '#fca5a5' : '#6abf3f' }}>{triggerMsg}</span>
+          )}
+          <button
+            onClick={handleTriggerReminders}
+            disabled={triggerBusy}
+            style={{
+              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              border: '1px solid var(--border)', background: 'var(--navy-mid)',
+              color: 'var(--text-muted)', cursor: triggerBusy ? 'not-allowed' : 'pointer',
+              opacity: triggerBusy ? 0.6 : 1,
+            }}
+          >{triggerBusy ? 'Sending…' : 'Send Filing Reminders'}</button>
         </div>
       </div>
 
@@ -377,8 +439,78 @@ export default function HRIncidents() {
           inc={selected}
           onClose={() => setSelected(null)}
           onReview={handleReview}
+          onForward={inc => { setSelected(null); openForward(inc) }}
           colour={c}
         />
+      )}
+
+      {/* ── Forward modal ── */}
+      {forwardInc && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 1100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
+        }}>
+          <div style={{
+            background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: 28, width: '100%', maxWidth: 480,
+          }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+              Forward Incident Report #{forwardInc.id}
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: 'var(--text-muted)' }}>
+              {forwardInc.date_of_incident} · {forwardInc.site_location}
+            </p>
+
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
+              Recipient Email Addresses
+            </label>
+            <textarea
+              value={forwardEmails}
+              onChange={e => setForwardEmails(e.target.value)}
+              placeholder="e.g. manager@site.com, client@example.com"
+              rows={3}
+              style={{
+                width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                background: 'var(--navy)', color: 'var(--text)', fontSize: 13,
+                fontFamily: 'DM Sans,sans-serif', resize: 'vertical', boxSizing: 'border-box',
+                outline: 'none',
+              }}
+            />
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '6px 0 0' }}>
+              Separate multiple addresses with commas. All incident fields and photos will be included.
+            </p>
+
+            {forwardResult && (
+              <div style={{
+                marginTop: 12, padding: '8px 12px', borderRadius: 8, fontSize: 13,
+                background: forwardResult.ok ? 'rgba(106,191,63,.1)' : '#2d1515',
+                border: `1px solid ${forwardResult.ok ? '#6abf3f' : '#e05555'}`,
+                color: forwardResult.ok ? '#6abf3f' : '#fca5a5',
+              }}>{forwardResult.msg}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <button
+                onClick={() => { setForwardInc(null); setForwardResult(null) }}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--text-muted)', fontSize: 13,
+                  cursor: 'pointer', fontFamily: 'DM Sans,sans-serif',
+                }}
+              >Cancel</button>
+              <button
+                onClick={handleForward}
+                disabled={forwarding || !forwardEmails.trim()}
+                style={{
+                  flex: 2, padding: '10px', borderRadius: 8, border: 'none',
+                  background: c, color: '#fff', fontSize: 13, fontWeight: 700,
+                  cursor: (forwarding || !forwardEmails.trim()) ? 'not-allowed' : 'pointer',
+                  fontFamily: 'DM Sans,sans-serif', opacity: (forwarding || !forwardEmails.trim()) ? 0.6 : 1,
+                }}
+              >{forwarding ? 'Sending…' : 'Forward Report'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
