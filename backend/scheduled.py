@@ -778,3 +778,160 @@ Best regards,
         from_name = f"{org_name} HR",
         reply_to  = reply_to,
     )
+
+# ── Long-shift alerts — hourly ─────────────────────────────────────────────────
+
+def send_long_shift_alerts():
+    """
+    Runs every hour.  Finds any clock_in event with no subsequent clock_out
+    that is more than 15 hours old.  Sends one alert per event (flag prevents
+    repeat sends) — to the staff member and to each HR admin.
+    """
+    log.info("[LONG-SHIFT] Running long-shift check…")
+    db = SessionLocal()
+    try:
+        now_utc    = datetime.now(timezone.utc)
+        cutoff_utc = now_utc - timedelta(hours=15)
+
+        # All unalerted clock-ins older than 15 h
+        old_ins = db.query(models.ClockEvent).filter(
+            models.ClockEvent.event_type        == models.ClockEventType.clock_in,
+            models.ClockEvent.timestamp         <= cutoff_utc,
+            models.ClockEvent.long_shift_alerted == False,
+            models.ClockEvent.entry_notes        != '[HOLIDAY PAY]',
+        ).all()
+
+        alerted = 0
+        for ci in old_ins:
+            # Check there's no clock_out after this clock_in
+            has_out = db.query(models.ClockEvent).filter(
+                models.ClockEvent.user_id    == ci.user_id,
+                models.ClockEvent.event_type == models.ClockEventType.clock_out,
+                models.ClockEvent.timestamp  >  ci.timestamp,
+            ).first()
+            if has_out:
+                # Already clocked out — just mark so we don't check again
+                ci.long_shift_alerted = True
+                continue
+
+            user = db.query(models.User).filter(models.User.id == ci.user_id).first()
+            if not user or not user.email:
+                ci.long_shift_alerted = True
+                continue
+
+            org = db.query(models.Organisation).filter(
+                models.Organisation.id == ci.organisation_id
+            ).first()
+            if not org:
+                ci.long_shift_alerted = True
+                continue
+
+            org_name   = org.brand_name or org.name
+            hours_in   = int((now_utc - ci.timestamp.astimezone(timezone.utc)).total_seconds() // 3600)
+            ci_uk      = ci.timestamp.astimezone(UK_TZ)
+            clocked_in_at = ci_uk.strftime("%H:%M on %d %b %Y")
+            site_name  = ci.site.name if ci.site else "—"
+
+            # ── Email to staff member ──
+            staff_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
+        <tr>
+          <td style="background:#0f1923;padding:24px 32px;">
+            <div style="color:#6abf3f;font-size:20px;font-weight:900;">{org_name}</div>
+            <div style="color:#7a9a7a;font-size:12px;margin-top:3px;">HR Department</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#fff3e0;border-bottom:3px solid #e65100;padding:20px 32px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:6px;">⏱</div>
+            <div style="font-size:18px;font-weight:700;color:#bf360c;">You are still clocked in</div>
+            <div style="font-size:13px;color:#e65100;margin-top:4px;">You clocked in {hours_in} hours ago — please clock out if your shift has ended.</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#1a1a1a;">Dear <strong>{user.first_name}</strong>,</p>
+            <p style="margin:0 0 16px;font-size:14px;color:#333;line-height:1.7;">
+              Our records show you clocked in at <strong>{clocked_in_at}</strong>
+              {f'at <strong>{site_name}</strong> ' if site_name != "—" else ""}and have not yet clocked out.
+              That is now <strong>{hours_in} hours</strong> without a clock-out recorded.
+            </p>
+            <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;color:#5d4037;line-height:1.6;">
+              <strong>Please clock out via the staff portal as soon as possible.</strong>
+              If your shift has already ended and you forgot to clock out, please do so now or contact HR to add a manual entry.
+            </div>
+            <p style="font-size:12px;color:#888;border-top:1px solid #eee;padding-top:16px;margin:20px 0 0;">
+              If you believe this is an error, please contact HR directly.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f5f5f5;padding:14px 32px;text-align:center;border-top:1px solid #e0e0e0;">
+            <div style="font-size:11px;color:#999;">Regards — {org_name} HR Team</div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+            send_email(
+                to        = user.email,
+                subject   = f"Clock-Out Reminder — You've Been Clocked In for {hours_in} Hours | {org_name}",
+                body      = (
+                    f"Dear {user.first_name},\n\n"
+                    f"You clocked in at {clocked_in_at}{f' at {site_name}' if site_name != '—' else ''} "
+                    f"and have not yet clocked out ({hours_in} hours ago).\n\n"
+                    f"Please clock out via the staff portal as soon as possible, "
+                    f"or contact HR to add a manual clock-out entry.\n\n"
+                    f"Regards,\n{org_name} HR Team"
+                ),
+                html      = staff_html,
+                from_name = f"{org_name} HR",
+                reply_to  = org.brand_email or org.contact_email,
+            )
+
+            # ── Email to HR admins ──
+            hr_users = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.hr,
+                models.User.is_active       == True,
+            ).all()
+
+            hr_body = (
+                f"Long shift alert — {user.full_name} has been clocked in for {hours_in} hours "
+                f"without clocking out.\n\n"
+                f"  Staff:       {user.full_name}\n"
+                f"  Clocked in:  {clocked_in_at}\n"
+                f"  Site:        {site_name}\n"
+                f"  Duration:    {hours_in} hours\n\n"
+                f"A reminder has been sent to the staff member. "
+                f"Please add a manual clock-out if required.\n\n"
+                f"Regards,\n{org_name} Notifications"
+            )
+
+            for hr_user in hr_users:
+                send_email(
+                    to        = hr_user.email,
+                    subject   = f"Long Shift Alert — {user.full_name} ({hours_in}h clocked in) | {org_name}",
+                    body      = hr_body,
+                    from_name = f"{org_name} via Tyma",
+                    reply_to  = org.brand_email or org.contact_email,
+                )
+
+            ci.long_shift_alerted = True
+            alerted += 1
+
+        db.commit()
+        log.info("[LONG-SHIFT] Check complete — %d alert(s) sent", alerted)
+    except Exception as exc:
+        db.rollback()
+        log.error("[LONG-SHIFT] Check failed: %s", exc)
+    finally:
+        db.close()

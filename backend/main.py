@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
 from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts, manager, payroll, reports
-from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts, send_weekly_payroll_training_reminder, send_incident_filing_reminders
+from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts, send_weekly_payroll_training_reminder, send_incident_filing_reminders, send_long_shift_alerts
 
 log = logging.getLogger(__name__)
 
@@ -324,6 +324,8 @@ def _ensure_columns():
             "ALTER TABLE organisations ADD COLUMN IF NOT EXISTS brand_logo_data TEXT",
             # Users — track when incident-filing reminder was last sent
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS incident_reminder_sent_at TIMESTAMPTZ",
+            # ClockEvent — prevent repeat long-shift alerts for same clock-in
+            "ALTER TABLE clock_events ADD COLUMN IF NOT EXISTS long_shift_alerted BOOLEAN DEFAULT FALSE",
         ]
         for s in stmts:
             db.execute(text(s))
@@ -387,6 +389,12 @@ async def lifespan(app: FastAPI):
         send_incident_filing_reminders,
         CronTrigger(day_of_week='mon', hour=10, minute=0, timezone=pytz.timezone('Europe/London')),
         id='incident_filing_reminders',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        send_long_shift_alerts,
+        CronTrigger(minute=0, timezone=pytz.timezone('Europe/London')),  # every hour on the hour
+        id='long_shift_alerts',
         replace_existing=True,
     )
     scheduler.start()
