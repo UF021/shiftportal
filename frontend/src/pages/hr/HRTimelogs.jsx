@@ -139,6 +139,19 @@ function EditModal({ entry, sites, onClose, onSaved }) {
           </div>
         </div>
 
+        {(() => {
+          const m = form.scheduled_start ? Number(form.scheduled_start.split(':')[1]) : null
+          if (m == null || m % 30 === 0) return null
+          const h = Number(form.scheduled_start.split(':')[0])
+          const suggA = m < 30 ? `${String(h).padStart(2,'0')}:00` : `${String(h).padStart(2,'0')}:30`
+          const suggB = m < 30 ? `${String(h).padStart(2,'0')}:30` : `${String((h+1)%24).padStart(2,'0')}:00`
+          return (
+            <div style={{ marginTop: 10, padding: '9px 13px', borderRadius: 8, background: 'rgba(240,160,48,.12)', border: '1px solid rgba(240,160,48,.4)', fontSize: 13, color: '#7a4800' }}>
+              ⚠ Unusual scheduled start — did you mean <strong>{suggA}</strong> or <strong>{suggB}</strong>?
+            </div>
+          )
+        })()}
+
         <div style={{ marginTop: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 4 }}>HR Notes</label>
           <textarea value={form.entry_notes} onChange={e => set('entry_notes', e.target.value)} rows={2}

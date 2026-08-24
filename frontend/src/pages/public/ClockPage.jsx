@@ -665,6 +665,10 @@ export default function ClockPage() {
       : null
     const minsLate  = schedMins != null ? nowMins - schedMins : null
 
+    // Block clock-in if scheduled start is not on the hour or half past
+    const schedMinute          = form.scheduledStart ? Number(form.scheduledStart.split(':')[1]) : null
+    const unusualScheduledStart = schedMinute != null && schedMinute % 30 !== 0
+
     // Elapsed timer since page load (clock-out display)
     const elapsedSec  = Math.floor((tick - pageLoadTime) / 1000)
     const elapsedH    = Math.floor(elapsedSec / 3600)
@@ -872,12 +876,12 @@ export default function ClockPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button
               onClick={() => submit('in')}
-              disabled={submitting}
+              disabled={submitting || unusualScheduledStart}
               style={{
                 width: '100%', padding: '16px', fontSize: 15, fontWeight: 700,
                 borderRadius: 8, border: 'none',
-                background: submitting && action === 'in' ? '#aaa' : '#2E7D32',
-                color: '#fff', cursor: submitting ? 'wait' : 'pointer',
+                background: (submitting && action === 'in') || unusualScheduledStart ? '#aaa' : '#2E7D32',
+                color: '#fff', cursor: submitting ? 'wait' : unusualScheduledStart ? 'not-allowed' : 'pointer',
                 fontFamily: 'DM Sans, sans-serif', letterSpacing: '.04em',
               }}
             >

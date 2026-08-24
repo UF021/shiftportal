@@ -132,6 +132,19 @@ export default function HRManualShift() {
         <TimeField label="Clock In Time" required value={form.clock_in_time} onChange={v => setField('clock_in_time', v)} />
         <TimeField label="Scheduled Start (for punctuality)" value={form.scheduled_start} onChange={v => setField('scheduled_start', v)} />
 
+        {(() => {
+          const m = form.scheduled_start ? Number(form.scheduled_start.split(':')[1]) : null
+          if (m == null || m % 30 === 0) return null
+          const h = Number(form.scheduled_start.split(':')[0])
+          const suggA = m < 30 ? `${String(h).padStart(2,'0')}:00` : `${String(h).padStart(2,'0')}:30`
+          const suggB = m < 30 ? `${String(h).padStart(2,'0')}:30` : `${String((h+1)%24).padStart(2,'0')}:00`
+          return (
+            <div style={{ background:'rgba(240,160,48,.12)', border:'1px solid rgba(240,160,48,.4)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#7a4800', marginBottom:16 }}>
+              ⚠ Unusual scheduled start — shifts should begin on the hour or at :30. Did you mean <strong>{suggA}</strong> or <strong>{suggB}</strong>?
+            </div>
+          )
+        })()}
+
         {minsLate > 0 && (
           <div style={{ background:'rgba(240,160,48,.12)', border:'1px solid rgba(240,160,48,.3)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--amber)', marginBottom:16 }}>
             ⚠ Auto-detected: {minsLate} min{minsLate !== 1 ? 's' : ''} late
