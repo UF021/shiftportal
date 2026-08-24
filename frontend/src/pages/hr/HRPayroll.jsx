@@ -222,7 +222,7 @@ export default function HRPayroll() {
       {/* Summary stats */}
       {data && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+          <div className="grid-4" style={{ marginBottom: 16 }}>
             {[
               { val: data.employees.length,       label: 'Employees',        col: 'var(--text)',     mono: true },
               { val: `${data.total_hours} hrs`,   label: 'Total Hours',      col: c,                  mono: true },

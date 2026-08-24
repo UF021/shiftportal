@@ -200,14 +200,29 @@ input[type="number"] { -moz-appearance: textfield; }
   }
 }
 
-/* Three-column layout collapses to one column on phones */
-.grid-3 {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 600px) {
+/* Responsive grid helpers */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr;         gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr;     gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr);  gap: 14px; }
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr);  gap: 10px; }
+
+@media (max-width: 640px) {
+  .grid-2 { grid-template-columns: 1fr; }
   .grid-3 { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+  .grid-5 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 900px) and (min-width: 641px) {
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+  .grid-5 { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* HR portal content area — comfortable reading on all screen sizes */
+.hr-main { min-width: 0; }
+
+/* Prevent modals from being too wide on tablets */
+@media (max-width: 640px) {
+  .form-row { grid-template-columns: 1fr; }
 }
 
 /* ── Staff portal (light theme overrides) ──────────────────────────────────── */

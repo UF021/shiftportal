@@ -180,7 +180,7 @@ export default function HRTraining() {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+      <div className="grid-3" style={{ marginBottom: 24 }}>
         {[
           { label: 'Total Staff', value: total,     icon: '👥', col: c },
           { label: 'Fully Complete', value: complete, icon: '✅', col: '#2e7d32' },

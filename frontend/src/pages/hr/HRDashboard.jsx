@@ -94,14 +94,14 @@ export default function HRDashboard() {
       </div>
 
       {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:22 }}>
+      <div className="grid-4" style={{ marginBottom:22 }}>
         <Stat label="Total Staff"       value={stats?.total_staff}        sub="Active employees" />
         <Stat label="Pending Approvals" value={stats?.pending_regs}       col="var(--amber)" sub="Awaiting HR review" />
         <Stat label="SIA Expiring"      value={stats?.sia_expiring_soon}  col="var(--amber)" sub="Within 60 days" />
         <Stat label="SIA Expired"       value={stats?.sia_expired}        col="var(--red)"   sub="Action required" />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
+      <div className="grid-2" style={{ marginBottom:20 }}>
         {/* SIA Alerts */}
         <div className="card">
           <div className="card-title">⚠️ SIA Alerts</div>

@@ -183,7 +183,7 @@ export default function HRReports() {
         <>
           {/* ── Workforce ── */}
           <SectionTitle>Workforce</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+          <div className="grid-5" style={{ }}>
             <KpiCard label="Active Staff"         value={fmtNum(data.workforce.total_active)}    col={c} />
             <KpiCard label="Payroll"              value={fmtNum(data.workforce.payroll_count)}   col="var(--text)" />
             <KpiCard label="Subcontract"          value={fmtNum(data.workforce.subcontract_count)} col="var(--text)" />
@@ -193,7 +193,7 @@ export default function HRReports() {
 
           {/* ── Attendance ── */}
           <SectionTitle>Attendance · {days}-day period</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+          <div className="grid-4" style={{ marginBottom: 12 }}>
             <KpiCard label="Shifts Completed" value={fmtNum(data.attendance.total_shifts)} col={c} />
             <KpiCard label="Hours Worked"     value={`${fmtNum(data.attendance.total_hours)}h`} col={c} />
             <KpiCard label="Late Arrivals"    value={fmtNum(data.attendance.late_count)} col={data.attendance.late_count > 0 ? '#fca5a5' : 'var(--text-muted)'} sub={`${data.attendance.late_rate_pct}% of clock-ins`} />
@@ -208,7 +208,7 @@ export default function HRReports() {
 
           {/* ── Holidays ── */}
           <SectionTitle>Holidays</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div className="grid-4" style={{ }}>
             <KpiCard label="Pending Approval" value={fmtNum(data.holidays.pending)} col={data.holidays.pending > 0 ? '#fcd34d' : 'var(--text-muted)'} />
             <KpiCard label="Approved (period)" value={fmtNum(data.holidays.approved_period)} col={c} />
             <KpiCard label="Days Taken (period)" value={fmtNum(data.holidays.approved_days)} col={c} />
@@ -216,7 +216,7 @@ export default function HRReports() {
           </div>
 
           {/* ── SIA & Training side-by-side ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 0 }}>
+          <div className="grid-2" style={{ marginTop: 0 }}>
             <div>
               <SectionTitle>SIA Compliance</SectionTitle>
               <div style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 16px' }}>
@@ -256,7 +256,7 @@ export default function HRReports() {
 
           {/* ── Incidents ── */}
           <SectionTitle>Incidents · {days}-day period</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div className="grid-3" style={{ gap: 10 }}>
             <KpiCard label="Total Reported" value={fmtNum(data.incidents.total)} col={data.incidents.total > 0 ? '#fca5a5' : 'var(--text-muted)'} />
             <KpiCard label="Reviewed"       value={fmtNum(data.incidents.reviewed)} col="#86efac" />
             <KpiCard label="Awaiting Review" value={fmtNum(data.incidents.unreviewed)} col={data.incidents.unreviewed > 0 ? '#fcd34d' : 'var(--text-muted)'} />
