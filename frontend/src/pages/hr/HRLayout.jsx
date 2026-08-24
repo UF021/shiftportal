@@ -12,6 +12,7 @@ const NAV = [
   { path:'/hr/import',          icon:'📤', label:'Bulk Import',    indent: true },
   { path:'/hr/duplicates',      icon:'🔀', label:'Merge Duplicates' },
   { path:'/hr/timelogs',        icon:'⏱',  label:'Time Report' },
+  { path:'/hr/payroll',         icon:'💷', label:'Payroll' },
   { path:'/hr/holidays',        icon:'🌴', label:'Holidays' },
   { path:'/hr/shifts',          icon:'📅', label:'Shift Scheduler' },
   { path:'/hr/manual',          icon:'✏️', label:'Manual Entry' },

@@ -146,6 +146,9 @@ export const updateScheduledShift = (id, d)   => api.patch(`/shifts/${id}`, d)
 export const deleteScheduledShift = (id)      => api.delete(`/shifts/${id}`)
 export const copyShiftWeek        = (d)       => api.post('/shifts/copy-week', d)
 
+// Payroll
+export const getPayrollSummary = (p) => api.get('/payroll/summary', { params: p })
+
 // Manager portal
 export const getManagerDashboard = ()  => api.get('/manager/dashboard')
 export const getManagerClock     = (p) => api.get('/manager/clock', { params: p })

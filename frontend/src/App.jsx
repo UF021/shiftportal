@@ -45,6 +45,7 @@ import HRTraining       from './pages/hr/HRTraining'
 import HRDuplicates       from './pages/hr/HRDuplicates'
 import HRImportCSV        from './pages/hr/HRImportCSV'
 import HRShiftScheduler  from './pages/hr/HRShiftScheduler'
+import HRPayroll          from './pages/hr/HRPayroll'
 import HRBilling          from './pages/hr/HRBilling'
 import HRAuditLog     from './pages/hr/HRAuditLog'
 import HRGDPRTools    from './pages/hr/HRGDPRTools'
@@ -137,6 +138,7 @@ export default function App() {
         <Route path="staff/archived" element={<HRStaff />} />
         <Route path="import"         element={<HRImportCSV />} />
         <Route path="timelogs"      element={<HRTimelogs />} />
+        <Route path="payroll"        element={<HRPayroll />} />
         <Route path="holidays"      element={<HRHolidays />} />
         <Route path="shifts"         element={<HRShiftScheduler />} />
         <Route path="manual"        element={<HRManualShift />} />
