@@ -6,13 +6,12 @@ Lateness escalation ladder (per calendar month, per staff member):
   3rd warning        → second formal notice (portal: amber / warning)
   4th+ warning       → final written notice (portal: red   / urgent)
 """
-import os
 import logging
-import resend
 import pytz
 from datetime import datetime, timedelta, timezone
 
 from database import SessionLocal
+from email_utils import send_email
 import models
 
 log = logging.getLogger(__name__)
@@ -20,26 +19,7 @@ UK_TZ = pytz.timezone('Europe/London')
 
 
 def _send(to_email: str, subject: str, body: str):
-    api_key   = os.getenv("RESEND_API_KEY")
-    from_addr = os.getenv("EMAIL_FROM", "hr@ikanfm.co.uk")
-    bcc_addr  = os.getenv("BCC_EMAIL")
-    if not api_key:
-        log.info("[LATENESS] RESEND_API_KEY not configured — would send to %s", to_email)
-        return
-    try:
-        resend.api_key = api_key
-        payload = {
-            "from":    f"Ikan FM HR <{from_addr}>",
-            "to":      [to_email],
-            "subject": subject,
-            "text":    body,
-        }
-        if bcc_addr:
-            payload["bcc"] = [bcc_addr]
-        resend.Emails.send(payload)
-        log.info("[LATENESS] Sent warning to %s", to_email)
-    except Exception as exc:
-        log.error("[LATENESS] Failed to send to %s: %s", to_email, exc)
+    send_email(to=to_email, subject=subject, body=body, from_name="Ikan FM HR")
 
 
 def _row_table(late_events: list) -> str:
@@ -285,5 +265,228 @@ def send_lateness_warnings():
         log.info("[LATENESS] Weekly check complete — %d warning(s) sent", total_sent)
     except Exception as exc:
         log.error("[LATENESS] Weekly check failed: %s", exc)
+    finally:
+        db.close()
+
+
+# ── SIA expiry warnings — weekly Monday 09:00 UK ──────────────────────────────
+
+def send_sia_expiry_warnings():
+    """
+    Email each org's HR admin a list of staff whose SIA licence expires
+    within 60 days, or has already expired.  Skips orgs with no expiring staff.
+    """
+    log.info("[SIA] Running SIA expiry check…")
+    db = SessionLocal()
+    try:
+        from datetime import date as _date
+        today    = _date.today()
+        in_60    = today + timedelta(days=60)
+
+        orgs = db.query(models.Organisation).filter(models.Organisation.is_active == True).all()
+        total_sent = 0
+
+        for org in orgs:
+            expiring = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.is_active       == True,
+                models.User.sia_expiry      != None,
+                models.User.sia_expiry      <= in_60,
+            ).order_by(models.User.sia_expiry).all()
+
+            if not expiring:
+                continue
+
+            hr_users = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.hr,
+                models.User.is_active       == True,
+            ).all()
+
+            rows = ""
+            for u in expiring:
+                days_left = (u.sia_expiry - today).days
+                status    = "EXPIRED" if days_left < 0 else f"{days_left} days"
+                rows     += f"  {u.full_name:<30} {str(u.sia_expiry):<14} {status}\n"
+
+            subject = f"SIA Licence Expiry Alert — {len(expiring)} staff member(s) require attention"
+            body    = (
+                f"This is an automated reminder from the Tyma portal.\n\n"
+                f"The following staff members have SIA licences expiring within 60 days "
+                f"or that have already expired:\n\n"
+                f"  {'Name':<30} {'Expiry Date':<14} Status\n"
+                f"  {'-'*30} {'-'*14} {'-'*10}\n"
+                f"{rows}\n"
+                f"Please ensure renewals are arranged promptly to maintain compliance.\n\n"
+                f"Regards,\nTyma Notifications"
+            )
+
+            for hr_user in hr_users:
+                send_email(
+                    to        = hr_user.email,
+                    subject   = subject,
+                    body      = body,
+                    from_name = f"{org.brand_name or org.name} via Tyma",
+                    reply_to  = org.brand_email or org.contact_email,
+                )
+                total_sent += 1
+
+        log.info("[SIA] Check complete — %d email(s) sent", total_sent)
+    except Exception as exc:
+        log.error("[SIA] Check failed: %s", exc)
+    finally:
+        db.close()
+
+
+# ── Missed clock-out alerts — daily 23:30 UK ──────────────────────────────────
+
+def send_missed_clockout_alerts():
+    """
+    Email HR admins a list of staff who clocked in today but have no
+    corresponding clock-out yet.  Excludes holiday-pay entries.
+    """
+    log.info("[CLOCKOUT] Running missed clock-out check…")
+    db = SessionLocal()
+    try:
+        now_uk    = datetime.now(UK_TZ)
+        day_start = UK_TZ.localize(datetime(now_uk.year, now_uk.month, now_uk.day, 0, 0)).astimezone(timezone.utc)
+
+        orgs = db.query(models.Organisation).filter(models.Organisation.is_active == True).all()
+        total_sent = 0
+
+        for org in orgs:
+            clock_ins = db.query(models.ClockEvent).filter(
+                models.ClockEvent.organisation_id == org.id,
+                models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+                models.ClockEvent.timestamp       >= day_start,
+                models.ClockEvent.entry_notes     != '[HOLIDAY PAY]',
+            ).all()
+
+            open_shifts = []
+            for ci in clock_ins:
+                has_out = db.query(models.ClockEvent).filter(
+                    models.ClockEvent.user_id    == ci.user_id,
+                    models.ClockEvent.event_type == models.ClockEventType.clock_out,
+                    models.ClockEvent.timestamp  >  ci.timestamp,
+                ).first()
+                if not has_out:
+                    user = db.query(models.User).filter(models.User.id == ci.user_id).first()
+                    if user:
+                        ci_uk = ci.timestamp.astimezone(UK_TZ)
+                        open_shifts.append({
+                            "name":    user.full_name,
+                            "site":    ci.site.name if ci.site else "—",
+                            "in_time": ci_uk.strftime("%H:%M"),
+                        })
+
+            if not open_shifts:
+                continue
+
+            hr_users = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.hr,
+                models.User.is_active       == True,
+            ).all()
+
+            rows = "".join(
+                f"  {s['name']:<30} {s['site']:<30} Clocked in: {s['in_time']}\n"
+                for s in open_shifts
+            )
+            subject = f"Missed clock-out alert — {len(open_shifts)} open shift(s) today"
+            body    = (
+                f"The following staff members clocked in today but have not yet clocked out:\n\n"
+                f"  {'Name':<30} {'Site':<30} Time\n"
+                f"  {'-'*30} {'-'*30} {'-'*15}\n"
+                f"{rows}\n"
+                f"Please review and add a manual clock-out if required.\n\n"
+                f"Regards,\nTyma Notifications"
+            )
+
+            for hr_user in hr_users:
+                send_email(
+                    to        = hr_user.email,
+                    subject   = subject,
+                    body      = body,
+                    from_name = f"{org.brand_name or org.name} via Tyma",
+                    reply_to  = org.brand_email or org.contact_email,
+                )
+                total_sent += 1
+
+        log.info("[CLOCKOUT] Check complete — %d email(s) sent", total_sent)
+    except Exception as exc:
+        log.error("[CLOCKOUT] Check failed: %s", exc)
+    finally:
+        db.close()
+
+
+# ── Trial expiry warnings — daily 09:00 UK ────────────────────────────────────
+
+def send_trial_expiry_warnings():
+    """
+    Email HR admins when their trial expires in exactly 7, 3, or 1 day(s).
+    """
+    log.info("[TRIAL] Running trial expiry check…")
+    db = SessionLocal()
+    try:
+        from datetime import date as _date
+        today      = _date.today()
+        warn_days  = {7, 3, 1}
+
+        subs = db.query(models.Subscription).filter(
+            models.Subscription.plan          == models.SubscriptionPlan.trial,
+            models.Subscription.status        == models.SubscriptionStatus.trial,
+            models.Subscription.trial_ends_at != None,
+        ).all()
+
+        total_sent = 0
+        for sub in subs:
+            trial_date = sub.trial_ends_at.date()
+            days_left  = (trial_date - today).days
+            if days_left not in warn_days:
+                continue
+
+            org = db.query(models.Organisation).filter(
+                models.Organisation.id        == sub.organisation_id,
+                models.Organisation.is_active == True,
+            ).first()
+            if not org:
+                continue
+
+            hr_users = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.hr,
+                models.User.is_active       == True,
+            ).all()
+
+            if days_left == 1:
+                urgency = "TOMORROW"
+            elif days_left == 3:
+                urgency = "in 3 days"
+            else:
+                urgency = "in 7 days"
+
+            subject = f"Your Tyma trial expires {urgency} — action required"
+            body    = (
+                f"Your 30-day free trial for {org.name} expires {urgency} ({trial_date}).\n\n"
+                f"To continue using Tyma without interruption, please upgrade to a paid plan.\n\n"
+                f"  Starter:    £149/month — up to 50 staff, 3 sites\n"
+                f"  Growth:     £299/month — up to 200 staff, 10 sites\n"
+                f"  Enterprise: Custom pricing — unlimited\n\n"
+                f"To upgrade, visit Billing & Plan inside your portal or contact support@tyma.io.\n\n"
+                f"Regards,\nThe Tyma Team"
+            )
+
+            for hr_user in hr_users:
+                send_email(
+                    to        = hr_user.email,
+                    subject   = subject,
+                    body      = body,
+                    from_name = "Tyma",
+                )
+                total_sent += 1
+
+        log.info("[TRIAL] Check complete — %d email(s) sent", total_sent)
+    except Exception as exc:
+        log.error("[TRIAL] Check failed: %s", exc)
     finally:
         db.close()

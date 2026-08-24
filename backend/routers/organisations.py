@@ -12,6 +12,7 @@ from auth_utils import (
     get_current_user, require_hr, require_superadmin,
     hash_password, org_guard
 )
+from email_utils import send_email
 from pydantic import BaseModel
 import models
 
@@ -650,6 +651,26 @@ def org_signup(req: OrgCreate, db: Session = Depends(get_db)):
     db.add(hr_user)
     db.commit()
     db.refresh(org)
+
+    send_email(
+        to        = req.contact_email,
+        subject   = f"Welcome to Tyma — your portal is ready",
+        body      = (
+            f"Dear {req.hr_first_name},\n\n"
+            f"Your 30-day free trial for {org.name} is ready. "
+            f"Log in to your HR portal to get started.\n\n"
+            f"  Portal login: https://tyma.io/login/{org.slug}\n"
+            f"  Email:        {req.contact_email}\n\n"
+            f"Your trial includes:\n"
+            f"  - Up to 10 active staff\n"
+            f"  - 1 site with QR clock-in\n"
+            f"  - Time reporting, holidays, messages, documents & more\n\n"
+            f"To upgrade or add more staff/sites, visit Billing & Plan inside your portal "
+            f"or contact support@tyma.io.\n\n"
+            f"Welcome aboard,\nThe Tyma Team"
+        ),
+        from_name = "Tyma",
+    )
 
     return {
         "message":   f"Welcome! Your 30-day free trial for '{org.name}' is ready.",

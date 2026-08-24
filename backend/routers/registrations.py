@@ -7,6 +7,7 @@ from database import get_db
 from schemas import ActivateRequest
 from auth_utils import get_current_user, require_hr, org_guard
 from audit_utils import log_action
+from email_utils import send_email, org_sender, org_reply_to
 import models
 
 router = APIRouter()
@@ -106,6 +107,27 @@ def activate(
     log_action(db, u.organisation_id, hr, 'staff.activate', 'staff', u.id, u.full_name,
                {"staff_id": u.staff_id, "pay_rate": str(req.pay_rate) if req.pay_rate else None})
     db.commit()
+
+    # Welcome email to newly activated staff member
+    org = db.query(models.Organisation).filter(models.Organisation.id == u.organisation_id).first()
+    if u.email and org:
+        send_email(
+            to        = u.email,
+            subject   = f"Your account is now active — {org.brand_name or org.name}",
+            body      = (
+                f"Dear {u.first_name},\n\n"
+                f"Your staff account has been reviewed and is now active. "
+                f"You can log in to the staff portal using your registered email address and password.\n\n"
+                f"  Portal: https://tyma.io/login/{org.slug}\n"
+                f"  Staff ID: {u.staff_id}\n\n"
+                f"If you have forgotten your password, use the 'Forgot Password' link on the login page.\n\n"
+                f"If you have any questions, please contact HR.\n\n"
+                f"Welcome aboard,\nHR Team"
+            ),
+            from_name = org_sender(org),
+            reply_to  = org_reply_to(org),
+        )
+
     return {"message": f"{u.full_name} activated successfully", "staff_id": u.staff_id}
 
 

@@ -7,6 +7,7 @@ from database import get_db
 from schemas import HolidayCreate, HolidayOut, HolidaySummary
 from auth_utils import get_current_user, require_hr, org_guard
 from audit_utils import log_action
+from email_utils import send_email, org_sender, org_reply_to
 import models
 
 UK_TZ = pytz.timezone('Europe/London')
@@ -129,10 +130,28 @@ def approve(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depend
             current += timedelta(days=1)
 
     staff = db.query(models.User).filter(models.User.id == h.user_id).first()
+    org   = db.query(models.Organisation).filter(models.Organisation.id == h.organisation_id).first()
     log_action(db, h.organisation_id, hr, 'holiday.approve', 'holiday', h.id,
                staff.full_name if staff else 'Unknown',
                {"from_date": str(h.from_date), "to_date": str(h.to_date), "days": h.days})
     db.commit()
+    if staff and staff.email:
+        send_email(
+            to        = staff.email,
+            subject   = f"Holiday approved — {h.from_date} to {h.to_date}",
+            body      = (
+                f"Dear {staff.first_name},\n\n"
+                f"Your holiday request has been approved.\n\n"
+                f"  From:  {h.from_date}\n"
+                f"  To:    {h.to_date}\n"
+                f"  Days:  {h.days}\n\n"
+                f"Your leave balance has been updated accordingly. "
+                f"If you have any questions please contact HR.\n\n"
+                f"Regards,\nHR Team"
+            ),
+            from_name = org_sender(org) if org else "Tyma Notifications",
+            reply_to  = org_reply_to(org) if org else None,
+        )
     return {"message": "Approved", "holiday_pay_hours": h.holiday_pay_hours}
 
 
@@ -145,10 +164,27 @@ def reject(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depends
     h.reviewed_at = datetime.now(timezone.utc)
     h.reviewed_by_id = hr.id
     staff = db.query(models.User).filter(models.User.id == h.user_id).first()
+    org   = db.query(models.Organisation).filter(models.Organisation.id == h.organisation_id).first()
     log_action(db, h.organisation_id, hr, 'holiday.reject', 'holiday', h.id,
                staff.full_name if staff else 'Unknown',
                {"from_date": str(h.from_date), "to_date": str(h.to_date), "days": h.days})
     db.commit()
+    if staff and staff.email:
+        send_email(
+            to        = staff.email,
+            subject   = f"Holiday request not approved — {h.from_date} to {h.to_date}",
+            body      = (
+                f"Dear {staff.first_name},\n\n"
+                f"We regret to inform you that your holiday request has not been approved at this time.\n\n"
+                f"  From:  {h.from_date}\n"
+                f"  To:    {h.to_date}\n"
+                f"  Days:  {h.days}\n\n"
+                f"If you would like to discuss this, please contact HR directly.\n\n"
+                f"Regards,\nHR Team"
+            ),
+            from_name = org_sender(org) if org else "Tyma Notifications",
+            reply_to  = org_reply_to(org) if org else None,
+        )
     return {"message": "Rejected"}
 
 

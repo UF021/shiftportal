@@ -7,6 +7,7 @@ import uuid
 from database import get_db
 from schemas import LoginRequest, TokenOut, RegisterRequest, UserProfile, UpdateMyDetailsRequest
 from auth_utils import verify_password, hash_password, create_token, get_current_user
+from email_utils import send_email, org_sender, org_reply_to
 import models
 from pydantic import BaseModel
 
@@ -178,6 +179,31 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Notify all active HR admins in the org
+    hr_users = db.query(models.User).filter(
+        models.User.organisation_id == org.id,
+        models.User.role            == models.UserRole.hr,
+        models.User.is_active       == True,
+    ).all()
+    portal_url = f"/hr/registrations"
+    for hr_user in hr_users:
+        send_email(
+            to        = hr_user.email,
+            subject   = f"New staff registration — {user.full_name}",
+            body      = (
+                f"Dear {hr_user.first_name},\n\n"
+                f"A new staff member has registered and is awaiting your review.\n\n"
+                f"  Name:  {user.full_name}\n"
+                f"  Email: {user.email}\n"
+                f"  Org:   {org.name}\n\n"
+                f"Please log in to the HR portal to review and activate their account:\n"
+                f"  {portal_url}\n\n"
+                f"Regards,\nTyma Notifications"
+            ),
+            from_name = org_sender(org),
+            reply_to  = org_reply_to(org),
+        )
 
     return {
         "message": "Registration submitted. HR will review and activate your account.",

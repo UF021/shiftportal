@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
 from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit
-from scheduled import send_lateness_warnings
+from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings
 
 log = logging.getLogger(__name__)
 
@@ -330,6 +330,24 @@ async def lifespan(app: FastAPI):
         send_lateness_warnings,
         CronTrigger(day_of_week='mon', hour=8, minute=0, timezone=pytz.timezone('Europe/London')),
         id='lateness_warnings',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        send_sia_expiry_warnings,
+        CronTrigger(day_of_week='mon', hour=9, minute=0, timezone=pytz.timezone('Europe/London')),
+        id='sia_expiry_warnings',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        send_missed_clockout_alerts,
+        CronTrigger(hour=23, minute=30, timezone=pytz.timezone('Europe/London')),
+        id='missed_clockout_alerts',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        send_trial_expiry_warnings,
+        CronTrigger(hour=9, minute=0, timezone=pytz.timezone('Europe/London')),
+        id='trial_expiry_warnings',
         replace_existing=True,
     )
     scheduler.start()
