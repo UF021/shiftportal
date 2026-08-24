@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBrand } from '../../api/BrandContext'
-import { getMyClockHistory } from '../../api/client'
+import { getMyClockHistory, getMyShifts } from '../../api/client'
 
 function fmtDuration(mins) {
   if (mins == null) return '—'
@@ -26,11 +26,23 @@ function isoNDaysAgo(n) {
   return d.toISOString().split('T')[0]
 }
 
+const SCHED_STATUS = {
+  scheduled: { bg: '#e8f0ff', text: '#1d4ed8', label: 'Scheduled' },
+  upcoming:  { bg: '#e0f7fa', text: '#0e7490', label: 'Upcoming'  },
+  today:     { bg: '#f0faf0', text: '#15803d', label: 'Today'     },
+}
+
+function fmtScheduledDate(iso) {
+  const d = new Date(iso + 'T12:00:00')
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 export default function StaffShifts() {
   const { colour } = useBrand()
   const nav        = useNavigate()
   const c          = colour || '#6abf3f'
 
+  const [upcoming,  setUpcoming]  = useState(null)
   const [shifts,   setShifts]   = useState(null)
   const [loading,  setLoading]  = useState(true)
   const [fromDate, setFromDate] = useState('')
@@ -48,8 +60,13 @@ export default function StaffShifts() {
       .finally(() => setLoading(false))
   }
 
-  // On mount: load all records (no date filter)
-  useEffect(() => { load('', '') }, [])
+  // On mount: load all records + upcoming scheduled shifts
+  useEffect(() => {
+    load('', '')
+    getMyShifts()
+      .then(r => setUpcoming(r.data || []))
+      .catch(() => setUpcoming([]))
+  }, [])
 
   function handleSearch() {
     setApplied({ from: fromDate, to: toDate })
@@ -92,6 +109,48 @@ export default function StaffShifts() {
           <div style={{ fontSize: 12, color: '#6a8a6a', marginTop: 2 }}>Full record from when records began</div>
         </div>
       </div>
+
+      {/* Upcoming scheduled shifts */}
+      {upcoming !== null && upcoming.length > 0 && (
+        <div style={{ background: '#fff', border: `2px solid ${c}44`, borderRadius: 12, padding: '14px 16px', marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#6a8a6a', marginBottom: 10 }}>
+            📅 Upcoming Scheduled Shifts
+          </div>
+          {upcoming.map(s => {
+            const st = SCHED_STATUS[s.status] || SCHED_STATUS.scheduled
+            return (
+              <div key={s.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 0', borderBottom: '1px solid #f0f4f0',
+              }}>
+                {/* Date */}
+                <div style={{ minWidth: 96, flexShrink: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1a2a1a' }}>{fmtScheduledDate(s.date)}</div>
+                  <div style={{ fontSize: 11, fontFamily: 'DM Mono,monospace', color: '#6a8a6a', marginTop: 1 }}>
+                    {s.start_time}{s.end_time ? ` – ${s.end_time}` : ''}
+                  </div>
+                </div>
+                {/* Site */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {s.site_name || 'No specific site'}
+                  </div>
+                  {s.notes && (
+                    <div style={{ fontSize: 11, color: '#6a8a6a', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.notes}
+                    </div>
+                  )}
+                </div>
+                {/* Status badge */}
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4,
+                  background: st.bg, color: st.text, flexShrink: 0,
+                }}>{st.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Date range filter */}
       <div style={{ background: '#fff', border: '1.5px solid #d0e8d0', borderRadius: 12, padding: '14px 16px', marginBottom: 14 }}>

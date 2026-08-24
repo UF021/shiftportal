@@ -8,7 +8,7 @@ Lateness escalation ladder (per calendar month, per staff member):
 """
 import logging
 import pytz
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, date as _date, timedelta, timezone
 
 from database import SessionLocal
 from email_utils import send_email
@@ -488,5 +488,99 @@ def send_trial_expiry_warnings():
         log.info("[TRIAL] Check complete — %d email(s) sent", total_sent)
     except Exception as exc:
         log.error("[TRIAL] Check failed: %s", exc)
+    finally:
+        db.close()
+
+
+# ── No-show alerts — every 30 min ─────────────────────────────────────────────
+
+def send_no_show_alerts():
+    """
+    Check today's scheduled shifts where start + 45 min has passed and no
+    clock_in was recorded within ±60 min of start.  Sets no_show_alerted=True
+    and emails HR so the same shift is never alerted twice.
+    """
+    log.info("[NO-SHOW] Running no-show check…")
+    db = SessionLocal()
+    try:
+        from collections import defaultdict
+        now_uk = datetime.now(UK_TZ)
+        today  = now_uk.date()
+
+        shifts = db.query(models.ScheduledShift).filter(
+            models.ScheduledShift.date            == today,
+            models.ScheduledShift.no_show_alerted == False,
+        ).all()
+
+        by_org = defaultdict(list)
+        for s in shifts:
+            sh, sm   = map(int, s.start_time.split(':'))
+            start_uk = UK_TZ.localize(datetime(today.year, today.month, today.day, sh, sm))
+            cutoff   = start_uk + timedelta(minutes=45)
+            if now_uk < cutoff:
+                continue  # threshold not reached yet
+
+            start_utc = start_uk.astimezone(timezone.utc)
+            clock_in  = db.query(models.ClockEvent).filter(
+                models.ClockEvent.user_id    == s.user_id,
+                models.ClockEvent.event_type == models.ClockEventType.clock_in,
+                models.ClockEvent.timestamp.between(
+                    start_utc - timedelta(hours=1),
+                    start_utc + timedelta(hours=1),
+                ),
+            ).first()
+
+            if not clock_in:
+                s.no_show_alerted = True
+                by_org[s.organisation_id].append(s)
+
+        total_alerted = 0
+        for org_id, no_shows in by_org.items():
+            org = db.query(models.Organisation).filter(
+                models.Organisation.id        == org_id,
+                models.Organisation.is_active == True,
+            ).first()
+            if not org:
+                continue
+
+            hr_users = db.query(models.User).filter(
+                models.User.organisation_id == org_id,
+                models.User.role            == models.UserRole.hr,
+                models.User.is_active       == True,
+            ).all()
+
+            rows = ""
+            for s in no_shows:
+                name = s.user.full_name if s.user else f"User #{s.user_id}"
+                site = s.site.name if s.site else "—"
+                rows += f"  {name:<30} {site:<30} Scheduled: {s.start_time}\n"
+
+            subject = f"No-show alert — {len(no_shows)} staff member(s) failed to clock in"
+            body    = (
+                f"The following staff members were scheduled to start today but have not clocked in "
+                f"(checked 45 minutes after their scheduled start time):\n\n"
+                f"  {'Name':<30} {'Site':<30} Scheduled Start\n"
+                f"  {'-'*30} {'-'*30} {'-'*15}\n"
+                f"{rows}\n"
+                f"Please contact the staff member(s) and update the schedule if required.\n\n"
+                f"Regards,\nTyma Notifications"
+            )
+
+            for hr_user in hr_users:
+                send_email(
+                    to        = hr_user.email,
+                    subject   = subject,
+                    body      = body,
+                    from_name = f"{org.brand_name or org.name} via Tyma",
+                    reply_to  = org.brand_email or org.contact_email,
+                )
+
+            total_alerted += len(no_shows)
+
+        db.commit()
+        log.info("[NO-SHOW] Check complete — %d no-show(s) alerted", total_alerted)
+    except Exception as exc:
+        log.error("[NO-SHOW] Check failed: %s", exc)
+        db.rollback()
     finally:
         db.close()

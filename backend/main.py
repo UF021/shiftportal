@@ -11,8 +11,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
-from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr
-from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings
+from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts
+from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts
 
 log = logging.getLogger(__name__)
 
@@ -353,6 +353,12 @@ async def lifespan(app: FastAPI):
         id='trial_expiry_warnings',
         replace_existing=True,
     )
+    scheduler.add_job(
+        send_no_show_alerts,
+        CronTrigger(minute='*/30', timezone=pytz.timezone('Europe/London')),
+        id='no_show_alerts',
+        replace_existing=True,
+    )
     scheduler.start()
 
     # Run immediately on this deploy to catch this coming Monday retrospectively
@@ -395,6 +401,7 @@ app.include_router(training.router,      prefix="/api/training",      tags=["Tra
 app.include_router(billing.router,       prefix="/api/billing",       tags=["Billing"])
 app.include_router(audit.router,         prefix="/api/audit",         tags=["Audit"])
 app.include_router(gdpr.router,          prefix="/api/gdpr",           tags=["GDPR"])
+app.include_router(shifts.router,        prefix="/api/shifts",          tags=["Shifts"])
 
 
 @app.get("/")

@@ -42,8 +42,9 @@ import HRApplications   from './pages/hr/HRApplications'
 import HRGPSCaptures    from './pages/hr/HRGPSCaptures'
 import HRIncidents      from './pages/hr/HRIncidents'
 import HRTraining       from './pages/hr/HRTraining'
-import HRDuplicates    from './pages/hr/HRDuplicates'
-import HRBilling       from './pages/hr/HRBilling'
+import HRDuplicates       from './pages/hr/HRDuplicates'
+import HRShiftScheduler  from './pages/hr/HRShiftScheduler'
+import HRBilling          from './pages/hr/HRBilling'
 import HRAuditLog     from './pages/hr/HRAuditLog'
 import HRGDPRTools    from './pages/hr/HRGDPRTools'
 
@@ -123,6 +124,7 @@ export default function App() {
         <Route path="staff/archived" element={<HRStaff />} />
         <Route path="timelogs"      element={<HRTimelogs />} />
         <Route path="holidays"      element={<HRHolidays />} />
+        <Route path="shifts"         element={<HRShiftScheduler />} />
         <Route path="manual"        element={<HRManualShift />} />
         <Route path="applications"   element={<HRApplications />} />
         <Route path="qrcodes"       element={<HRQRCodes />} />

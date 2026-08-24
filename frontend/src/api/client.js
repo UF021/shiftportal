@@ -135,6 +135,14 @@ export const getMyIncidents   = ()    => api.get('/incidents/my')
 export const getIncidents     = ()    => api.get('/incidents/')
 export const reviewIncident   = (id)  => api.patch(`/incidents/${id}/review`)
 
+// Scheduled shifts
+export const getShiftWeek         = (week)   => api.get('/shifts/week', { params: { week } })
+export const getMyShifts          = ()        => api.get('/shifts/my')
+export const createScheduledShift = (d)       => api.post('/shifts/', d)
+export const updateScheduledShift = (id, d)   => api.patch(`/shifts/${id}`, d)
+export const deleteScheduledShift = (id)      => api.delete(`/shifts/${id}`)
+export const copyShiftWeek        = (d)       => api.post('/shifts/copy-week', d)
+
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')
 export const listOrgs       = ()      => api.get('/orgs/')
