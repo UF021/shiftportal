@@ -63,6 +63,7 @@ class OrgOut(BaseModel):
     brand_colour:             Optional[str]
     brand_email:              Optional[str]
     brand_logo_url:           Optional[str]
+    brand_logo_data:          Optional[str]
     contract_employer_name:   Optional[str]
     contract_employer_address:Optional[str]
     contract_employer_email:  Optional[str]

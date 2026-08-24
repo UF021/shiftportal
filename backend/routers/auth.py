@@ -249,7 +249,7 @@ def get_me(current_user: models.User = Depends(get_current_user)):
         # Org branding passed down for contract/UI
         "org_name":              org.brand_name or org.name if org else None,
         "org_colour":            org.brand_colour if org else "#6abf3f",
-        "org_logo_url":          org.brand_logo_url if org else None,
+        "org_logo_url":          (org.brand_logo_data or org.brand_logo_url) if org else None,
         "org_email":             org.brand_email or org.contact_email if org else None,
         "org_slug":              org.slug if org else None,
         "contract_employer_name":    org.contract_employer_name if org else None,
@@ -420,6 +420,6 @@ def get_org_public(slug: str, db: Session = Depends(get_db)):
         "slug":       org.slug,
         "name":       org.brand_name or org.name,
         "colour":     org.brand_colour or "#6abf3f",
-        "logo_url":   org.brand_logo_url,
+        "logo_url":   org.brand_logo_data or org.brand_logo_url,
         "email":      org.brand_email or org.contact_email,
     }

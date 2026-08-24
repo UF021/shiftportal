@@ -320,6 +320,8 @@ def _ensure_columns():
             # Users — GDPR erasure flag
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_erased BOOLEAN DEFAULT false",
             "UPDATE users SET is_erased = false WHERE is_erased IS NULL",
+            # Organisations — uploaded logo stored as data URI
+            "ALTER TABLE organisations ADD COLUMN IF NOT EXISTS brand_logo_data TEXT",
         ]
         for s in stmts:
             db.execute(text(s))

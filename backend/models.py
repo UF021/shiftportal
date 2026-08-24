@@ -80,7 +80,8 @@ class Organisation(Base):
 
     # Branding (white-label)
     brand_name      = Column(String(200), nullable=True)   # defaults to name
-    brand_logo_url  = Column(String(500), nullable=True)
+    brand_logo_url  = Column(String(500), nullable=True)   # external URL fallback
+    brand_logo_data = Column(Text,        nullable=True)   # data URI (uploaded logo)
     brand_colour    = Column(String(7),   nullable=True, default="#6abf3f")
     brand_email     = Column(String(255), nullable=True)   # hr@ikanfm.co.uk
 

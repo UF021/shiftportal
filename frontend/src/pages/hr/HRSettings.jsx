@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { getMyOrg, updateBranding, getMySites, createSite, deleteSite, getOrgDocs, uploadOrgDoc } from '../../api/client'
+import { useEffect, useRef, useState } from 'react'
+import { getMyOrg, updateBranding, getMySites, createSite, deleteSite, getOrgDocs, uploadOrgDoc, uploadOrgLogo, deleteOrgLogo } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 const APP_URL = import.meta.env.VITE_APP_URL || 'https://portal.ikanfm.co.uk'
@@ -29,6 +29,11 @@ export default function HRSettings() {
   const [msg,      setMsg]    = useState('')
   const [tab,      setTab]    = useState('branding')
   const [gpsModal, setGpsModal] = useState(null)   // site object or null
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [logoFile,    setLogoFile]    = useState(null)
+  const [logoBusy,    setLogoBusy]    = useState(false)
+  const [logoMsg,     setLogoMsg]     = useState('')
+  const logoInputRef = useRef(null)
 
   function load() {
     getMyOrg().then(r => { setOrg(r.data); setBrand({ brand_name:r.data.brand_name||'', brand_colour:r.data.brand_colour||'#6abf3f', brand_email:r.data.brand_email||'', contract_employer_name:r.data.contract_employer_name||'', contract_employer_address:r.data.contract_employer_address||'', contract_employer_email:r.data.contract_employer_email||'', contract_employer_phone:r.data.contract_employer_phone||'', contract_signatory_name:r.data.contract_signatory_name||'', contract_signatory_role:r.data.contract_signatory_role||'', contract_min_pay:r.data.contract_min_pay||'', contract_max_pay:r.data.contract_max_pay||'' }) }).catch(()=>{})
@@ -42,6 +47,42 @@ export default function HRSettings() {
     try { await updateBranding(brand); setMsg('✅ Settings saved'); load() }
     catch { setMsg('❌ Save failed') }
     finally { setSaving(false) }
+  }
+
+  function onLogoFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 375_000) { setLogoMsg('❌ File must be under 375 KB'); return }
+    setLogoFile(file)
+    setLogoMsg('')
+    const reader = new FileReader()
+    reader.onload = () => setLogoPreview(reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  async function doUploadLogo() {
+    if (!logoPreview) return
+    setLogoBusy(true); setLogoMsg('')
+    try {
+      await uploadOrgLogo(logoPreview)
+      setLogoMsg('✅ Logo uploaded — visible to all staff')
+      setLogoFile(null); setLogoPreview(null)
+      if (logoInputRef.current) logoInputRef.current.value = ''
+      load()
+    } catch (ex) {
+      setLogoMsg('❌ ' + (ex.response?.data?.detail || 'Upload failed'))
+    } finally { setLogoBusy(false) }
+  }
+
+  async function doDeleteLogo() {
+    if (!confirm('Remove the organisation logo?')) return
+    setLogoBusy(true); setLogoMsg('')
+    try {
+      await deleteOrgLogo()
+      setLogoMsg('✅ Logo removed')
+      load()
+    } catch { setLogoMsg('❌ Remove failed') }
+    finally { setLogoBusy(false) }
   }
 
   async function addSite() {
@@ -168,6 +209,69 @@ export default function HRSettings() {
       {tab==='branding' && (
         <div className="card">
           <div className="card-title">🎨 Portal Branding</div>
+
+          {/* Logo section */}
+          <div style={{ marginBottom: 22 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', display: 'block', marginBottom: 10 }}>Organisation Logo</label>
+            <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {/* Current / preview */}
+              <div style={{ background: 'var(--navy-light)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, minWidth: 140, minHeight: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {(logoPreview || org?.brand_logo_data || org?.brand_logo_url) ? (
+                  <img
+                    src={logoPreview || org?.brand_logo_data || org?.brand_logo_url}
+                    alt="Logo preview"
+                    style={{ maxWidth: 160, maxHeight: 72, objectFit: 'contain' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No logo set</span>
+                )}
+              </div>
+              {/* Upload controls */}
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={onLogoFile}
+                  style={{ display: 'block', color: 'var(--text)', marginBottom: 10, fontSize: 13 }}
+                />
+                {logoFile && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
+                    {logoFile.name} · {(logoFile.size / 1024).toFixed(0)} KB
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={doUploadLogo}
+                    className="btn btn-brand"
+                    disabled={logoBusy || !logoPreview}
+                    style={{ fontSize: 12, padding: '7px 14px' }}
+                  >
+                    {logoBusy ? 'Uploading…' : '📤 Upload Logo'}
+                  </button>
+                  {(org?.brand_logo_data || org?.brand_logo_url) && (
+                    <button
+                      onClick={doDeleteLogo}
+                      className="btn btn-danger"
+                      disabled={logoBusy}
+                      style={{ fontSize: 12, padding: '7px 14px' }}
+                    >
+                      Remove Logo
+                    </button>
+                  )}
+                </div>
+                {logoMsg && (
+                  <div className={`alert ${logoMsg.startsWith('✅') ? 'alert-green' : 'alert-red'}`} style={{ marginTop: 10, padding: '8px 12px', fontSize: 12 }}>
+                    {logoMsg}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+                  PNG, JPG, WebP or SVG · max 375 KB · shown in the portal header and login page
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="form-row">
             <BrandField label="Organisation Display Name" hint="Shown in the portal header and login page" value={brand.brand_name} onChange={e=>setBrand(b=>({...b,brand_name:e.target.value}))}/>
             <div className="field">

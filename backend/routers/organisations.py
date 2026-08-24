@@ -38,7 +38,7 @@ def org_public(slug: str, db: Session = Depends(get_db)):
         "slug":     org.slug,
         "name":     org.brand_name or org.name,
         "colour":   org.brand_colour or "#6abf3f",
-        "logo_url": org.brand_logo_url,
+        "logo_url": org.brand_logo_data or org.brand_logo_url,
         "email":    org.brand_email or org.contact_email,
     }
 
@@ -70,6 +70,41 @@ def update_branding(
         setattr(org, field, val)
     db.commit()
     return {"message": "Branding updated"}
+
+
+class LogoUpload(BaseModel):
+    image_base64: str   # full data URI: "data:image/png;base64,..."
+
+
+@router.post("/me/branding/logo")
+def upload_logo(
+    body: LogoUpload,
+    db:   Session = Depends(get_db),
+    hr:   models.User = Depends(require_hr),
+):
+    if not body.image_base64.startswith("data:image/"):
+        raise HTTPException(400, "Must be a valid image data URI (PNG, JPG, WebP, or SVG)")
+    if len(body.image_base64) > 500_000:
+        raise HTTPException(400, "Logo must be under 375 KB")
+    org = db.query(models.Organisation).filter(
+        models.Organisation.id == hr.organisation_id
+    ).first()
+    org.brand_logo_data = body.image_base64
+    db.commit()
+    return {"message": "Logo uploaded"}
+
+
+@router.delete("/me/branding/logo")
+def delete_logo(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    org = db.query(models.Organisation).filter(
+        models.Organisation.id == hr.organisation_id
+    ).first()
+    org.brand_logo_data = None
+    db.commit()
+    return {"message": "Logo removed"}
 
 
 # ── Sites (org-scoped) ────────────────────────────────────────────────────────
