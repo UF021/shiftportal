@@ -9,6 +9,7 @@ import PendingPage  from './pages/public/PendingPage'
 import ClockPage    from './pages/public/ClockPage'
 
 import ForgotPasswordPage from './pages/public/ForgotPasswordPage'
+import SignupPage     from './pages/public/SignupPage'
 import ApplyPage      from './pages/public/ApplyPage'
 import CaptureGPS     from './pages/public/CaptureGPS'
 
@@ -88,6 +89,9 @@ export default function App() {
       {/* ── Forgot password ── */}
       <Route path="/forgot-password/:slug" element={<BrandedRoute><ForgotPasswordPage /></BrandedRoute>} />
       <Route path="/forgot-password"       element={<BrandProvider slug="ikan-fm"><ForgotPasswordPage /></BrandProvider>} />
+
+      {/* ── Self-service signup ── */}
+      <Route path="/signup" element={<SignupPage />} />
 
       {/* ── Fallback login (no slug) ── */}
       <Route path="/login" element={<BrandProvider slug="ikan-fm"><LoginPage /></BrandProvider>} />

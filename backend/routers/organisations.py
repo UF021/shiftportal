@@ -593,6 +593,71 @@ def get_document_file(
     )
 
 
+# ── Public: self-service org signup ──────────────────────────────────────────
+_RESERVED = {
+    'login','register','signup','admin','super','api','app','www','mail',
+    'support','help','billing','staff','hr','tyma','ikan','demo','test',
+    'null','undefined','static','assets','public','health','docs',
+}
+
+@router.post("/signup", status_code=201)
+def org_signup(req: OrgCreate, db: Session = Depends(get_db)):
+    if req.slug in _RESERVED:
+        raise HTTPException(409, f"The portal address '{req.slug}' is reserved — please choose another.")
+    if db.query(models.Organisation).filter(models.Organisation.slug == req.slug).first():
+        raise HTTPException(409, f"The portal address '{req.slug}' is already taken.")
+    if db.query(models.User).filter(models.User.email == req.contact_email.lower()).first():
+        raise HTTPException(409, "An account with this email already exists. Try signing in instead.")
+
+    org = models.Organisation(
+        slug          = req.slug,
+        name          = req.name,
+        contact_email = req.contact_email,
+        contact_phone = req.contact_phone,
+        address       = req.address,
+        brand_name    = req.name,
+        brand_colour  = "#6abf3f",
+        brand_email   = req.contact_email,
+        contract_employer_name    = req.name,
+        contract_employer_address = req.address or "",
+        contract_employer_email   = req.contact_email,
+        contract_signatory_name   = f"{req.hr_first_name} {req.hr_last_name}",
+        contract_signatory_role   = "Director",
+        contract_min_pay          = "National Minimum Wage (NMW)",
+        contract_max_pay          = "£14",
+    )
+    db.add(org); db.flush()
+
+    sub = models.Subscription(
+        organisation_id = org.id,
+        plan            = models.SubscriptionPlan.trial,
+        status          = models.SubscriptionStatus.trial,
+        seat_limit      = 10,
+        site_limit      = 1,
+        trial_ends_at   = datetime.now(timezone.utc) + timedelta(days=30),
+    )
+    db.add(sub)
+
+    hr_user = models.User(
+        organisation_id = org.id,
+        role            = models.UserRole.hr,
+        email           = req.contact_email.lower(),
+        hashed_password = hash_password(req.hr_password),
+        is_active       = True,
+        first_name      = req.hr_first_name,
+        last_name       = req.hr_last_name,
+    )
+    db.add(hr_user)
+    db.commit()
+    db.refresh(org)
+
+    return {
+        "message":   f"Welcome! Your 30-day free trial for '{org.name}' is ready.",
+        "slug":      org.slug,
+        "login_url": f"/login/{org.slug}",
+    }
+
+
 # ── Superadmin: create org ────────────────────────────────────────────────────
 @router.post("/", status_code=201)
 def create_org(
