@@ -45,6 +45,7 @@ import HRTraining       from './pages/hr/HRTraining'
 import HRDuplicates    from './pages/hr/HRDuplicates'
 import HRBilling       from './pages/hr/HRBilling'
 import HRAuditLog     from './pages/hr/HRAuditLog'
+import HRGDPRTools    from './pages/hr/HRGDPRTools'
 
 // Superadmin
 import SuperLayout  from './pages/superadmin/SuperLayout'
@@ -134,6 +135,7 @@ export default function App() {
         <Route path="duplicates"    element={<HRDuplicates />} />
         <Route path="settings"      element={<HRSettings />} />
         <Route path="audit"         element={<HRAuditLog />} />
+        <Route path="gdpr"          element={<HRGDPRTools />} />
         <Route path="billing"       element={<HRBilling />} />
       </Route>
 

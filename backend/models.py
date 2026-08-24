@@ -163,7 +163,8 @@ class User(Base):
     email           = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     is_active       = Column(Boolean, default=False)  # False until HR activates
-    is_blocked      = Column(Boolean, default=False)  # HR can block portal + clock-in access
+    is_blocked      = Column(Boolean, default=False)
+    is_erased       = Column(Boolean, default=False)   # GDPR right to erasure applied  # HR can block portal + clock-in access
     is_archived     = Column(Boolean, default=False)  # Auto-set when no hours in 6 weeks
     archived_at     = Column(DateTime(timezone=True), nullable=True)
 

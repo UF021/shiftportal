@@ -25,6 +25,7 @@ ACTION_LABELS = {
     'org.plan_change':     'Plan changed',
     'org.toggle':          'Organisation toggled',
     'org.trial_extend':    'Trial extended',
+    'gdpr.erase':          'Personal data erased (GDPR)',
 }
 
 

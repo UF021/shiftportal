@@ -3,6 +3,7 @@ import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
 import { updateMyDetails } from '../../api/client'
 import { fmtDate } from '../../api/utils'
+import api from '../../api/client'
 
 function PF({ label, value }) {
   return (
@@ -34,10 +35,28 @@ export default function StaffProfile() {
   const { colour }            = useBrand()
   const c = colour || '#6abf3f'
 
-  const [editing, setEditing] = useState(false)
-  const [saving,  setSaving]  = useState(false)
-  const [saved,   setSaved]   = useState(false)
-  const [err,     setErr]     = useState('')
+  const [editing,      setEditing]      = useState(false)
+  const [saving,       setSaving]       = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [err,          setErr]          = useState('')
+  const [downloading,  setDownloading]  = useState(false)
+
+  async function downloadMyData() {
+    setDownloading(true)
+    try {
+      const res = await api.get('/gdpr/export/me', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a   = document.createElement('a')
+      a.href    = url
+      a.download = `my-data-${new Date().toISOString().slice(0,10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // silent — user will notice the download didn't happen
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const [form, setForm] = useState({})
 
@@ -252,6 +271,31 @@ export default function StaffProfile() {
               }}>{saving ? 'Saving…' : 'Save Changes'}</button>
             </div>
           </>
+        )}
+
+        {/* GDPR: staff self-service data download */}
+        {!editing && (
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #f0f4f0' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#8aaa8a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+              Your Data Rights (GDPR)
+            </div>
+            <button
+              onClick={downloadMyData}
+              disabled={downloading}
+              style={{
+                padding: '9px 16px', borderRadius: 8, border: '1px solid #d0ddd0',
+                background: '#f8fbf8', color: '#4a6a4a',
+                fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 600,
+                cursor: downloading ? 'not-allowed' : 'pointer',
+                opacity: downloading ? 0.6 : 1,
+              }}
+            >
+              {downloading ? 'Preparing…' : '⬇ Download a copy of my data'}
+            </button>
+            <div style={{ fontSize: 11, color: '#8aaa8a', marginTop: 6 }}>
+              Downloads all personal data held about you in JSON format.
+            </div>
+          </div>
         )}
       </div>
     </div>

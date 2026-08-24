@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
-from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit
+from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr
 from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings
 
 log = logging.getLogger(__name__)
@@ -304,6 +304,9 @@ def _ensure_columns():
             "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id VARCHAR(100)",
             # Subscriptions — update seat_limit default for existing trial rows
             "UPDATE subscriptions SET seat_limit = 10 WHERE seat_limit = 25 AND plan = 'trial'",
+            # Users — GDPR erasure flag
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_erased BOOLEAN DEFAULT false",
+            "UPDATE users SET is_erased = false WHERE is_erased IS NULL",
         ]
         for s in stmts:
             db.execute(text(s))
@@ -391,6 +394,7 @@ app.include_router(incidents.router,     prefix="/api/incidents",     tags=["Inc
 app.include_router(training.router,      prefix="/api/training",      tags=["Training"])
 app.include_router(billing.router,       prefix="/api/billing",       tags=["Billing"])
 app.include_router(audit.router,         prefix="/api/audit",         tags=["Audit"])
+app.include_router(gdpr.router,          prefix="/api/gdpr",           tags=["GDPR"])
 
 
 @app.get("/")

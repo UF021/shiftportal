@@ -21,6 +21,7 @@ const NAV = [
   { path:'/hr/training',         icon:'🎓', label:'Training' },
   { path:'/hr/gps',             icon:'📍', label:'GPS Captures' },
   { path:'/hr/audit',           icon:'🔍', label:'Audit Log' },
+  { path:'/hr/gdpr',            icon:'🛡', label:'GDPR Tools' },
   { path:'/hr/settings',        icon:'⚙️', label:'Settings' },
   { path:'/hr/billing',         icon:'💳', label:'Billing & Plan' },
 ]
