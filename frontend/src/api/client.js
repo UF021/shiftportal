@@ -149,6 +149,9 @@ export const copyShiftWeek        = (d)       => api.post('/shifts/copy-week', d
 // Payroll
 export const getPayrollSummary = (p) => api.get('/payroll/summary', { params: p })
 
+// Reports
+export const getReportsOverview = (days) => api.get('/reports/overview', { params: { days } })
+
 // Manager portal
 export const getManagerDashboard = ()  => api.get('/manager/dashboard')
 export const getManagerClock     = (p) => api.get('/manager/clock', { params: p })

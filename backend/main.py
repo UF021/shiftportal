@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
-from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts, manager, payroll
+from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts, manager, payroll, reports
 from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts
 
 log = logging.getLogger(__name__)
@@ -420,6 +420,7 @@ app.include_router(gdpr.router,          prefix="/api/gdpr",           tags=["GD
 app.include_router(shifts.router,        prefix="/api/shifts",          tags=["Shifts"])
 app.include_router(manager.router,       prefix="/api/manager",         tags=["Manager"])
 app.include_router(payroll.router,       prefix="/api/payroll",         tags=["Payroll"])
+app.include_router(reports.router,       prefix="/api/reports",         tags=["Reports"])
 
 
 @app.get("/")

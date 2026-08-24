@@ -46,6 +46,7 @@ import HRDuplicates       from './pages/hr/HRDuplicates'
 import HRImportCSV        from './pages/hr/HRImportCSV'
 import HRShiftScheduler  from './pages/hr/HRShiftScheduler'
 import HRPayroll          from './pages/hr/HRPayroll'
+import HRReports          from './pages/hr/HRReports'
 import HRBilling          from './pages/hr/HRBilling'
 import HRAuditLog     from './pages/hr/HRAuditLog'
 import HRGDPRTools    from './pages/hr/HRGDPRTools'
@@ -133,6 +134,7 @@ export default function App() {
         <Guard role={['hr']}><BrandProvider slug={user?.org_slug}><HRLayout /></BrandProvider></Guard>
       }>
         <Route index                element={<HRDashboard />} />
+        <Route path="reports"       element={<HRReports />} />
         <Route path="registrations" element={<HRRegistrations />} />
         <Route path="staff"          element={<HRStaff />} />
         <Route path="staff/archived" element={<HRStaff />} />
