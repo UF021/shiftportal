@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useBrand } from '../../api/BrandContext'
 import api from '../../api/client'
 
@@ -8,16 +9,26 @@ const PERIODS = [
   { label: '90 days', days: 90 },
 ]
 
-function KpiCard({ label, value, sub, col, wide }) {
+function KpiCard({ label, value, sub, col, wide, to, nav }) {
+  const clickable = !!to
   return (
-    <div style={{
-      background: 'var(--navy-mid)', border: '1px solid var(--border)',
-      borderRadius: 10, padding: '16px 20px',
-      gridColumn: wide ? 'span 2' : undefined,
-    }}>
+    <div
+      onClick={clickable ? () => nav(to) : undefined}
+      style={{
+        background: 'var(--navy-mid)', border: '1px solid var(--border)',
+        borderRadius: 10, padding: '16px 20px',
+        gridColumn: wide ? 'span 2' : undefined,
+        cursor: clickable ? 'pointer' : 'default',
+        transition: 'border-color .15s, background .15s',
+        position: 'relative',
+      }}
+      onMouseEnter={clickable ? e => { e.currentTarget.style.borderColor = 'rgba(106,191,63,.45)'; e.currentTarget.style.background = 'var(--navy-light)' } : undefined}
+      onMouseLeave={clickable ? e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--navy-mid)' } : undefined}
+    >
       <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: col || 'var(--text)', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{label}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{sub}</div>}
+      {clickable && <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 10, color: 'var(--text-dim)', opacity: 0.6 }}>→</div>}
     </div>
   )
 }
@@ -30,12 +41,18 @@ function SectionTitle({ children }) {
   )
 }
 
-function ProgressBar({ pct, col, label, value }) {
+function ProgressBar({ pct, col, label, value, to, nav }) {
+  const clickable = !!to
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div
+      onClick={clickable ? () => nav(to) : undefined}
+      style={{ marginBottom: 12, cursor: clickable ? 'pointer' : 'default', borderRadius: 6, padding: '4px 6px', margin: '0 -6px 8px', transition: 'background .15s' }}
+      onMouseEnter={clickable ? e => { e.currentTarget.style.background = 'rgba(106,191,63,.06)' } : undefined}
+      onMouseLeave={clickable ? e => { e.currentTarget.style.background = 'transparent' } : undefined}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
         <span style={{ color: 'var(--text)', fontWeight: 600 }}>{label}</span>
-        <span style={{ color: col, fontFamily: 'DM Mono,monospace', fontWeight: 700 }}>{value}</span>
+        <span style={{ color: col, fontFamily: 'DM Mono,monospace', fontWeight: 700 }}>{value}{clickable && <span style={{ color: 'var(--text-dim)', fontFamily: 'DM Sans,sans-serif', fontSize: 10, marginLeft: 4 }}>→</span>}</span>
       </div>
       <div style={{ background: 'var(--navy)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
         <div style={{ width: `${Math.min(pct, 100)}%`, background: col, height: '100%', borderRadius: 4, transition: 'width .5s ease' }} />
@@ -44,9 +61,20 @@ function ProgressBar({ pct, col, label, value }) {
   )
 }
 
-function SiaPill({ count, label, col, bg }) {
+function SiaPill({ count, label, col, bg, to, nav }) {
+  const clickable = !!to
   return (
-    <div style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px', textAlign: 'center', flex: 1, minWidth: 80 }}>
+    <div
+      onClick={clickable ? () => nav(to) : undefined}
+      style={{
+        background: 'var(--navy-mid)', border: '1px solid var(--border)',
+        borderRadius: 8, padding: '12px 16px', textAlign: 'center', flex: 1, minWidth: 80,
+        cursor: clickable ? 'pointer' : 'default',
+        transition: 'border-color .15s',
+      }}
+      onMouseEnter={clickable ? e => { e.currentTarget.style.borderColor = 'rgba(106,191,63,.45)' } : undefined}
+      onMouseLeave={clickable ? e => { e.currentTarget.style.borderColor = 'var(--border)' } : undefined}
+    >
       <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: col, background: bg, borderRadius: 6, padding: '4px 0', marginBottom: 6 }}>{count}</div>
       <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</div>
     </div>
@@ -119,7 +147,8 @@ function AttendanceChart({ daily, c }) {
 
 export default function HRReports() {
   const { colour } = useBrand()
-  const c = colour || '#6abf3f'
+  const c          = colour || '#6abf3f'
+  const nav        = useNavigate()
 
   const [days,    setDays]    = useState(30)
   const [data,    setData]    = useState(null)
@@ -184,20 +213,20 @@ export default function HRReports() {
           {/* ── Workforce ── */}
           <SectionTitle>Workforce</SectionTitle>
           <div className="grid-5" style={{ }}>
-            <KpiCard label="Active Staff"         value={fmtNum(data.workforce.total_active)}    col={c} />
-            <KpiCard label="Payroll"              value={fmtNum(data.workforce.payroll_count)}   col="var(--text)" />
-            <KpiCard label="Subcontract"          value={fmtNum(data.workforce.subcontract_count)} col="var(--text)" />
-            <KpiCard label={`New (${days}d)`}     value={fmtNum(data.workforce.new_this_period)} col={c} />
-            <KpiCard label="Archived"             value={fmtNum(data.workforce.archived_count)}  col="var(--text-muted)" />
+            <KpiCard label="Active Staff"     value={fmtNum(data.workforce.total_active)}      col={c}                  to="/hr/staff"          nav={nav} />
+            <KpiCard label="Payroll"          value={fmtNum(data.workforce.payroll_count)}     col="var(--text)"        to="/hr/staff"          nav={nav} />
+            <KpiCard label="Subcontract"      value={fmtNum(data.workforce.subcontract_count)} col="var(--text)"        to="/hr/staff"          nav={nav} />
+            <KpiCard label={`New (${days}d)`} value={fmtNum(data.workforce.new_this_period)}   col={c}                  to="/hr/registrations"  nav={nav} />
+            <KpiCard label="Archived"         value={fmtNum(data.workforce.archived_count)}    col="var(--text-muted)"  to="/hr/staff/archived" nav={nav} />
           </div>
 
           {/* ── Attendance ── */}
           <SectionTitle>Attendance · {days}-day period</SectionTitle>
           <div className="grid-4" style={{ marginBottom: 12 }}>
-            <KpiCard label="Shifts Completed" value={fmtNum(data.attendance.total_shifts)} col={c} />
-            <KpiCard label="Hours Worked"     value={`${fmtNum(data.attendance.total_hours)}h`} col={c} />
-            <KpiCard label="Late Arrivals"    value={fmtNum(data.attendance.late_count)} col={data.attendance.late_count > 0 ? '#fca5a5' : 'var(--text-muted)'} sub={`${data.attendance.late_rate_pct}% of clock-ins`} />
-            <KpiCard label="Avg Shift Length" value={`${data.attendance.avg_shift_hours}h`} col="var(--text)" />
+            <KpiCard label="Shifts Completed" value={fmtNum(data.attendance.total_shifts)}                                                                             col={c}                                                           to="/hr/timelogs" nav={nav} />
+            <KpiCard label="Hours Worked"     value={`${fmtNum(data.attendance.total_hours)}h`}                                                                        col={c}                                                           to="/hr/payroll"  nav={nav} />
+            <KpiCard label="Late Arrivals"    value={fmtNum(data.attendance.late_count)} sub={`${data.attendance.late_rate_pct}% of clock-ins`}                        col={data.attendance.late_count > 0 ? '#fca5a5' : 'var(--text-muted)'} to="/hr/timelogs" nav={nav} />
+            <KpiCard label="Avg Shift Length" value={`${data.attendance.avg_shift_hours}h`}                                                                            col="var(--text)"                                                 to="/hr/timelogs" nav={nav} />
           </div>
           <div style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 4, padding: '16px 0 8px' }}>
             <div style={{ padding: '0 16px 8px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
@@ -209,10 +238,10 @@ export default function HRReports() {
           {/* ── Holidays ── */}
           <SectionTitle>Holidays</SectionTitle>
           <div className="grid-4" style={{ }}>
-            <KpiCard label="Pending Approval" value={fmtNum(data.holidays.pending)} col={data.holidays.pending > 0 ? '#fcd34d' : 'var(--text-muted)'} />
-            <KpiCard label="Approved (period)" value={fmtNum(data.holidays.approved_period)} col={c} />
-            <KpiCard label="Days Taken (period)" value={fmtNum(data.holidays.approved_days)} col={c} />
-            <KpiCard label="On Holiday Today" value={fmtNum(data.holidays.on_holiday_today)} col={data.holidays.on_holiday_today > 0 ? '#86efac' : 'var(--text-muted)'} />
+            <KpiCard label="Pending Approval"    value={fmtNum(data.holidays.pending)}          col={data.holidays.pending > 0 ? '#fcd34d' : 'var(--text-muted)'}           to="/hr/holidays" nav={nav} />
+            <KpiCard label="Approved (period)"   value={fmtNum(data.holidays.approved_period)}  col={c}                                                                       to="/hr/holidays" nav={nav} />
+            <KpiCard label="Days Taken (period)" value={fmtNum(data.holidays.approved_days)}    col={c}                                                                       to="/hr/holidays" nav={nav} />
+            <KpiCard label="On Holiday Today"    value={fmtNum(data.holidays.on_holiday_today)} col={data.holidays.on_holiday_today > 0 ? '#86efac' : 'var(--text-muted)'}   to="/hr/holidays" nav={nav} />
           </div>
 
           {/* ── SIA & Training side-by-side ── */}
@@ -221,11 +250,11 @@ export default function HRReports() {
               <SectionTitle>SIA Compliance</SectionTitle>
               <div style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 16px' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <SiaPill count={data.sia.expired}      label="Expired"     col="#fca5a5" bg="rgba(239,68,68,.12)" />
-                  <SiaPill count={data.sia.expiring_30d} label="Exp ≤30d"   col="#fcd34d" bg="rgba(234,179,8,.12)" />
-                  <SiaPill count={data.sia.expiring_60d} label="Exp ≤60d"   col="#fde68a" bg="rgba(234,179,8,.06)" />
-                  <SiaPill count={data.sia.valid}        label="Valid"       col="#86efac" bg="rgba(22,163,74,.12)" />
-                  <SiaPill count={data.sia.no_sia}       label="No SIA"      col="var(--text-dim)" bg="transparent" />
+                  <SiaPill count={data.sia.expired}      label="Expired"  col="#fca5a5" bg="rgba(239,68,68,.12)"   to="/hr/staff" nav={nav} />
+                  <SiaPill count={data.sia.expiring_30d} label="Exp ≤30d" col="#fcd34d" bg="rgba(234,179,8,.12)"  to="/hr/staff" nav={nav} />
+                  <SiaPill count={data.sia.expiring_60d} label="Exp ≤60d" col="#fde68a" bg="rgba(234,179,8,.06)"  to="/hr/staff" nav={nav} />
+                  <SiaPill count={data.sia.valid}        label="Valid"     col="#86efac" bg="rgba(22,163,74,.12)"  to="/hr/staff" nav={nav} />
+                  <SiaPill count={data.sia.no_sia}       label="No SIA"   col="var(--text-dim)" bg="transparent"  to="/hr/staff" nav={nav} />
                 </div>
                 {data.sia.expired + data.sia.expiring_30d > 0 && (
                   <div style={{ marginTop: 12, fontSize: 12, color: '#fca5a5', background: 'rgba(239,68,68,.08)', borderRadius: 6, padding: '8px 12px' }}>
@@ -245,6 +274,8 @@ export default function HRReports() {
                     value={`${t.passed}/${t.eligible} · ${t.pct}%`}
                     pct={t.pct}
                     col={t.pct >= 80 ? '#86efac' : t.pct >= 50 ? '#fcd34d' : '#fca5a5'}
+                    to="/hr/training"
+                    nav={nav}
                   />
                 ))}
                 {data.training.every(t => t.pct === 100) && (
@@ -257,9 +288,9 @@ export default function HRReports() {
           {/* ── Incidents ── */}
           <SectionTitle>Incidents · {days}-day period</SectionTitle>
           <div className="grid-3" style={{ gap: 10 }}>
-            <KpiCard label="Total Reported" value={fmtNum(data.incidents.total)} col={data.incidents.total > 0 ? '#fca5a5' : 'var(--text-muted)'} />
-            <KpiCard label="Reviewed"       value={fmtNum(data.incidents.reviewed)} col="#86efac" />
-            <KpiCard label="Awaiting Review" value={fmtNum(data.incidents.unreviewed)} col={data.incidents.unreviewed > 0 ? '#fcd34d' : 'var(--text-muted)'} />
+            <KpiCard label="Total Reported"  value={fmtNum(data.incidents.total)}      col={data.incidents.total > 0 ? '#fca5a5' : 'var(--text-muted)'}        to="/hr/incidents" nav={nav} />
+            <KpiCard label="Reviewed"        value={fmtNum(data.incidents.reviewed)}   col="#86efac"                                                            to="/hr/incidents" nav={nav} />
+            <KpiCard label="Awaiting Review" value={fmtNum(data.incidents.unreviewed)} col={data.incidents.unreviewed > 0 ? '#fcd34d' : 'var(--text-muted)'}   to="/hr/incidents" nav={nav} />
           </div>
 
           <div style={{ height: 32 }} />
