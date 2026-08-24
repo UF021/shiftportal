@@ -59,7 +59,8 @@ export default function HRTraining() {
   const c                       = colour || '#6abf3f'
   const [data,      setData]    = useState([])
   const [loading,   setLoad]    = useState(true)
-  const [filter,    setFilter]  = useState('all')
+  const [filter,     setFilter]     = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [search,    setSearch]  = useState('')
   const [detail,    setDetail]  = useState(null)
 
@@ -132,13 +133,14 @@ export default function HRTraining() {
   }
 
   const filtered = data.filter(row => {
-    const allPassed  = MODULES.every(m => row[m]?.passed && !isExpired(row[m]?.expires_at))
-    const anyExpired = MODULES.some(m => row[m]?.passed && isExpired(row[m]?.expires_at))
-    const days       = daysUntil(row.deadline)
-    const overdue    = days !== null && days < 0 && !allPassed
+    const allPassed = MODULES.every(m => row[m]?.passed && !isExpired(row[m]?.expires_at))
+    const days      = daysUntil(row.deadline)
+    const overdue   = days !== null && days < 0 && !allPassed
     if (filter === 'complete'   && !allPassed) return false
     if (filter === 'incomplete' && allPassed)  return false
     if (filter === 'overdue'    && !overdue)   return false
+    const sType = row.staff_type || 'payroll'
+    if (typeFilter !== 'all' && sType !== typeFilter) return false
     if (search && !row.full_name.toLowerCase().includes(search.toLowerCase()) &&
         !row.staff_id?.toLowerCase().includes(search.toLowerCase())) return false
     return true
@@ -212,6 +214,16 @@ export default function HRTraining() {
               fontWeight: filter === f.key ? 700 : 400, fontSize: 12, cursor: 'pointer',
               fontFamily: 'DM Sans,sans-serif',
             }}>{f.label}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
+          {[['all','All'],['payroll','Payroll'],['subcontract','Sub']].map(([v,l]) => (
+            <button key={v} onClick={() => setTypeFilter(v)} style={{
+              padding: '7px 13px', borderRadius: 20, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', fontSize: 12,
+              border: `1px solid ${typeFilter === v ? '#1565c0' : 'var(--border)'}`,
+              background: typeFilter === v ? 'rgba(21,101,192,.12)' : 'transparent',
+              color: typeFilter === v ? '#1565c0' : 'var(--text-muted)', fontWeight: typeFilter === v ? 700 : 400,
+            }}>{l}</button>
           ))}
         </div>
       </div>

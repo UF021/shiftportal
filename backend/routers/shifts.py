@@ -77,7 +77,8 @@ def _serialise(shift: models.ScheduledShift, status: str) -> dict:
     return {
         "id":         shift.id,
         "user_id":    shift.user_id,
-        "user_name":  shift.user.full_name if shift.user else "Unknown",
+        "user_name":  shift.user.full_name  if shift.user else "Unknown",
+        "staff_type": shift.user.staff_type if shift.user else None,
         "site_id":    shift.site_id,
         "site_name":  shift.site.name if shift.site else None,
         "site_code":  shift.site.code if shift.site else None,
@@ -143,7 +144,7 @@ def week_view(
         "week_start": mon.isoformat(),
         "week_end":   sun.isoformat(),
         "shifts":     [_serialise(s, _compute_status(s, events_by_user, now_uk)) for s in shifts],
-        "staff":      [{"id": u.id, "full_name": u.full_name} for u in all_staff],
+        "staff":      [{"id": u.id, "full_name": u.full_name, "staff_type": u.staff_type} for u in all_staff],
         "sites":      [{"id": s.id, "name": s.name, "code": s.code} for s in all_sites],
     }
 

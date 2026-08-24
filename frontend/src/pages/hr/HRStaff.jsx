@@ -179,12 +179,14 @@ export default function HRStaff() {
     setTab(pathname.endsWith('/archived') ? 'archived' : 'active')
     setSearch('')
     setFilter('')
+    setTypeFilter('all')
   }, [pathname])
   const [staff,  setStaff]  = useState([])
   const [archived, setArchived] = useState([])
   const [sites,  setSites]  = useState([])
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('')
+  const [search,     setSearch]     = useState('')
+  const [filter,     setFilter]     = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')   // 'all' | 'payroll' | 'subcontract'
   const [editing,        setEdit]        = useState(null)
   const [form,           setForm]        = useState({})
   const [customPay,      setCustomPay]   = useState('')
@@ -333,7 +335,9 @@ export default function HRStaff() {
     const mQ = !q || [s.full_name,s.email,s.sia_licence,s.ni_number].some(f=>f?.toLowerCase().includes(q))
     const mF = !filter
       || (filter === 'blocked' ? s.is_blocked : siaStatus(s.sia_expiry) === filter)
-    return mQ && mF
+    const sType = s.staff_type || 'payroll'
+    const mT = typeFilter === 'all' || sType === typeFilter
+    return mQ && mF && mT
   }).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||''))
 
   const filteredArchived = archived.filter(s => {
@@ -600,6 +604,18 @@ export default function HRStaff() {
             <option value="expired">SIA Expired</option>
             <option value="blocked">Access Blocked</option>
           </select>
+        )}
+        {tab === 'active' && !bulkEditMode && (
+          <div style={{ display:'flex', gap:4 }}>
+            {[['all','All'],['payroll','Payroll'],['subcontract','Subcontract']].map(([v,l]) => (
+              <button key={v} onClick={() => setTypeFilter(v)} style={{
+                padding:'7px 14px', borderRadius:20, cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:12,
+                border:`1px solid ${typeFilter===v?'var(--brand)':'var(--border)'}`,
+                background:typeFilter===v?'var(--brand-muted)':'transparent',
+                color:typeFilter===v?'var(--brand)':'var(--text-muted)', fontWeight:typeFilter===v?700:400,
+              }}>{l}</button>
+            ))}
+          </div>
         )}
         {tab === 'active' && !bulkEditMode && (
           <button onClick={enterBulkEdit} className="btn btn-outline" style={{ fontSize:13, padding:'7px 16px', marginLeft:'auto' }}>

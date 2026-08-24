@@ -5,7 +5,8 @@ import { fmtDate, fmtDateTime } from '../../api/utils'
 export default function HRHolidays() {
   const [hols,    setHols]    = useState([])
   const [staff,   setStaff]   = useState([])
-  const [filter,  setFil]     = useState('pending')
+  const [filter,     setFil]        = useState('pending')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [proc,    setProc]    = useState(null)
   const [confirm, setConfirm] = useState(null)   // { hol, avgHours, loading }
 
@@ -44,7 +45,13 @@ export default function HRHolidays() {
     finally { setProc(null) }
   }
 
-  const filtered = hols.filter(h => !filter || h.status === filter)
+  const staffType = id => staff.find(s => s.id === id)?.staff_type || 'payroll'
+  const filtered = hols.filter(h => {
+    if (filter && h.status !== filter) return false
+    const t = staffType(h.user_id || h.staff_id)
+    if (typeFilter !== 'all' && t !== typeFilter) return false
+    return true
+  })
   const name = id => staff.find(s => s.id === id)?.full_name || '—'
 
   const estPay = (avgHours, days) => {
@@ -59,7 +66,7 @@ export default function HRHolidays() {
         <p style={{ fontSize:14, color:'var(--text-muted)' }}>Review and action staff holiday requests</p>
       </div>
 
-      <div style={{ display:'flex', gap:8, marginBottom:18 }}>
+      <div style={{ display:'flex', gap:8, marginBottom:18, flexWrap:'wrap', alignItems:'center' }}>
         {[['pending','⏳ Pending'],['approved','✓ Approved'],['rejected','✗ Rejected'],['','All']].map(([v,l]) => (
           <button key={v} onClick={() => setFil(v)} style={{
             padding:'8px 16px', borderRadius:8, cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:13,
@@ -68,6 +75,16 @@ export default function HRHolidays() {
             color:filter===v?'var(--green)':'var(--text-muted)', fontWeight:filter===v?700:400,
           }}>{l}</button>
         ))}
+        <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
+          {[['all','All'],['payroll','Payroll'],['subcontract','Subcontract']].map(([v,l]) => (
+            <button key={v} onClick={() => setTypeFilter(v)} style={{
+              padding:'7px 13px', borderRadius:20, cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:12,
+              border:`1px solid ${typeFilter===v?'#1565c0':'var(--border)'}`,
+              background:typeFilter===v?'rgba(21,101,192,.12)':'transparent',
+              color:typeFilter===v?'#1565c0':'var(--text-muted)', fontWeight:typeFilter===v?700:400,
+            }}>{l}</button>
+          ))}
+        </div>
       </div>
 
       <div className="card" style={{ padding:0 }}>

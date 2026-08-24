@@ -222,6 +222,7 @@ export function HRTimelogs() {
   const [sites,   setSites]   = useState([])
   const [fil,           setFil]           = useState({ site_id: '', from_date: '', to_date: '' })
   const [staffFilter,   setStaffFilter]   = useState(new Set())   // selected staff IDs (empty = all)
+  const [typeFilter,    setTypeFilter]    = useState('all')       // 'all' | 'payroll' | 'subcontract'
   const [staffDropOpen, setStaffDropOpen] = useState(false)
   const staffDropRef = useRef(null)
   const [appliedSiteId, setAppliedSiteId] = useState(null)
@@ -314,9 +315,11 @@ export function HRTimelogs() {
 
   // ── Selection helpers ────────────────────────────────────────────────────────
 
+  const staffTypeMap = Object.fromEntries(staff.map(s => [s.id, s.staff_type || 'payroll']))
   const allEntries = (data?.entries || []).filter(e =>
     (!appliedSiteId || e.site_id === appliedSiteId) &&
-    (staffFilter.size === 0 || staffFilter.has(e.user_id))
+    (staffFilter.size === 0 || staffFilter.has(e.user_id)) &&
+    (typeFilter === 'all' || staffTypeMap[e.user_id] === typeFilter)
   )
   const entries = lateOnly ? allEntries.filter(e => e.is_late) : allEntries
   const onTimeCount = allEntries.filter(e => e.scheduled_start && !e.is_late).length
@@ -502,6 +505,16 @@ export function HRTimelogs() {
           >
             🔴 Late Only{lateOnly ? ' ✓' : ''}
           </button>
+          <div style={{ display:'flex', gap:4 }}>
+            {[['all','All'],['payroll','Payroll'],['subcontract','Sub']].map(([v,l]) => (
+              <button key={v} onClick={() => setTypeFilter(v)} style={{
+                padding:'9px 13px', borderRadius:8, cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:12,
+                border:`1px solid ${typeFilter===v?'#1565c0':'var(--border)'}`,
+                background:typeFilter===v?'rgba(21,101,192,.12)':'transparent',
+                color:typeFilter===v?'#1565c0':'var(--text-muted)', fontWeight:typeFilter===v?700:400,
+              }}>{l}</button>
+            ))}
+          </div>
           <button
             onClick={handleRecalculate}
             disabled={recalcRunning}

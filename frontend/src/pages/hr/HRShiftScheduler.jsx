@@ -76,7 +76,8 @@ export default function HRShiftScheduler() {
   const [saving,    setSaving]    = useState(false)
   const [err,       setErr]       = useState('')
   const [form,      setForm]      = useState({})
-  const [copyForm,  setCopyForm]  = useState({ to_week: '' })
+  const [copyForm,   setCopyForm]   = useState({ to_week: '' })
+  const [typeFilter, setTypeFilter] = useState('all')
 
   const load = useCallback((ws) => {
     setLoading(true)
@@ -175,12 +176,13 @@ export default function HRShiftScheduler() {
     }
   }
 
-  // Group shifts by date
+  // Group shifts by date (filtered by staff type)
+  const visibleShifts = (data?.shifts || []).filter(s =>
+    typeFilter === 'all' || (s.staff_type || 'payroll') === typeFilter
+  )
   const byDate = {}
-  if (data?.shifts) {
-    for (const s of data.shifts) {
-      ;(byDate[s.date] = byDate[s.date] || []).push(s)
-    }
+  for (const s of visibleShifts) {
+    ;(byDate[s.date] = byDate[s.date] || []).push(s)
   }
 
   const weekEnd = data?.week_end || addDays(weekStart, 6)
@@ -211,6 +213,18 @@ export default function HRShiftScheduler() {
         }}>
           Copy Week
         </button>
+      </div>
+
+      {/* Staff type toggle */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+        {[['all','All Staff'],['payroll','Payroll'],['subcontract','Subcontractors']].map(([v,l]) => (
+          <button key={v} onClick={() => setTypeFilter(v)} style={{
+            padding: '7px 14px', borderRadius: 20, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', fontSize: 12,
+            border: `1px solid ${typeFilter===v ? '#1565c0' : 'var(--border)'}`,
+            background: typeFilter===v ? 'rgba(21,101,192,.12)' : 'transparent',
+            color: typeFilter===v ? '#1565c0' : 'var(--text-muted)', fontWeight: typeFilter===v ? 700 : 400,
+          }}>{l}</button>
+        ))}
       </div>
 
       {/* Week navigation */}
