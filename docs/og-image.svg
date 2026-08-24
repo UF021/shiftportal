@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0d1117"/>
+  <!-- Subtle green radial glow top-centre -->
+  <radialGradient id="glow" cx="50%" cy="0%" r="65%">
+    <stop offset="0%" stop-color="#6abf3f" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#0d1117" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Logo mark: hexagon with bold T -->
+  <polygon points="600,80 680,124 680,212 600,256 520,212 520,124" fill="#6abf3f"/>
+  <rect x="548" y="148" width="104" height="22" rx="11" fill="white"/>
+  <rect x="578" y="148" width="44"  height="80" rx="12" fill="white"/>
+
+  <!-- "tyma" wordmark -->
+  <text x="600" y="370" text-anchor="middle"
+        font-family="'Segoe UI',system-ui,sans-serif"
+        font-weight="900" font-size="108"
+        letter-spacing="-4" fill="#ffffff">tyma</text>
+
+  <!-- Divider line -->
+  <rect x="460" y="398" width="280" height="2" rx="1" fill="#6abf3f" opacity="0.4"/>
+
+  <!-- Workforce Management System -->
+  <text x="600" y="450" text-anchor="middle"
+        font-family="'Segoe UI',system-ui,sans-serif"
+        font-weight="600" font-size="30"
+        letter-spacing="2" fill="#8b949e">WORKFORCE MANAGEMENT SYSTEM</text>
+
+  <!-- Slogan -->
+  <text x="600" y="510" text-anchor="middle"
+        font-family="'Segoe UI',system-ui,sans-serif"
+        font-weight="500" font-size="24"
+        fill="#6abf3f">because time counts</text>
+
+  <!-- Bottom domain -->
+  <text x="600" y="590" text-anchor="middle"
+        font-family="'Segoe UI',system-ui,sans-serif"
+        font-weight="400" font-size="18"
+        fill="#484f58">tyma.io</text>
+</svg>

@@ -170,6 +170,8 @@ def _build_staff_response(users, db):
             "decl_trained":          u.decl_trained,
             "decl_accurate":         u.decl_accurate,
             "decl_contact":          u.decl_contact,
+            # Role
+            "role":                  u.role.value if u.role else 'staff',
             # Meta
             "is_active":             u.is_active,
             "is_blocked":            u.is_blocked,
@@ -294,6 +296,9 @@ def update_staff(
         raise HTTPException(404, "User not found")
     org_guard(hr, u.organisation_id)
 
+    # Role (staff ↔ manager only — HR/superadmin must not be demoted this way)
+    if req.role is not None and req.role in ('staff', 'manager'):
+        u.role = models.UserRole(req.role)
     # Employment
     if req.staff_id              is not None: u.staff_id              = req.staff_id
     if req.employment_start_date is not None: u.employment_start_date = req.employment_start_date

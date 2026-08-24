@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <rect width="400" height="400" fill="#0d1117"/>
+  <!-- Hexagon icon, centred at 116,200 -->
+  <polygon points="116,150 160,175 160,225 116,250 72,225 72,175" fill="#6abf3f"/>
+  <rect x="86" y="181" width="60" height="14" rx="7" fill="white"/>
+  <rect x="108" y="181" width="16" height="47" rx="8" fill="white"/>
+  <!-- tyma wordmark -->
+  <text x="185" y="196"
+        font-family="'Segoe UI',system-ui,-apple-system,sans-serif"
+        font-weight="900" font-size="60"
+        letter-spacing="-1.8" fill="#ffffff">tyma</text>
+  <!-- Slogan — two lines -->
+  <text x="187" y="223"
+        font-family="'Segoe UI',system-ui,-apple-system,sans-serif"
+        font-weight="500" font-size="19"
+        letter-spacing="1.5" fill="#6abf3f">because time</text>
+  <text x="187" y="247"
+        font-family="'Segoe UI',system-ui,-apple-system,sans-serif"
+        font-weight="500" font-size="19"
+        letter-spacing="1.5" fill="#6abf3f">counts</text>
+</svg>

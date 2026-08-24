@@ -59,6 +59,12 @@ def require_hr(user: models.User = Depends(get_current_user)) -> models.User:
     return user
 
 
+def require_manager(user: models.User = Depends(get_current_user)) -> models.User:
+    if user.role not in (models.UserRole.manager, models.UserRole.hr, models.UserRole.superadmin):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Manager access required")
+    return user
+
+
 def require_superadmin(user: models.User = Depends(get_current_user)) -> models.User:
     if user.role != models.UserRole.superadmin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Superadmin access required")

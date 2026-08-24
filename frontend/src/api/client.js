@@ -144,6 +144,12 @@ export const updateScheduledShift = (id, d)   => api.patch(`/shifts/${id}`, d)
 export const deleteScheduledShift = (id)      => api.delete(`/shifts/${id}`)
 export const copyShiftWeek        = (d)       => api.post('/shifts/copy-week', d)
 
+// Manager portal
+export const getManagerDashboard = ()  => api.get('/manager/dashboard')
+export const getManagerClock     = (p) => api.get('/manager/clock', { params: p })
+export const getManagerStaff     = ()  => api.get('/manager/staff')
+export const getManagerHolidays  = ()  => api.get('/manager/holidays')
+
 // Superadmin
 export const superDashboard = ()      => api.get('/superadmin/dashboard')
 export const listOrgs       = ()      => api.get('/orgs/')

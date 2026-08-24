@@ -33,6 +33,7 @@ from database import Base
 class UserRole(str, enum.Enum):
     superadmin = "superadmin"   # platform owner
     hr         = "hr"           # org HR admin
+    manager    = "manager"      # site manager — scoped to assigned_site_id
     staff      = "staff"        # security officer
 
 
@@ -625,6 +626,27 @@ class TrainingProgress(Base):
     user            = relationship("User", foreign_keys=[user_id])
 
     __table_args__  = (UniqueConstraint('user_id', 'module', name='uq_user_training_module'),)
+
+
+# ── ScheduledShift ───────────────────────────────────────────────────────────
+
+class ScheduledShift(Base):
+    __tablename__ = 'scheduled_shifts'
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id         = Column(Integer, ForeignKey('users.id',         ondelete='CASCADE'), nullable=False, index=True)
+    site_id         = Column(Integer, ForeignKey('sites.id',         ondelete='SET NULL'), nullable=True)
+    date            = Column(Date, nullable=False, index=True)
+    start_time      = Column(String(5), nullable=False)   # HH:MM
+    end_time        = Column(String(5), nullable=True)    # HH:MM
+    notes           = Column(String(500), nullable=True)
+    created_by_id   = Column(Integer, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    no_show_alerted = Column(Boolean, default=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+    site = relationship("Site", foreign_keys=[site_id])
 
 
 # ── AuditLog ──────────────────────────────────────────────────────────────────

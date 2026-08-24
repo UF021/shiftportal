@@ -49,6 +49,13 @@ import HRBilling          from './pages/hr/HRBilling'
 import HRAuditLog     from './pages/hr/HRAuditLog'
 import HRGDPRTools    from './pages/hr/HRGDPRTools'
 
+// Manager (dark theme)
+import ManagerLayout    from './pages/manager/ManagerLayout'
+import ManagerDashboard from './pages/manager/ManagerDashboard'
+import ManagerAttendance from './pages/manager/ManagerAttendance'
+import ManagerStaff     from './pages/manager/ManagerStaff'
+import ManagerHolidays  from './pages/manager/ManagerHolidays'
+
 // Superadmin
 import SuperLayout  from './pages/superadmin/SuperLayout'
 import SuperDash    from './pages/superadmin/SuperDash'
@@ -60,7 +67,12 @@ function Guard({ children, role }) {
   if (loading) return <div className="loading-screen"><div className="spinner" /></div>
   if (!user)   return <Navigate to="/login" replace />
   if (role && !role.includes(user.role)) {
-    return <Navigate to={user.role === 'hr' ? '/hr' : user.role === 'superadmin' ? '/super' : '/staff'} replace />
+    return <Navigate to={
+      user.role === 'superadmin' ? '/super' :
+      user.role === 'hr'         ? '/hr' :
+      user.role === 'manager'    ? '/manager' :
+                                   '/staff'
+    } replace />
   }
   return children
 }
@@ -143,6 +155,16 @@ export default function App() {
         <Route path="billing"       element={<HRBilling />} />
       </Route>
 
+      {/* ── Manager portal ── */}
+      <Route path="/manager" element={
+        <Guard role={['manager', 'hr', 'superadmin']}><BrandProvider slug={user?.org_slug}><ManagerLayout /></BrandProvider></Guard>
+      }>
+        <Route index          element={<ManagerDashboard />} />
+        <Route path="clock"   element={<ManagerAttendance />} />
+        <Route path="staff"   element={<ManagerStaff />} />
+        <Route path="holidays" element={<ManagerHolidays />} />
+      </Route>
+
       {/* ── Superadmin ── */}
       <Route path="/super" element={<Guard role={['superadmin']}><SuperLayout /></Guard>}>
         <Route index       element={<SuperDash />} />
@@ -153,9 +175,10 @@ export default function App() {
       {/* ── Root redirect ── */}
       <Route path="/" element={
         !user ? <Navigate to="/login" replace /> :
-        user.role === 'superadmin' ? <Navigate to="/super" replace /> :
-        user.role === 'hr'         ? <Navigate to="/hr"    replace /> :
-                                     <Navigate to="/staff" replace />
+        user.role === 'superadmin' ? <Navigate to="/super"   replace /> :
+        user.role === 'hr'         ? <Navigate to="/hr"      replace /> :
+        user.role === 'manager'    ? <Navigate to="/manager" replace /> :
+                                     <Navigate to="/staff"   replace />
       } />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

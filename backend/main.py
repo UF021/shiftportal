@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
-from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts
+from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts, manager
 from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts
 
 log = logging.getLogger(__name__)
@@ -264,6 +264,19 @@ def _fix_bst_shift_minutes():
         db.close()
 
 
+def _add_manager_role():
+    """Extend the userrole PostgreSQL enum to include 'manager' (idempotent)."""
+    from sqlalchemy import text
+    try:
+        ac = engine.execution_options(isolation_level="AUTOCOMMIT")
+        with ac.connect() as conn:
+            conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'manager'"))
+        print("[MIGRATION] userrole enum: 'manager' value ensured", flush=True)
+    except Exception as exc:
+        # Safe no-op if the column is VARCHAR or value already exists
+        print(f"[MIGRATION] userrole enum (no-op): {exc}", flush=True)
+
+
 def _ensure_columns():
     """
     Idempotent: add any columns that create_all cannot add to existing tables.
@@ -322,6 +335,7 @@ def _ensure_columns():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _add_manager_role()
     _ensure_columns()
     _migrate_application_city_postcode()
     _backfill_accepted_applications()
@@ -402,6 +416,7 @@ app.include_router(billing.router,       prefix="/api/billing",       tags=["Bil
 app.include_router(audit.router,         prefix="/api/audit",         tags=["Audit"])
 app.include_router(gdpr.router,          prefix="/api/gdpr",           tags=["GDPR"])
 app.include_router(shifts.router,        prefix="/api/shifts",          tags=["Shifts"])
+app.include_router(manager.router,       prefix="/api/manager",         tags=["Manager"])
 
 
 @app.get("/")

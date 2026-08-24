@@ -169,6 +169,8 @@ class ActivateRequest(BaseModel):
 
 
 class EditUserRequest(BaseModel):
+    # Role
+    role:                  Optional[str]   = None   # 'staff' | 'manager'
     # Employment
     staff_id:              Optional[str]   = None
     employment_start_date: Optional[date]  = None

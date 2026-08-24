@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tyma — Investor &amp; Sales Pitch</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #d8dde3;
+    color: #0d1117;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Screen print bar ── */
+  .print-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+    background: #0d1117; color: #fff;
+    padding: 9px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; font-weight: 500;
+  }
+  .print-btn {
+    background: #6abf3f; color: #fff; border: none;
+    padding: 7px 22px; border-radius: 7px;
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  @media print {
+    .print-bar { display: none !important; }
+    body { background: #fff !important; padding-top: 0 !important; }
+    .page { margin: 0 !important; page-break-after: always; box-shadow: none !important; }
+  }
+  body { padding-top: 44px; }
+
+  /* ── A4 page ── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    background: #fff;
+    margin: 12mm auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 6px 36px rgba(0,0,0,.18);
+  }
+
+  /* ── BLACK logo header (every page) ── */
+  .page-header {
+    background: #0d1117;
+    padding: 13px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .logo-lockup { display: flex; align-items: center; gap: 11px; }
+  .logo-text { display: flex; flex-direction: column; gap: 1px; }
+  .logo-name {
+    font-size: 28px; font-weight: 900; color: #ffffff;
+    letter-spacing: -0.03em; line-height: 1;
+  }
+  .logo-slogan {
+    font-size: 10px; font-weight: 500; color: #6abf3f;
+    letter-spacing: 0.08em; line-height: 1.35;
+  }
+  .header-page-num {
+    font-size: 12px; font-weight: 700; color: #555;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Section band (large coloured block per page) ── */
+  .section-band {
+    padding: 15px 22px;
+    font-size: 16px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.13em; color: #fff; flex-shrink: 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .band-num {
+    background: rgba(255,255,255,0.2);
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 900; flex-shrink: 0;
+  }
+  .band-dark-green  { background: #1b5e20; }
+  .band-dark-red    { background: #7f0000; }
+  .band-forest-green{ background: #2e7d32; }
+  .band-deep-purple { background: #4a148c; }
+
+
+  /* ════════════════════════════════════
+     PAGE 1 — WHAT & WHO
+  ════════════════════════════════════ */
+  .p1-body {
+    display: flex; flex: 1;
+  }
+
+  .p1-left {
+    flex: 1;
+    padding: 24px 22px 20px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .p1-headline {
+    font-size: 52px; font-weight: 900; color: #0d1117;
+    line-height: 1.05; letter-spacing: -0.025em;
+  }
+  .p1-headline em { color: #6abf3f; font-style: normal; }
+
+  .p1-pitch {
+    font-size: 18px; font-weight: 400; color: #333;
+    line-height: 1.65;
+    border-left: 5px solid #6abf3f;
+    padding-left: 15px;
+  }
+  .p1-pitch strong { font-weight: 900; color: #0d1117; }
+
+  .sectors-title {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #aaa; margin-bottom: 10px;
+  }
+  .sectors-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
+  }
+  .sector-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: #eaf5df; border: 2px solid #a8d878;
+    border-radius: 10px; padding: 9px 12px;
+    font-size: 14px; font-weight: 700; color: #1b5e20;
+  }
+  .sector-dot {
+    width: 28px; height: 28px; border-radius: 50%; background: #6abf3f;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+
+  /* Phone mockup */
+  .p1-right {
+    width: 82mm;
+    background: linear-gradient(155deg, #e8f5e0 0%, #c8e6a8 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 18px;
+  }
+  .phone-frame {
+    width: 152px;
+    background: #0d1117;
+    border-radius: 30px;
+    padding: 9px 7px 12px;
+    box-shadow: 0 20px 52px rgba(0,0,0,.40), inset 0 0 0 1.5px #2a2a2a;
+  }
+  .phone-notch {
+    width: 44px; height: 7px; background: #1e1e1e;
+    border-radius: 4px; margin: 0 auto 6px;
+  }
+  .phone-screen {
+    background: #fff; border-radius: 20px; overflow: hidden; height: 248px;
+  }
+  .p-head {
+    background: #0d1117; padding: 7px 9px 5px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .p-wm { font-size: 11px; font-weight: 900; color: #fff; letter-spacing: -0.03em; }
+  .p-bdy { padding: 8px 8px 0; }
+  .p-site { font-size: 10.5px; font-weight: 900; color: #0d1117; line-height: 1.2; }
+  .p-loc  { font-size: 7.5px; color: #888; margin-bottom: 7px; }
+  .p-live {
+    background: #eaf5df; border-radius: 6px; padding: 4px 7px;
+    display: flex; align-items: center; gap: 4px; margin-bottom: 7px;
+  }
+  .p-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #6abf3f; }
+  .p-live-txt { font-size: 8px; font-weight: 700; color: #2e7d32; }
+  .p-featured {
+    background: #fff8e1; border: 1.5px solid #ffc107;
+    border-radius: 8px; padding: 6px 8px; margin-bottom: 6px;
+  }
+  .p-feat-name { font-size: 9.5px; font-weight: 900; color: #0d1117; }
+  .p-feat-id   { font-size: 7.5px; color: #888; }
+  .p-feat-row  { display: flex; align-items: center; justify-content: space-between; }
+  .p-feat-status { font-size: 8px; font-weight: 700; color: #2e7d32; background: #eaf5df; border-radius: 4px; padding: 2px 5px; }
+  .p-clockin-btn {
+    background: #6abf3f; border-radius: 8px; padding: 7px;
+    text-align: center; margin-bottom: 6px;
+    font-size: 10.5px; font-weight: 900; color: #fff; letter-spacing: 0.04em;
+  }
+  .p-list { display: flex; flex-direction: column; gap: 3px; }
+  .p-row {
+    display: flex; align-items: center; gap: 5px;
+    background: #f7f7f7; border-radius: 5px; padding: 3px 5px;
+  }
+  .p-av {
+    width: 16px; height: 16px; border-radius: 50%; background: #6abf3f;
+    font-size: 6.5px; font-weight: 900; color: #fff;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .p-nm { font-size: 8px; color: #333; flex: 1; font-weight: 500; }
+  .p-tm { font-size: 7.5px; color: #6abf3f; font-weight: 700; }
+
+  /* Cover stats footer */
+  .cover-footer {
+    background: #0d1117; padding: 14px 22px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cf-stat { text-align: center; }
+  .cf-num {
+    font-size: 28px; font-weight: 900; color: #6abf3f;
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .cf-lbl {
+    font-size: 9.5px; color: #aaa; margin-top: 3px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; line-height: 1.3;
+  }
+  .cf-div { width: 1px; height: 36px; background: #2a2a2a; }
+
+
+  /* ════════════════════════════════════
+     PAGE 2 — WHY
+  ════════════════════════════════════ */
+  .p2-intro { padding: 18px 22px 12px; }
+  .p2-headline {
+    font-size: 42px; font-weight: 900; color: #0d1117;
+    line-height: 1.08; letter-spacing: -0.022em; margin-bottom: 10px;
+  }
+  .p2-sub {
+    font-size: 18px; color: #444; line-height: 1.6; font-weight: 400;
+  }
+
+  .probs-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px; padding: 0 22px 20px; flex: 1;
+  }
+  .prob-card {
+    border: 2px solid #f0f0f0; border-radius: 14px;
+    padding: 15px 13px; display: flex; flex-direction: column; gap: 7px;
+  }
+  .prob-stat {
+    font-size: 38px; font-weight: 900; color: #7f0000;
+    line-height: 1; letter-spacing: -0.03em;
+  }
+  .prob-title {
+    font-size: 15px; font-weight: 900; color: #0d1117; line-height: 1.25;
+  }
+  .prob-desc {
+    font-size: 13.5px; color: #555; line-height: 1.55; flex: 1;
+  }
+  .prob-impact {
+    font-size: 12px; font-weight: 700; color: #7f0000;
+    background: #fde8e8; border-radius: 6px; padding: 5px 8px;
+  }
+
+
+  /* ════════════════════════════════════
+     PAGE 3 — HOW
+  ════════════════════════════════════ */
+  .p3-intro { padding: 18px 22px 12px; }
+  .p3-headline {
+    font-size: 42px; font-weight: 900; color: #0d1117;
+    line-height: 1.08; letter-spacing: -0.022em; margin-bottom: 10px;
+  }
+  .p3-sub {
+    font-size: 18px; color: #444; line-height: 1.6; font-weight: 400;
+  }
+
+  .sols-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 11px; padding: 0 22px 20px; flex: 1;
+  }
+  .sol-card {
+    background: #f7fbf3; border: 2px solid #c8e6a0;
+    border-radius: 14px; padding: 15px 14px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .sol-icon {
+    width: 46px; height: 46px; background: #6abf3f;
+    border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 21px; flex-shrink: 0;
+  }
+  .sol-title {
+    font-size: 17px; font-weight: 900; color: #0d1117;
+    margin-bottom: 5px; line-height: 1.2;
+  }
+  .sol-desc {
+    font-size: 13px; color: #555; line-height: 1.55;
+  }
+  .sol-tag {
+    display: inline-block; margin-top: 8px;
+    font-size: 11.5px; font-weight: 700; color: #1b5e20;
+    background: #dff0d0; border-radius: 6px; padding: 3px 8px;
+  }
+
+
+  /* ════════════════════════════════════
+     PAGE 4 — ROI & CTA
+  ════════════════════════════════════ */
+  .roi-strip {
+    background: #0d1117; padding: 16px 22px;
+    display: flex; align-items: center; flex-shrink: 0;
+  }
+  .roi-stat { flex: 1; text-align: center; }
+  .roi-num {
+    font-size: 34px; font-weight: 900; color: #6abf3f;
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .roi-lbl {
+    font-size: 9.5px; color: #aaa; margin-top: 4px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; line-height: 1.4;
+  }
+  .roi-div { width: 1px; height: 40px; background: #2a2a2a; }
+
+  .roi-example {
+    margin: 14px 22px;
+    background: #eaf5df; border: 2px solid #6abf3f;
+    border-radius: 16px; padding: 18px 22px;
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .roi-icon { font-size: 42px; flex-shrink: 0; line-height: 1; }
+  .roi-title {
+    font-size: 21px; font-weight: 900; color: #0d1117; margin-bottom: 8px;
+  }
+  .roi-body {
+    font-size: 16px; color: #333; line-height: 1.6;
+  }
+  .roi-result {
+    display: inline-block; margin-top: 10px;
+    font-size: 17px; font-weight: 900; color: #1b5e20;
+    background: #fff; border-radius: 9px; padding: 8px 16px;
+  }
+
+  .pricing-wrap { padding: 0 22px; margin-bottom: 14px; }
+  .pricing-eyebrow {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.13em; color: #aaa; margin-bottom: 10px;
+  }
+  .pricing-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .pr-card {
+    border: 2px solid #e0e0e0; border-radius: 14px;
+    padding: 16px 13px; text-align: center;
+  }
+  .pr-card.top { border-color: #6abf3f; background: #f3fbed; }
+  .pr-tier {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.09em; color: #aaa; margin-bottom: 5px;
+  }
+  .pr-card.top .pr-tier { color: #6abf3f; }
+  .pr-price {
+    font-size: 34px; font-weight: 900; color: #0d1117;
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .pr-per { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+  .pr-staff {
+    font-size: 13px; font-weight: 700; color: #555;
+    padding-bottom: 9px; border-bottom: 1px solid #ebebeb; margin-bottom: 9px;
+  }
+  .pr-list { list-style: none; display: flex; flex-direction: column; gap: 5px; text-align: left; }
+  .pr-list li {
+    font-size: 12.5px; color: #555;
+    display: flex; align-items: flex-start; gap: 5px;
+  }
+  .pr-list li::before { content: '✓'; color: #6abf3f; font-weight: 900; flex-shrink: 0; }
+
+  .cta-bar {
+    margin: 0 22px 20px;
+    background: #0d1117; border-radius: 16px;
+    padding: 22px 26px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  }
+  .cta-headline {
+    font-size: 30px; font-weight: 900; color: #fff;
+    line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 9px;
+  }
+  .cta-sub { font-size: 15px; color: #aaa; line-height: 1.6; }
+  .cta-actions { display: flex; flex-direction: column; gap: 8px; align-items: center; flex-shrink: 0; }
+  .cta-btn {
+    background: #6abf3f; color: #fff;
+    font-size: 18px; font-weight: 900;
+    padding: 15px 32px; border-radius: 10px;
+    text-decoration: none; display: block;
+    letter-spacing: 0.02em; text-align: center; white-space: nowrap;
+  }
+  .cta-url { font-size: 15px; color: #6abf3f; font-weight: 700; }
+  .cta-note { font-size: 11px; color: #666; text-align: center; }
+  sup { font-size: 0.6em; vertical-align: super; color: #6abf3f; font-weight: 700; line-height: 0; }
+</style>
+</head>
+<body>
+
+<div class="print-bar">
+  <span><strong>tyma</strong> &mdash; Investor &amp; Sales Pitch &nbsp;&middot;&nbsp; 4 pages</span>
+  <button class="print-btn" onclick="window.print()">Save as PDF</button>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     PAGE 1 — WHAT IS TYMA & WHO IS IT FOR?
+════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- Black header bar with logo -->
+  <div class="page-header">
+    <div class="logo-lockup">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="48" height="48">
+        <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="#6abf3f"/>
+        <rect x="9" y="13" width="22" height="5" rx="2.5" fill="white"/>
+        <rect x="17" y="13" width="6" height="17" rx="3" fill="white"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name">tyma</span>
+        <span class="logo-slogan">because time<br>counts</span>
+      </div>
+    </div>
+    <span class="header-page-num">01 / 04</span>
+  </div>
+
+  <!-- Dark green section band -->
+  <div class="section-band band-dark-green">
+    <div class="band-num">1</div>
+    What is tyma &amp; who is it for?
+  </div>
+
+  <div class="p1-body">
+    <!-- Left column -->
+    <div class="p1-left">
+      <h1 class="p1-headline">
+        Your staff.<br>Your time.<br><em>Under control.</em>
+      </h1>
+
+      <p class="p1-pitch">
+        <strong>tyma</strong> gives businesses with remote, hourly, or attendance-based staff
+        a complete digital workforce management platform. It fully automates onboarding,
+        improves billing accuracy, and enhances service delivery to clients.
+      </p>
+
+      <div>
+        <div class="sectors-title">Designed for businesses like yours</div>
+        <div class="sectors-grid">
+          <div class="sector-pill"><div class="sector-dot">🛡</div>Security &amp; Guarding</div>
+          <div class="sector-pill"><div class="sector-dot">🏢</div>Facilities Management</div>
+          <div class="sector-pill"><div class="sector-dot">🧹</div>Cleaning Contractors</div>
+          <div class="sector-pill"><div class="sector-dot">❤️</div>Care &amp; Support Services</div>
+          <div class="sector-pill"><div class="sector-dot">🛒</div>Retail &amp; Hospitality</div>
+          <div class="sector-pill"><div class="sector-dot">🚚</div>Logistics &amp; Distribution</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone mockup -->
+    <div class="p1-right">
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="p-head">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="13" height="13">
+              <polygon points="10,1 18,5.5 18,14.5 10,19 2,14.5 2,5.5" fill="#6abf3f"/>
+              <rect x="4.5" y="6.5" width="11" height="2.5" rx="1.25" fill="white"/>
+              <rect x="8.5" y="6.5" width="3" height="8.5" rx="1.5" fill="white"/>
+            </svg>
+            <span class="p-wm">tyma</span>
+          </div>
+          <div class="p-bdy">
+            <div class="p-site">Central Superstore (London)</div>
+            <div class="p-loc">📍 EC1A 1BB &middot; Live Dashboard</div>
+            <div class="p-live">
+              <div class="p-live-dot"></div>
+              <span class="p-live-txt">14 staff on site right now</span>
+            </div>
+            <!-- Featured staff member -->
+            <div class="p-featured">
+              <div class="p-feat-row">
+                <div>
+                  <div class="p-feat-name">Sarah Johnson</div>
+                  <div class="p-feat-id">ID: SJ017 &middot; Clocked in 08:52</div>
+                </div>
+                <div class="p-feat-status">ON SITE ✓</div>
+              </div>
+            </div>
+            <div class="p-clockin-btn">CLOCK IN ✓</div>
+            <div class="p-list">
+              <div class="p-row">
+                <div class="p-av">JT</div>
+                <span class="p-nm">James Thompson</span>
+                <span class="p-tm">09:00</span>
+              </div>
+              <div class="p-row">
+                <div class="p-av">AO</div>
+                <span class="p-nm">Amara Osei</span>
+                <span class="p-tm">08:58</span>
+              </div>
+              <div class="p-row">
+                <div class="p-av">MP</div>
+                <span class="p-nm">Maria Petrov</span>
+                <span class="p-tm">09:03</span>
+              </div>
+              <div class="p-row">
+                <div class="p-av">TK</div>
+                <span class="p-nm">Thomas King</span>
+                <span class="p-tm">09:01</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom stats bar -->
+  <div class="cover-footer">
+    <div class="cf-stat">
+      <div class="cf-num">48hrs</div>
+      <div class="cf-lbl">Average onboarding<br>time with tyma</div>
+    </div>
+    <div class="cf-div"></div>
+    <div class="cf-stat">
+      <div class="cf-num">99%+</div>
+      <div class="cf-lbl">Billing accuracy<br>with tyma</div>
+    </div>
+    <div class="cf-div"></div>
+    <div class="cf-stat">
+      <div class="cf-num">15hrs</div>
+      <div class="cf-lbl">Admin saved per<br>manager per week</div>
+    </div>
+    <div class="cf-div"></div>
+    <div class="cf-stat">
+      <div class="cf-num">60%</div>
+      <div class="cf-lbl">Reduction in<br>HR queries</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     PAGE 2 — WHY IS TYMA NEEDED?
+════════════════════════════════════════ -->
+<div class="page">
+
+  <div class="page-header">
+    <div class="logo-lockup">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="48" height="48">
+        <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="#6abf3f"/>
+        <rect x="9" y="13" width="22" height="5" rx="2.5" fill="white"/>
+        <rect x="17" y="13" width="6" height="17" rx="3" fill="white"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name">tyma</span>
+        <span class="logo-slogan">because time<br>counts</span>
+      </div>
+    </div>
+    <span class="header-page-num">02 / 04</span>
+  </div>
+
+  <!-- Dark red section band -->
+  <div class="section-band band-dark-red">
+    <div class="band-num">2</div>
+    Why is it needed? The problem.
+  </div>
+
+  <div class="p2-intro">
+    <h2 class="p2-headline">Managing hourly workers the old way<br>is quietly draining your business.</h2>
+    <p class="p2-sub">Spreadsheets, WhatsApp, and paper timesheets are not a workforce strategy. Every day without a system, you lose time, money, and credibility — often without even realising it.</p>
+  </div>
+
+  <div class="probs-grid">
+    <div class="prob-card">
+      <div class="prob-stat">14 days<sup>1</sup></div>
+      <div class="prob-title">To onboard a new hire manually</div>
+      <div class="prob-desc">Chasing documents, printing contracts, posting letters, waiting for signatures. Every delay means lost productivity and frustrated new starters who may not stay.</div>
+      <div class="prob-impact">📉 Lost productivity from day one</div>
+    </div>
+
+    <div class="prob-card">
+      <div class="prob-stat">1 in 5<sup>2</sup></div>
+      <div class="prob-title">Manual invoices contain billing errors</div>
+      <div class="prob-desc">Industry research shows manual, timesheet-based invoicing carries an error rate of 15–20%. Each disputed invoice delays payment, undermines client trust, and risks losing the contract.</div>
+      <div class="prob-impact">📉 Cash flow and client retention at risk</div>
+    </div>
+
+    <div class="prob-card">
+      <div class="prob-stat">£12B<sup>3</sup></div>
+      <div class="prob-title">Lost to payroll fraud in the UK each year</div>
+      <div class="prob-desc">Payroll fraud costs UK businesses an estimated £12 billion annually. Time theft alone — timesheet padding, long breaks, and buddy punching — can cost a business up to 7% of its annual profits.<sup>4</sup></div>
+      <div class="prob-impact">📉 Direct, preventable financial loss</div>
+    </div>
+
+    <div class="prob-card">
+      <div class="prob-stat">Zero</div>
+      <div class="prob-title">Real-time visibility without the right tools</div>
+      <div class="prob-desc">Do you know who is on site right now, across every location? Without live tracking, problems only come to light after the damage is done and the client is already calling.</div>
+      <div class="prob-impact">📉 Daily operational blind spots</div>
+    </div>
+
+    <div class="prob-card">
+      <div class="prob-stat">£45,000<sup>5</sup></div>
+      <div class="prob-title">Home Office fine per worker for right-to-work failures</div>
+      <div class="prob-desc">Under Home Office rules (updated February 2024), businesses that fail right-to-work document checks face civil penalties of up to £45,000 per worker. One expired document, untracked, can be catastrophic.</div>
+      <div class="prob-impact">📉 Legal exposure and business-ending risk</div>
+    </div>
+
+    <div class="prob-card">
+      <div class="prob-stat">£6,000<sup>6</sup></div>
+      <div class="prob-title">Average cost to replace one frontline worker</div>
+      <div class="prob-desc">CIPD research estimates replacing an entry-level worker costs £6,000 in recruitment, onboarding, and lost productivity. At typical frontline turnover of 25–30% annually, poor staff experience becomes one of your biggest costs.</div>
+      <div class="prob-impact">📉 Avoidable, recurring recruitment spend</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     PAGE 3 — HOW DOES TYMA WORK?
+════════════════════════════════════════ -->
+<div class="page">
+
+  <div class="page-header">
+    <div class="logo-lockup">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="48" height="48">
+        <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="#6abf3f"/>
+        <rect x="9" y="13" width="22" height="5" rx="2.5" fill="white"/>
+        <rect x="17" y="13" width="6" height="17" rx="3" fill="white"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name">tyma</span>
+        <span class="logo-slogan">because time<br>counts</span>
+      </div>
+    </div>
+    <span class="header-page-num">03 / 04</span>
+  </div>
+
+  <!-- Forest green section band -->
+  <div class="section-band band-forest-green">
+    <div class="band-num">3</div>
+    How does tyma work? The solution.
+  </div>
+
+  <div class="p3-intro">
+    <h2 class="p3-headline">One platform. Six capabilities.<br>Total workforce control.</h2>
+    <p class="p3-sub">tyma replaces every manual process with one connected digital platform — no app to install, no IT department needed, live within 48 hours of signing up.</p>
+  </div>
+
+  <div class="sols-grid">
+    <div class="sol-card">
+      <div class="sol-icon">📋</div>
+      <div>
+        <div class="sol-title">Instant Digital Onboarding</div>
+        <div class="sol-desc">Send a registration link. Staff upload documents, sign their contract, and complete their profile from any smartphone. HR approves in one click. No paper. No delays.</div>
+        <span class="sol-tag">✓ 14 days → 48 hours</span>
+      </div>
+    </div>
+
+    <div class="sol-card">
+      <div class="sol-icon">📍</div>
+      <div>
+        <div class="sol-title">QR Code Clock-In &amp; Out</div>
+        <div class="sol-desc">No app. No login at the door. Staff scan a site QR code on any phone, confirm their identity, and clock in. Every record is timestamped, verifiable, and dispute-proof.</div>
+        <span class="sol-tag">✓ Eliminates timesheet fraud</span>
+      </div>
+    </div>
+
+    <div class="sol-card">
+      <div class="sol-icon">📊</div>
+      <div>
+        <div class="sol-title">Live Attendance Dashboard</div>
+        <div class="sol-desc">Know who is on site at every location, right now. Late arrivals trigger instant alerts. Managers stop chasing — the system keeps them informed automatically.</div>
+        <span class="sol-tag">✓ Live visibility, all sites</span>
+      </div>
+    </div>
+
+    <div class="sol-card">
+      <div class="sol-icon">💰</div>
+      <div>
+        <div class="sol-title">Accurate, Automated Billing</div>
+        <div class="sol-desc">Attendance data feeds directly into billing. Generate precise, timestamped invoices clients cannot challenge. Stop losing revenue to billing errors and slow manual processes.</div>
+        <span class="sol-tag">✓ 99%+ billing accuracy</span>
+      </div>
+    </div>
+
+    <div class="sol-card">
+      <div class="sol-icon">🛡</div>
+      <div>
+        <div class="sol-title">Compliance &amp; Document Management</div>
+        <div class="sol-desc">Automatic alerts when right-to-work documents, certifications, or ID are expiring. Full audit trail for every employee. Walk into any inspection fully prepared and confident.</div>
+        <span class="sol-tag">✓ Always audit-ready</span>
+      </div>
+    </div>
+
+    <div class="sol-card">
+      <div class="sol-icon">👤</div>
+      <div>
+        <div class="sol-title">Staff Portal &amp; HR Messaging</div>
+        <div class="sol-desc">Every team member gets a personal dashboard — shifts, documents, pay info, and messages from management. Staff feel valued. HR queries drop dramatically. Retention improves.</div>
+        <span class="sol-tag">✓ 60% fewer HR queries</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     PAGE 4 — ROI, COSTS & GET TYMA
+════════════════════════════════════════ -->
+<div class="page">
+
+  <div class="page-header">
+    <div class="logo-lockup">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="48" height="48">
+        <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="#6abf3f"/>
+        <rect x="9" y="13" width="22" height="5" rx="2.5" fill="white"/>
+        <rect x="17" y="13" width="6" height="17" rx="3" fill="white"/>
+      </svg>
+      <div class="logo-text">
+        <span class="logo-name">tyma</span>
+        <span class="logo-slogan">because time<br>counts</span>
+      </div>
+    </div>
+    <span class="header-page-num">04 / 04</span>
+  </div>
+
+  <!-- Deep purple section band -->
+  <div class="section-band band-deep-purple">
+    <div class="band-num">4</div>
+    Savings, ROI &amp; how to get tyma
+  </div>
+
+  <!-- ROI numbers strip -->
+  <div class="roi-strip">
+    <div class="roi-stat">
+      <div class="roi-num">15hrs</div>
+      <div class="roi-lbl">Admin saved per<br>manager per week</div>
+    </div>
+    <div class="roi-div"></div>
+    <div class="roi-stat">
+      <div class="roi-num">8.7×</div>
+      <div class="roi-lbl">Return on investment<br>Year 1 example</div>
+    </div>
+    <div class="roi-div"></div>
+    <div class="roi-stat">
+      <div class="roi-num">£0</div>
+      <div class="roi-lbl">Setup fee.<br>No long contract.</div>
+    </div>
+    <div class="roi-div"></div>
+    <div class="roi-stat">
+      <div class="roi-num">48hrs</div>
+      <div class="roi-lbl">To be fully live<br>and operational</div>
+    </div>
+  </div>
+
+  <!-- ROI example box -->
+  <div class="roi-example">
+    <div class="roi-icon">📈</div>
+    <div>
+      <div class="roi-title">The numbers are compelling</div>
+      <div class="roi-body">
+        A business with <strong>50 staff</strong> spending <strong>15 hours per week</strong> on workforce admin —
+        timesheets, onboarding, chasing documents, correcting billing errors — at an average
+        manager cost of <strong>£20 per hour</strong> is spending <strong>£15,600 per year</strong> on work
+        tyma automates completely.
+      </div>
+      <div class="roi-result">
+        tyma at £149/month = £1,788/year &nbsp;→&nbsp; You save <strong>£13,812 in Year 1</strong>. That is an <strong>8.7× return</strong> — £8.73 saved for every £1 you invest.<sup>7</sup>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pricing -->
+  <div class="pricing-wrap">
+    <div class="pricing-eyebrow">Simple, transparent pricing — no hidden fees, no surprises</div>
+    <div class="pricing-grid">
+      <div class="pr-card">
+        <div class="pr-tier">Starter</div>
+        <div class="pr-price">£149</div>
+        <div class="pr-per">/month + VAT</div>
+        <div class="pr-staff">Up to 50 staff</div>
+        <ul class="pr-list">
+          <li>Digital onboarding</li>
+          <li>QR clock-in &amp; out</li>
+          <li>Real-time dashboard</li>
+          <li>Staff portal</li>
+          <li>Document management</li>
+          <li>Custom branding</li>
+        </ul>
+      </div>
+
+      <div class="pr-card top">
+        <div class="pr-tier">Growth &nbsp;★ Most Popular</div>
+        <div class="pr-price">£299</div>
+        <div class="pr-per">/month + VAT</div>
+        <div class="pr-staff">Up to 200 staff</div>
+        <ul class="pr-list">
+          <li>Everything in Starter</li>
+          <li>Automated billing export</li>
+          <li>Multi-site management</li>
+          <li>Compliance alerts</li>
+          <li>HR messaging system</li>
+          <li>Priority support</li>
+        </ul>
+      </div>
+
+      <div class="pr-card">
+        <div class="pr-tier">Enterprise</div>
+        <div class="pr-price">Custom</div>
+        <div class="pr-per">tailored to your scale</div>
+        <div class="pr-staff">200+ staff</div>
+        <ul class="pr-list">
+          <li>Everything in Growth</li>
+          <li>Dedicated account manager</li>
+          <li>API &amp; integrations</li>
+          <li>White-label option</li>
+          <li>SLA guarantee</li>
+          <li>Onboarding concierge</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-bar">
+    <div>
+      <div class="cta-headline">Ready to take control<br>of your workforce?</div>
+      <div class="cta-sub">
+        Book a free 20-minute demo. See tyma working live for your business.<br>
+        No commitment. No credit card. No risk. Just results from day one.
+      </div>
+    </div>
+    <div class="cta-actions">
+      <a href="https://tyma.io" class="cta-btn">Get tyma &rarr;</a>
+      <div class="cta-url">tyma.io</div>
+      <div class="cta-note">Prices shown are indicative. Contact us for a tailored quote.</div>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div style="margin: 0 22px 20px; padding: 14px 18px; background: #f7f7f7; border-radius: 12px; border: 1px solid #e8e8e8;">
+    <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; color: #888; margin-bottom: 10px;">Sources &amp; References</div>
+    <ol style="padding-left: 16px; display: flex; flex-direction: column; gap: 5px;">
+      <li style="font-size: 11.5px; color: #666; line-height: 1.5;"><strong>Onboarding time:</strong> SHRM (Society for Human Resource Management) — <em>Employee Onboarding Practices</em>; average manual admin onboarding time for hourly and frontline workers.</li>
+      <li style="font-size: 11.5px; color: #666; line-height: 1.5;"><strong>Invoice error rate (15–20%):</strong> Billentis — <em>e-Invoicing / e-Billing: Global Market Overview &amp; Forecast</em>; Ardent Partners — <em>AP Metrics that Matter</em>.</li>
+      <li style="font-size: 11.5px; color: #666; line-height: 1.5;"><strong>£12 billion payroll fraud:</strong> UK Finance &amp; Fraud Advisory Panel — <em>Annual Fraud Indicator</em>; Cifas — <em>Fraudscape Report</em>. Estimates vary; £12B represents mid-range industry consensus.</li>
+      <li style="font-size: 11.5px; color: #666; line-height: 1.5;"><strong>7% of profits from time theft:</strong> American Payroll Association — <em>Getting Paid in America Survey</em>; corroborated by multiple peer HR studies on time theft and productivity loss.</li>
+      <li style="font-size: 11.5px; color: #666; line-height: 1.5;"><strong>£45,000 right-to-work fine:</strong> HM Government — <em>Preventing Illegal Working: Civil Penalty Scheme for Employers</em>, updated February 2024. gov.uk/government/publications/right-to-work-checks-employers-guide.</li>
+      <li style="font-size: 11.5px; color: #666; line-height: 1.5;"><strong>£6,000 replacement cost:</strong> CIPD (Chartered Institute of Personnel and Development) — <em>Resourcing and Talent Planning Survey 2023</em>. Average cost to replace an entry-level or frontline employee.</li>
+      <li style="font-size: 11.5px; color: #666; line-height: 1.5;"><strong>8.7× ROI calculation:</strong> Illustrative example based on stated assumptions: 50 staff, 15 hrs/week admin at £20/hr = £15,600/yr saved; tyma Starter plan at £149/month = £1,788/yr. ROI = £15,600 ÷ £1,788 = 8.73×. Actual results will vary.</li>
+    </ol>
+  </div>
+
+</div>
+
+</body>
+</html>

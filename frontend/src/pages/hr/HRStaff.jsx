@@ -491,6 +491,8 @@ export default function HRStaff() {
       address_line2:         s.address_line2||'',
       city:                  s.city||'',
       postcode:              s.postcode||'',
+      // Portal role
+      role:                  s.role || 'staff',
       // Employment
       staff_id:              s.staff_id||'TBC',
       employment_start_date: s.employment_start_date||'',
@@ -529,6 +531,8 @@ export default function HRStaff() {
         address_line2:         form.address_line2 || null,
         city:                  form.city || null,
         postcode:              form.postcode || null,
+        // Portal role
+        role:                  form.role || 'staff',
         // Employment
         staff_id:              form.staff_id,
         employment_start_date: form.employment_start_date || null,
@@ -1078,6 +1082,22 @@ export default function HRStaff() {
                           </label>
                         ))}
                       </div>
+                    </div>
+                    <div style={{ marginTop:12 }}>
+                      <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:8 }}>Portal Role</label>
+                      <div style={{ display:'flex', gap:12 }}>
+                        {[['staff','👤 Staff'],['manager','🏢 Site Manager']].map(([val,lbl]) => (
+                          <label key={val} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer', padding:'8px 14px', borderRadius:8, border:`1.5px solid ${form.role===val?'var(--green)':'var(--border)'}`, background:form.role===val?'rgba(106,191,63,.08)':'transparent', flex:1, justifyContent:'center' }}>
+                            <input type="radio" name="role" value={val} checked={form.role===val} onChange={()=>setForm(f=>({...f,role:val}))} style={{ accentColor:'var(--green)' }} />
+                            {lbl}
+                          </label>
+                        ))}
+                      </div>
+                      {form.role === 'manager' && (
+                        <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6 }}>
+                          Site manager access is scoped to their assigned site. Set the primary site above.
+                        </div>
+                      )}
                     </div>
                   </>
                 ),
