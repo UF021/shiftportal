@@ -1,0 +1,40 @@
+{
+  "name": "Tyma Staff Portal",
+  "short_name": "Tyma",
+  "description": "Workforce management for your team",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f1923",
+  "theme_color": "#0f1923",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "48x48 72x72 96x96 128x128 192x192 256x256 512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Staff Portal",
+      "short_name": "Portal",
+      "description": "View your shifts, holidays and messages",
+      "url": "/staff",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false
+}

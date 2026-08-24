@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full bleed background for maskable icon (no rounded corners — OS applies mask) -->
+  <rect width="512" height="512" fill="#0f1923"/>
+  <!-- Safe zone: 40% inset = 102px each side, content within 308x308 centred -->
+  <text x="256" y="340" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="900" font-size="240" fill="#6abf3f">T</text>
+</svg>

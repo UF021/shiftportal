@@ -5,6 +5,7 @@ import { useBrand } from '../../api/BrandContext'
 import { getMyMessages } from '../../api/client'
 import { DocsProvider, useDocs } from '../../api/DocsContext'
 import OrgLogo from '../../components/OrgLogo'
+import InstallBanner from '../../components/InstallBanner'
 
 const BASE_NAV = [
   { path:'/staff',             icon:'🏠', label:'Home',      bg:'#e8f4ff', active:'#1565c0' },
@@ -62,6 +63,8 @@ function StaffLayoutInner() {
       <div style={{ maxWidth:680, margin:'0 auto', padding:'20px 16px calc(84px + env(safe-area-inset-bottom))' }}>
         <Outlet />
       </div>
+
+      <InstallBanner />
 
       {/* Bottom nav */}
       <nav style={{
