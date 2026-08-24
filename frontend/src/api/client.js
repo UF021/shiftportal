@@ -130,7 +130,8 @@ export const rejectGpsCapture  = (captureId)         => api.delete(`/gps-capture
 export const getMyTraining        = ()             => api.get('/training/my')
 export const submitTrainingModule = (mod, score)  => api.post(`/training/module/${mod}`, { score })
 export const getTrainingAdmin     = ()             => api.get('/training/admin')
-export const sendTrainingReminder = ()             => api.post('/training/remind')
+export const sendTrainingReminder  = (body)        => api.post('/training/remind', body)
+export const getReminderLogs       = ()            => api.get('/training/reminder-logs')
 
 // Incidents
 export const submitIncident   = (fd)  => api.post('/incidents/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })

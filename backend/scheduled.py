@@ -584,3 +584,15 @@ def send_no_show_alerts():
         db.rollback()
     finally:
         db.close()
+
+
+def send_weekly_payroll_training_reminder():
+    """Send Monday morning training reminders to all payroll staff with incomplete modules."""
+    from routers.training import send_payroll_training_reminders_all_orgs
+    db = SessionLocal()
+    try:
+        send_payroll_training_reminders_all_orgs(db)
+    except Exception as exc:
+        log.error("[TRAINING-REMINDER] Weekly job failed: %s", exc)
+    finally:
+        db.close()

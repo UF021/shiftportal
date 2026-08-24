@@ -21,6 +21,7 @@ def send_email(
     body:       str,
     from_name:  str = "Tyma Notifications",
     reply_to:   str = None,
+    html:       str = None,
 ) -> bool:
     api_key   = os.getenv("RESEND_API_KEY")
     from_addr = os.getenv("EMAIL_FROM", "hr@ikanfm.co.uk")
@@ -38,6 +39,8 @@ def send_email(
             "subject": subject,
             "text":    body,
         }
+        if html:
+            payload["html"] = html
         if bcc:
             payload["bcc"] = [bcc]
         if reply_to:

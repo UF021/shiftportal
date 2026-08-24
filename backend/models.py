@@ -666,3 +666,18 @@ class AuditLog(Base):
     entity_name     = Column(String(200), nullable=True)
     detail          = Column(Text, nullable=True)      # JSON blob with before/after or context
     created_at      = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+# ── TrainingReminderLog ────────────────────────────────────────────────────────
+
+class TrainingReminderLog(Base):
+    __tablename__ = 'training_reminder_logs'
+
+    id              = Column(Integer, primary_key=True, index=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False, index=True)
+    sent_at         = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    sent_by_id      = Column(Integer, nullable=True)   # NULL = automated scheduler
+    sent_by_name    = Column(String(200), nullable=True)
+    target_type     = Column(String(20))               # 'payroll', 'subcontract', 'individual', 'auto'
+    recipient_count = Column(Integer, default=0)
+    triggered_by    = Column(String(10), default='manual')  # 'manual' or 'auto'

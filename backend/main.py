@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
 from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts, manager, payroll, reports
-from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts
+from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts, send_weekly_payroll_training_reminder
 
 log = logging.getLogger(__name__)
 
@@ -373,6 +373,12 @@ async def lifespan(app: FastAPI):
         send_no_show_alerts,
         CronTrigger(minute='*/30', timezone=pytz.timezone('Europe/London')),
         id='no_show_alerts',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        send_weekly_payroll_training_reminder,
+        CronTrigger(day_of_week='mon', hour=9, minute=30, timezone=pytz.timezone('Europe/London')),
+        id='weekly_training_reminder',
         replace_existing=True,
     )
     scheduler.start()
