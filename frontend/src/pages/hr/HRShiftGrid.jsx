@@ -1,9 +1,9 @@
 /**
  * Grid-view shift scheduler: rows = sites, columns = Mon-Sun.
- * Each cell can have multiple guard entries, each with independent start/end time + staff.
- * Changes are held locally; "Save All" commits to the DB.
+ * All sites are listed automatically; rows can be deleted (restores on refresh).
+ * Each cell can hold multiple guard entries; entries can be duplicated across all week days.
  */
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { createScheduledShift, updateScheduledShift, deleteScheduledShift } from '../../api/client'
 
 function addDays(iso, n) {
@@ -27,16 +27,23 @@ function isToday(iso) {
 let _uid = 0
 const uid = () => `local-${++_uid}`
 
-/** Transform API shifts array into grid rows */
+/**
+ * Build grid rows from API data.
+ * Every site in sitesList gets a row, even if it has no shifts this week.
+ * Shifts for sites not in sitesList (e.g. site was deactivated) are still shown.
+ */
 function buildGridRows(shifts, sites) {
   const siteMap = {}
+
+  // Start with all known sites as empty rows
+  for (const s of sites) {
+    siteMap[s.id] = { site_id: s.id, site_name: s.name, days: {}, _rowDeleted: false }
+  }
+
+  // Populate with existing shifts
   for (const sh of shifts) {
     if (!siteMap[sh.site_id]) {
-      siteMap[sh.site_id] = {
-        site_id:   sh.site_id,
-        site_name: sh.site_name,
-        days:      {},
-      }
+      siteMap[sh.site_id] = { site_id: sh.site_id, site_name: sh.site_name, days: {}, _rowDeleted: false }
     }
     const day = siteMap[sh.site_id].days
     if (!day[sh.date]) day[sh.date] = []
@@ -51,6 +58,7 @@ function buildGridRows(shifts, sites) {
       _deleted:   false,
     })
   }
+
   return Object.values(siteMap).sort((a, b) => a.site_name.localeCompare(b.site_name))
 }
 
@@ -78,31 +86,31 @@ const inp = {
   fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box',
 }
 
-const cellW = 168
+const cellW = 172
 
 export default function HRShiftGrid({ weekStart, data, onRefresh }) {
-  const staffList  = data?.staff  || []
-  const sitesList  = data?.sites  || []
-  const days       = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const staffList = data?.staff  || []
+  const sitesList = data?.sites  || []
+  const days      = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
-  const [rows,       setRows]       = useState(() => buildGridRows(data?.shifts || [], sitesList))
-  const [saving,     setSaving]     = useState(false)
-  const [saveMsg,    setSaveMsg]    = useState('')
-  const [csvOpen,    setCsvOpen]    = useState(false)
-  const [csvText,    setCsvText]    = useState('')
-  const [csvErr,     setCsvErr]     = useState('')
+  const [rows,        setRows]        = useState(() => buildGridRows(data?.shifts || [], sitesList))
+  const [saving,      setSaving]      = useState(false)
+  const [saveMsg,     setSaveMsg]     = useState('')
+  const [csvOpen,     setCsvOpen]     = useState(false)
+  const [csvText,     setCsvText]     = useState('')
+  const [csvErr,      setCsvErr]      = useState('')
   const [addSiteOpen, setAddSiteOpen] = useState(false)
-  const [newSiteId,  setNewSiteId]  = useState('')
+  const [newSiteId,   setNewSiteId]   = useState('')
   const fileRef = useRef(null)
 
-  // Rebuild when week changes (parent re-mounts with new data)
+  // Rebuild when week changes
   const prevWeekRef = useRef(weekStart)
   if (prevWeekRef.current !== weekStart) {
     prevWeekRef.current = weekStart
     setRows(buildGridRows(data?.shifts || [], sitesList))
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // ── Entry helpers ─────────────────────────────────────────────────────────────
 
   function updateEntry(siteId, date, localId, patch) {
     setRows(prev => prev.map(r =>
@@ -133,13 +141,67 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
     ))
   }
 
-  function deleteEntry(siteId, date, localId, dbId) {
+  function deleteEntry(siteId, date, localId) {
     setRows(prev => prev.map(r => {
       if (r.site_id !== siteId) return r
-      const updated = (r.days[date] || []).map(e =>
-        e.localId !== localId ? e : { ...e, _deleted: true }
-      )
-      return { ...r, days: { ...r.days, [date]: updated } }
+      return {
+        ...r,
+        days: {
+          ...r.days,
+          [date]: (r.days[date] || []).map(e =>
+            e.localId !== localId ? e : { ...e, _deleted: true }
+          ),
+        },
+      }
+    }))
+  }
+
+  /** Copy an entry to every day in the week that doesn't already have an identical one */
+  function duplicateToWeek(siteId, entry) {
+    setRows(prev => prev.map(r => {
+      if (r.site_id !== siteId) return r
+      const newDays = { ...r.days }
+      for (const day of days) {
+        const existing = newDays[day] || []
+        const clash = existing.some(e =>
+          !e._deleted &&
+          e.start_time === entry.start_time &&
+          e.user_id    === entry.user_id
+        )
+        if (!clash) {
+          newDays[day] = [
+            ...existing,
+            {
+              localId:    uid(),
+              dbId:       undefined,
+              user_id:    entry.user_id,
+              start_time: entry.start_time,
+              end_time:   entry.end_time,
+              _dirty:     false,
+              _new:       true,
+              _deleted:   false,
+            },
+          ]
+        }
+      }
+      return { ...r, days: newDays }
+    }))
+  }
+
+  // ── Row helpers ───────────────────────────────────────────────────────────────
+
+  function deleteSiteRow(siteId) {
+    const row = rows.find(r => r.site_id === siteId)
+    const hasDbShifts = row && Object.values(row.days).flat().some(e => e.dbId && !e._deleted)
+    if (hasDbShifts && !window.confirm('Remove this site row? Existing shifts this week will be deleted when you Save.')) return
+
+    setRows(prev => prev.map(r => {
+      if (r.site_id !== siteId) return r
+      const newDays = {}
+      for (const [date, entries] of Object.entries(r.days)) {
+        newDays[date] = entries.map(e => ({ ...e, _deleted: true }))
+      }
+      return { ...r, _rowDeleted: true, days: newDays }
     }))
   }
 
@@ -147,8 +209,14 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
     if (!newSiteId) return
     const site = sitesList.find(s => s.id === Number(newSiteId))
     if (!site) return
-    if (rows.find(r => r.site_id === site.id)) { setAddSiteOpen(false); return }
-    setRows(prev => [...prev, { site_id: site.id, site_name: site.name, days: {} }])
+    const existing = rows.find(r => r.site_id === site.id)
+    if (existing) {
+      // Restore a previously deleted row
+      setRows(prev => prev.map(r => r.site_id === site.id ? { ...r, _rowDeleted: false } : r))
+    } else {
+      setRows(prev => [...prev, { site_id: site.id, site_name: site.name, days: {}, _rowDeleted: false }]
+        .sort((a, b) => a.site_name.localeCompare(b.site_name)))
+    }
     setNewSiteId('')
     setAddSiteOpen(false)
   }
@@ -171,11 +239,9 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
     const newRows = [...rows]
 
     for (const row of parsed) {
-      // Match site (case-insensitive)
       const site = sitesList.find(s => s.name.toLowerCase() === row.site_name.toLowerCase())
       if (!site) { setCsvErr(`Site not found: "${row.site_name}". Check spelling matches your sites list.`); return }
 
-      // Match staff by email (optional)
       let userId = null
       if (row.staff_email) {
         const staffMember = staffList.find(s => s.email?.toLowerCase() === row.staff_email.toLowerCase())
@@ -185,22 +251,18 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
 
       let siteRow = newRows.find(r => r.site_id === site.id)
       if (!siteRow) {
-        siteRow = { site_id: site.id, site_name: site.name, days: {} }
+        siteRow = { site_id: site.id, site_name: site.name, days: {}, _rowDeleted: false }
         newRows.push(siteRow)
+      } else {
+        siteRow._rowDeleted = false
       }
 
-      // Add one entry per day of the week
       for (const day of days) {
         if (!siteRow.days[day]) siteRow.days[day] = []
         siteRow.days[day].push({
-          localId:    uid(),
-          dbId:       undefined,
-          user_id:    userId,
-          start_time: row.start_time,
-          end_time:   row.end_time,
-          _dirty:     false,
-          _new:       true,
-          _deleted:   false,
+          localId: uid(), dbId: undefined, user_id: userId,
+          start_time: row.start_time, end_time: row.end_time,
+          _dirty: false, _new: true, _deleted: false,
         })
       }
     }
@@ -211,7 +273,7 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
     setSaveMsg('CSV imported — review and click Save All to commit.')
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────────────
 
   async function saveAll() {
     setSaving(true); setSaveMsg('')
@@ -224,9 +286,9 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
             if (entry._deleted && entry.dbId) {
               await deleteScheduledShift(entry.dbId); ops++
             } else if (entry._deleted) {
-              // was new, never saved — nothing to do
+              // new + deleted before saving — nothing to do
             } else if (entry._new && !entry._deleted) {
-              if (!entry.start_time || !entry.user_id) continue  // skip incomplete rows
+              if (!entry.start_time || !entry.user_id) continue
               await createScheduledShift({
                 site_id: siteRow.site_id, user_id: entry.user_id,
                 date, start_time: entry.start_time, end_time: entry.end_time || null,
@@ -248,7 +310,12 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  const hasChanges = rows.some(r => Object.values(r.days).flat().some(e => e._new || e._dirty || e._deleted))
+  const visibleRows = rows.filter(r => !r._rowDeleted)
+  const hasChanges  = rows.some(r =>
+    r._rowDeleted
+      ? Object.values(r.days).flat().some(e => e.dbId)
+      : Object.values(r.days).flat().some(e => e._new || e._dirty || e._deleted)
+  )
 
   return (
     <div>
@@ -268,7 +335,8 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
             onClick={saveAll}
             disabled={saving || !hasChanges}
             style={{
-              padding: '8px 20px', borderRadius: 8, cursor: hasChanges && !saving ? 'pointer' : 'not-allowed',
+              padding: '8px 20px', borderRadius: 8,
+              cursor: hasChanges && !saving ? 'pointer' : 'not-allowed',
               fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 700,
               border: 'none',
               background: hasChanges ? '#6abf3f' : 'var(--navy-mid)',
@@ -277,6 +345,19 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
             }}
           >{saving ? '⏳ Saving…' : '💾 Save All'}</button>
         </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 10, fontSize: 11, color: 'var(--text-dim)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(106,191,63,.4)', display: 'inline-block' }} />New
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(240,160,48,.4)', display: 'inline-block' }} />Edited
+        </span>
+        <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 4 }}>
+          ⧉ = copy entry to all 7 days
+        </span>
       </div>
 
       {/* Grid */}
@@ -309,30 +390,44 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px solid var(--border)' }}>
-                  No sites yet. Import a CSV or click <strong>+ Add Site Row</strong> to begin.
+                <td colSpan={8} style={{
+                  padding: '48px 0', textAlign: 'center', color: 'var(--text-muted)',
+                  fontSize: 13, border: '1px solid var(--border)',
+                }}>
+                  All site rows hidden. Click <strong>+ Add Site Row</strong> to restore one.
                 </td>
               </tr>
             )}
-            {rows.map(siteRow => (
+            {visibleRows.map(siteRow => (
               <tr key={siteRow.site_id}>
-                {/* Site name column */}
+                {/* Site name + delete row */}
                 <td style={{
-                  padding: '10px 14px', verticalAlign: 'top',
+                  padding: '10px 12px', verticalAlign: 'top',
                   background: 'var(--navy-mid)', border: '1px solid var(--border)',
-                  fontSize: 13, fontWeight: 700, color: 'var(--text)',
-                  position: 'sticky', left: 0, zIndex: 1,
-                  minWidth: 160,
+                  position: 'sticky', left: 0, zIndex: 1, minWidth: 160,
                 }}>
-                  {siteRow.site_name}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4 }}>
+                      {siteRow.site_name}
+                    </span>
+                    <button
+                      onClick={() => deleteSiteRow(siteRow.site_id)}
+                      title="Hide this site row"
+                      style={{
+                        flexShrink: 0, background: 'none', border: '1px solid rgba(239,68,68,.25)',
+                        borderRadius: 5, cursor: 'pointer', color: 'rgba(239,68,68,.6)',
+                        fontSize: 11, padding: '2px 6px', lineHeight: 1, marginTop: 1,
+                      }}
+                    >✕ Hide</button>
+                  </div>
                 </td>
 
                 {/* Day cells */}
                 {days.map(day => {
                   const entries = (siteRow.days[day] || []).filter(e => !e._deleted)
-                  const today = isToday(day)
+                  const today   = isToday(day)
                   return (
                     <td key={day} style={{
                       padding: '6px', verticalAlign: 'top', width: cellW,
@@ -342,30 +437,52 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
                       {entries.map(entry => (
                         <div key={entry.localId} style={{
                           marginBottom: 6, padding: '6px 7px', borderRadius: 7,
-                          background: entry._new ? 'rgba(106,191,63,.08)' : entry._dirty ? 'rgba(240,160,48,.08)' : 'var(--navy-light)',
-                          border: `1px solid ${entry._new ? 'rgba(106,191,63,.25)' : entry._dirty ? 'rgba(240,160,48,.25)' : 'var(--border)'}`,
+                          background: entry._new
+                            ? 'rgba(106,191,63,.08)'
+                            : entry._dirty
+                              ? 'rgba(240,160,48,.08)'
+                              : 'var(--navy-light)',
+                          border: `1px solid ${entry._new
+                            ? 'rgba(106,191,63,.3)'
+                            : entry._dirty
+                              ? 'rgba(240,160,48,.3)'
+                              : 'var(--border)'}`,
                           position: 'relative',
                         }}>
-                          {/* Delete button */}
-                          <button
-                            onClick={() => deleteEntry(siteRow.site_id, day, entry.localId, entry.dbId)}
-                            title="Remove this shift"
-                            style={{
-                              position: 'absolute', top: 4, right: 4,
-                              background: 'none', border: 'none', cursor: 'pointer',
-                              color: 'var(--text-dim)', fontSize: 12, lineHeight: 1, padding: '0 2px',
-                            }}
-                          >✕</button>
+                          {/* Action buttons: delete + duplicate */}
+                          <div style={{
+                            position: 'absolute', top: 4, right: 4,
+                            display: 'flex', gap: 3,
+                          }}>
+                            <button
+                              onClick={() => duplicateToWeek(siteRow.site_id, entry)}
+                              title="Copy to all 7 days"
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'var(--text-dim)', fontSize: 12, lineHeight: 1,
+                                padding: '0 3px',
+                              }}
+                            >⧉</button>
+                            <button
+                              onClick={() => deleteEntry(siteRow.site_id, day, entry.localId)}
+                              title="Remove this shift"
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'var(--text-dim)', fontSize: 12, lineHeight: 1,
+                                padding: '0 2px',
+                              }}
+                            >✕</button>
+                          </div>
 
                           {/* Time range */}
-                          <div style={{ display: 'flex', gap: 4, marginBottom: 5, paddingRight: 14 }}>
+                          <div style={{ display: 'flex', gap: 4, marginBottom: 5, paddingRight: 36 }}>
                             <input
                               type="time"
                               value={entry.start_time}
                               onChange={e => updateEntry(siteRow.site_id, day, entry.localId, { start_time: e.target.value })}
                               style={{ ...inp, width: '48%' }}
                             />
-                            <span style={{ color: 'var(--text-dim)', fontSize: 11, lineHeight: '28px' }}>→</span>
+                            <span style={{ color: 'var(--text-dim)', fontSize: 11, lineHeight: '28px' }}>–</span>
                             <input
                               type="time"
                               value={entry.end_time}
@@ -388,7 +505,7 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
                         </div>
                       ))}
 
-                      {/* Add guard button */}
+                      {/* Add guard */}
                       <button
                         onClick={() => addEntry(siteRow.site_id, day)}
                         style={{
@@ -413,27 +530,31 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
           <div className="modal" style={{ width: 520 }}>
             <h3>📂 Import Shifts from CSV</h3>
             <p className="sub">Upload a CSV file to pre-populate the grid. Staff are matched by email address.</p>
-
-            <div style={{ background: 'var(--navy-light)', borderRadius: 8, padding: '12px 16px', marginBottom: 14, fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace', lineHeight: 1.8 }}>
-              <div style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, fontFamily: 'DM Sans,sans-serif', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em' }}>Expected format</div>
+            <div style={{
+              background: 'var(--navy-light)', borderRadius: 8, padding: '12px 16px',
+              marginBottom: 14, fontSize: 12, color: 'var(--text-muted)',
+              fontFamily: 'DM Mono,monospace', lineHeight: 1.8,
+            }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4, fontFamily: 'DM Sans,sans-serif', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                Expected format
+              </div>
               Site Name,Start Time,End Time,Staff Email<br/>
               Westfield Shopping Centre,08:00,18:00,john.smith@example.com<br/>
               Oxford Street,22:00,06:00,<br/>
               Heathrow T2,06:00,14:00,alice.jones@example.com
             </div>
-
             <div style={{ marginBottom: 14 }}>
               <button
                 onClick={() => fileRef.current?.click()}
                 style={{
-                  padding: '9px 18px', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border)',
-                  background: 'var(--navy-light)', color: 'var(--text-muted)', fontFamily: 'DM Sans,sans-serif', fontSize: 13,
+                  padding: '9px 18px', borderRadius: 8, cursor: 'pointer',
+                  border: '1px solid var(--border)', background: 'var(--navy-light)',
+                  color: 'var(--text-muted)', fontFamily: 'DM Sans,sans-serif', fontSize: 13,
                 }}
               >📁 Choose CSV file</button>
               <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={handleCSVFile} />
               {csvText && <span style={{ marginLeft: 10, fontSize: 12, color: '#6abf3f' }}>✓ File loaded ({csvText.split('\n').length - 1} data rows)</span>}
             </div>
-
             {csvText && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Preview</div>
@@ -442,9 +563,7 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
                 </pre>
               </div>
             )}
-
             {csvErr && <div style={{ padding: '8px 12px', borderRadius: 7, background: 'rgba(224,85,85,.1)', color: '#e05555', fontSize: 12, marginBottom: 10 }}>{csvErr}</div>}
-
             <div className="modal-footer">
               <button onClick={() => { setCsvOpen(false); setCsvText(''); setCsvErr('') }} className="btn btn-outline">Cancel</button>
               <button onClick={applyCSV} disabled={!csvText} className="btn btn-brand">Apply to Grid</button>
@@ -458,13 +577,20 @@ export default function HRShiftGrid({ weekStart, data, onRefresh }) {
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setAddSiteOpen(false)}>
           <div className="modal" style={{ width: 380 }}>
             <h3>＋ Add Site Row</h3>
-            <p className="sub">Select a site to add as a new row in the grid.</p>
+            <p className="sub">Select a site to add (or restore) as a row in the grid.</p>
             <div className="field">
               <label>Site</label>
-              <select value={newSiteId} onChange={e => setNewSiteId(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy-light)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 14 }}>
+              <select
+                value={newSiteId}
+                onChange={e => setNewSiteId(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 8,
+                  border: '1px solid var(--border)', background: 'var(--navy-light)',
+                  color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 14,
+                }}
+              >
                 <option value="">Select a site…</option>
-                {sitesList.filter(s => !rows.find(r => r.site_id === s.id)).map(s => (
+                {sitesList.filter(s => !visibleRows.find(r => r.site_id === s.id)).map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
