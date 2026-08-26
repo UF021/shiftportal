@@ -174,7 +174,13 @@ export default function ApplyPage() {
       if (immigDoc)  fd.append('immigration_doc',  immigDoc)
       const res  = await fetch(`${BASE}/applications/${slug}`, { method: 'POST', body: fd })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Submission failed')
+      if (!res.ok) {
+        const detail = data.detail
+        const msg = Array.isArray(detail)
+          ? detail.map(e => e.msg || JSON.stringify(e)).join(' · ')
+          : (detail || 'Submission failed')
+        throw new Error(msg)
+      }
       setDone(data)
     } catch (ex) {
       setErr(ex.message || 'An error occurred. Please try again.')
