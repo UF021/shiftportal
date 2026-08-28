@@ -149,7 +149,7 @@ def approve(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depend
                 f"If you have any questions please contact HR.\n\n"
                 f"Regards,\nHR Team"
             ),
-            from_name = org_sender(org) if org else "Tyma Notifications",
+            from_name = org_sender(org) if org else "Ikan Notifications",
             reply_to  = org_reply_to(org) if org else None,
         )
     return {"message": "Approved", "holiday_pay_hours": h.holiday_pay_hours}
@@ -182,7 +182,7 @@ def reject(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depends
                 f"If you would like to discuss this, please contact HR directly.\n\n"
                 f"Regards,\nHR Team"
             ),
-            from_name = org_sender(org) if org else "Tyma Notifications",
+            from_name = org_sender(org) if org else "Ikan Notifications",
             reply_to  = org_reply_to(org) if org else None,
         )
     return {"message": "Rejected"}

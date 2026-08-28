@@ -311,14 +311,14 @@ def send_sia_expiry_warnings():
 
             subject = f"SIA Licence Expiry Alert — {len(expiring)} staff member(s) require attention"
             body    = (
-                f"This is an automated reminder from the Tyma portal.\n\n"
+                f"This is an automated reminder from the Ikan staff portal.\n\n"
                 f"The following staff members have SIA licences expiring within 60 days "
                 f"or that have already expired:\n\n"
                 f"  {'Name':<30} {'Expiry Date':<14} Status\n"
                 f"  {'-'*30} {'-'*14} {'-'*10}\n"
                 f"{rows}\n"
                 f"Please ensure renewals are arranged promptly to maintain compliance.\n\n"
-                f"Regards,\nTyma Notifications"
+                f"Regards,\nIkan Notifications"
             )
 
             for hr_user in hr_users:
@@ -326,7 +326,7 @@ def send_sia_expiry_warnings():
                     to        = hr_user.email,
                     subject   = subject,
                     body      = body,
-                    from_name = f"{org.brand_name or org.name} via Tyma",
+                    from_name = f"{org.brand_name or org.name} via Ikan",
                     reply_to  = org.brand_email or org.contact_email,
                 )
                 total_sent += 1
@@ -399,7 +399,7 @@ def send_missed_clockout_alerts():
                 f"  {'-'*30} {'-'*30} {'-'*15}\n"
                 f"{rows}\n"
                 f"Please review and add a manual clock-out if required.\n\n"
-                f"Regards,\nTyma Notifications"
+                f"Regards,\nIkan Notifications"
             )
 
             for hr_user in hr_users:
@@ -407,7 +407,7 @@ def send_missed_clockout_alerts():
                     to        = hr_user.email,
                     subject   = subject,
                     body      = body,
-                    from_name = f"{org.brand_name or org.name} via Tyma",
+                    from_name = f"{org.brand_name or org.name} via Ikan",
                     reply_to  = org.brand_email or org.contact_email,
                 )
                 total_sent += 1
@@ -465,15 +465,15 @@ def send_trial_expiry_warnings():
             else:
                 urgency = "in 7 days"
 
-            subject = f"Your Tyma trial expires {urgency} — action required"
+            subject = f"Your Ikan trial expires {urgency} — action required"
             body    = (
                 f"Your 30-day free trial for {org.name} expires {urgency} ({trial_date}).\n\n"
-                f"To continue using Tyma without interruption, please upgrade to a paid plan.\n\n"
+                f"To continue without interruption, please upgrade to a paid plan.\n\n"
                 f"  Starter:    £149/month — up to 50 staff, 3 sites\n"
                 f"  Growth:     £299/month — up to 200 staff, 10 sites\n"
                 f"  Enterprise: Custom pricing — unlimited\n\n"
-                f"To upgrade, visit Billing & Plan inside your portal or contact support@tyma.io.\n\n"
-                f"Regards,\nThe Tyma Team"
+                f"To upgrade, visit Billing & Plan inside your portal or contact support@ikanfm.co.uk.\n\n"
+                f"Regards,\nThe Ikan Team"
             )
 
             for hr_user in hr_users:
@@ -481,7 +481,7 @@ def send_trial_expiry_warnings():
                     to        = hr_user.email,
                     subject   = subject,
                     body      = body,
-                    from_name = "Tyma",
+                    from_name = "Ikan",
                 )
                 total_sent += 1
 
@@ -563,7 +563,7 @@ def send_no_show_alerts():
                 f"  {'-'*30} {'-'*30} {'-'*15}\n"
                 f"{rows}\n"
                 f"Please contact the staff member(s) and update the schedule if required.\n\n"
-                f"Regards,\nTyma Notifications"
+                f"Regards,\nIkan Notifications"
             )
 
             for hr_user in hr_users:
@@ -571,7 +571,7 @@ def send_no_show_alerts():
                     to        = hr_user.email,
                     subject   = subject,
                     body      = body,
-                    from_name = f"{org.brand_name or org.name} via Tyma",
+                    from_name = f"{org.brand_name or org.name} via Ikan",
                     reply_to  = org.brand_email or org.contact_email,
                 )
 
@@ -921,7 +921,7 @@ def send_long_shift_alerts():
                     to        = hr_user.email,
                     subject   = f"Long Shift Alert — {user.full_name} ({hours_in}h clocked in) | {org_name}",
                     body      = hr_body,
-                    from_name = f"{org_name} via Tyma",
+                    from_name = f"{org_name} via Ikan",
                     reply_to  = org.brand_email or org.contact_email,
                 )
 

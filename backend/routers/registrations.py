@@ -118,7 +118,7 @@ def activate(
                 f"Dear {u.first_name},\n\n"
                 f"Your staff account has been reviewed and is now active. "
                 f"You can log in to the staff portal using your registered email address and password.\n\n"
-                f"  Portal: https://tyma.io/login/{org.slug}\n"
+                f"  Portal: https://portal.ikanfm.co.uk/login/{org.slug}\n"
                 f"  Staff ID: {u.staff_id}\n\n"
                 f"If you have forgotten your password, use the 'Forgot Password' link on the login page.\n\n"
                 f"If you have any questions, please contact HR.\n\n"

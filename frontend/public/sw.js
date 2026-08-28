@@ -1,5 +1,5 @@
 /**
- * Tyma PWA Service Worker
+ * Ikan Staff Portal PWA Service Worker
  *
  * Strategy:
  *  - API (/api/*): network-first → cache on success → serve stale on failure
@@ -9,9 +9,9 @@
  * Bump SHELL_VERSION to force all clients to re-fetch the shell on next visit.
  */
 
-const SHELL_VERSION = 'v1'
-const SHELL_CACHE   = `tyma-shell-${SHELL_VERSION}`
-const DATA_CACHE    = `tyma-data-${SHELL_VERSION}`
+const SHELL_VERSION = 'v2'
+const SHELL_CACHE   = `ikan-shell-${SHELL_VERSION}`
+const DATA_CACHE    = `ikan-data-${SHELL_VERSION}`
 const KEEP_CACHES   = [SHELL_CACHE, DATA_CACHE]
 
 // ── Install ───────────────────────────────────────────────────────────────────

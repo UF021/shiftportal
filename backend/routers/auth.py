@@ -199,7 +199,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
                 f"  Org:   {org.name}\n\n"
                 f"Please log in to the HR portal to review and activate their account:\n"
                 f"  {portal_url}\n\n"
-                f"Regards,\nTyma Notifications"
+                f"Regards,\nIkan Notifications"
             ),
             from_name = org_sender(org),
             reply_to  = org_reply_to(org),

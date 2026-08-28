@@ -113,18 +113,6 @@ export default function LoginPage() {
         </form>
       </div>
 
-      {/* Free trial CTA — only shown on the generic /login (no org slug) */}
-      {!slug && (
-        <div style={{ marginTop: 20, textAlign: 'center' }}>
-          <Link to="/signup" style={{
-            display: 'inline-block', padding: '10px 24px', borderRadius: 20,
-            background: '#f0fdf4', border: '1px solid #bbf7d0',
-            color: '#166534', fontSize: 13, fontWeight: 700, textDecoration: 'none',
-          }}>
-            New to Tyma? Start your 30-day free trial →
-          </Link>
-        </div>
-      )}
 
       {/* Footer */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px', textAlign: 'center', fontSize: 12, color: '#6a8a6a', background: '#fff', borderTop: '1px solid #e8eee8' }}>

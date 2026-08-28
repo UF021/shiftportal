@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const DISMISS_KEY = 'tyma_install_dismissed'
+const DISMISS_KEY = 'ikan_install_dismissed'
 
 function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
@@ -66,7 +66,7 @@ export default function InstallBanner() {
       <div style={{ fontSize: 28, lineHeight: 1, flexShrink: 0 }}>📲</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#e8f0e0', marginBottom: 3 }}>
-          Install Tyma on your phone
+          Install Ikan on your phone
         </div>
         {showIOS ? (
           <div style={{ fontSize: 12, color: '#7a9a7a', lineHeight: 1.5 }}>

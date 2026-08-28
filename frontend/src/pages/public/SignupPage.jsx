@@ -99,7 +99,7 @@ export default function SignupPage() {
 
         {/* Branding */}
         <div style={{ textAlign:'center', marginBottom:24 }}>
-          <div style={{ fontSize:26, fontWeight:900, color:G, letterSpacing:'-0.5px', marginBottom:8 }}>tyma</div>
+          <div style={{ fontSize:26, fontWeight:900, color:G, letterSpacing:'-0.5px', marginBottom:8 }}>ikan</div>
           <span style={{ display:'inline-block', padding:'4px 14px', borderRadius:20, background:'#f0fdf4', border:'1px solid #bbf7d0', fontSize:12, fontWeight:700, color:'#166534' }}>
             30-day free trial · No credit card required
           </span>
@@ -121,7 +121,7 @@ export default function SignupPage() {
           <Field label={<>Portal address <span style={{ fontWeight:400, color:'#9ca3af' }}>(your unique login URL)</span></>}>
             <div style={{ display:'flex', alignItems:'center', border:'1px solid #d1d5db', borderRadius:8, overflow:'hidden' }}>
               <span style={{ padding:'10px 12px', background:'#f9fafb', borderRight:'1px solid #d1d5db', fontSize:12, color:'#6b7280', whiteSpace:'nowrap' }}>
-                tyma.io/login/
+                portal.ikanfm.co.uk/login/
               </span>
               <input
                 style={{ ...inp, border:'none', borderRadius:0, flex:1, minWidth:0 }}

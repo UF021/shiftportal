@@ -205,7 +205,7 @@ export default function HRBilling() {
             fontSize: 13, color: '#d97706',
           }}>
             💳 Online billing is not yet active. To change your plan, contact{' '}
-            <strong>support@tyma.io</strong>
+            <strong>support@ikanfm.co.uk</strong>
           </div>
         )}
       </div>
@@ -249,7 +249,7 @@ export default function HRBilling() {
       <div style={{ marginBottom: 10 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Available Plans</h3>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 }}>
-          To upgrade, contact <strong>support@tyma.io</strong> — online self-service coming soon.
+          To upgrade, contact <strong>support@ikanfm.co.uk</strong> — online self-service coming soon.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {orderedPlans.map(p => (

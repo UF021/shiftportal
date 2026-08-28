@@ -689,22 +689,22 @@ def org_signup(req: OrgCreate, db: Session = Depends(get_db)):
 
     send_email(
         to        = req.contact_email,
-        subject   = f"Welcome to Tyma — your portal is ready",
+        subject   = f"Welcome to Ikan — your portal is ready",
         body      = (
             f"Dear {req.hr_first_name},\n\n"
             f"Your 30-day free trial for {org.name} is ready. "
             f"Log in to your HR portal to get started.\n\n"
-            f"  Portal login: https://tyma.io/login/{org.slug}\n"
+            f"  Portal login: https://portal.ikanfm.co.uk/login/{org.slug}\n"
             f"  Email:        {req.contact_email}\n\n"
             f"Your trial includes:\n"
             f"  - Up to 10 active staff\n"
             f"  - 1 site with QR clock-in\n"
             f"  - Time reporting, holidays, messages, documents & more\n\n"
             f"To upgrade or add more staff/sites, visit Billing & Plan inside your portal "
-            f"or contact support@tyma.io.\n\n"
-            f"Welcome aboard,\nThe Tyma Team"
+            f"or contact support@ikanfm.co.uk.\n\n"
+            f"Welcome aboard,\nThe Ikan Team"
         ),
-        from_name = "Tyma",
+        from_name = "Ikan",
     )
 
     return {

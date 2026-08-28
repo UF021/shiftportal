@@ -1,10 +1,10 @@
 """
-Centralised email sending for all Tyma notifications.
+Centralised email sending for all Ikan portal notifications.
 
 All outbound email goes through send_email().  If RESEND_API_KEY is not set
 the call is a no-op so the rest of the app works normally in dev/test.
 
-From-address:  EMAIL_FROM env var (default: noreply@tyma.io).
+From-address:  EMAIL_FROM env var (default: hr@ikanfm.co.uk).
                Must be a domain verified with Resend.
 BCC:           BCC_EMAIL env var (optional — useful for support audit trail).
 """
@@ -19,7 +19,7 @@ def send_email(
     to:         str,
     subject:    str,
     body:       str,
-    from_name:  str = "Tyma Notifications",
+    from_name:  str = "Ikan Notifications",
     reply_to:   str = None,
     html:       str = None,
 ) -> bool:
@@ -54,8 +54,8 @@ def send_email(
 
 
 def org_sender(org) -> str:
-    """Display name for org-specific emails: 'Acme Security via Tyma'."""
-    return f"{org.brand_name or org.name} via Tyma"
+    """Display name for org-specific emails: 'Acme Security via Ikan'."""
+    return f"{org.brand_name or org.name} via Ikan"
 
 
 def org_reply_to(org) -> str:
