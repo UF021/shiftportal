@@ -7,6 +7,9 @@ from schemas import TimelogCreate, TimelogOut, TimelogSummary
 from auth_utils import get_current_user, require_hr, org_guard
 import models
 
+# Timelogs are HR-managed records. Staff can view their own clock history
+# via /clock/my/history but cannot create or delete timelog entries directly.
+
 router = APIRouter()
 
 
@@ -24,7 +27,7 @@ def _calc(start: str, end: str):
 def create(
     req:  TimelogCreate,
     db:   Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(require_hr),
 ):
     mins, overnight = _calc(req.start_time, req.end_time)
     entry = models.Timelog(
@@ -71,11 +74,11 @@ def my_logs(
 def delete(
     entry_id: int,
     db:       Session = Depends(get_db),
-    user:     models.User = Depends(get_current_user),
+    hr:       models.User = Depends(require_hr),
 ):
     e = db.query(models.Timelog).filter(
-        models.Timelog.id      == entry_id,
-        models.Timelog.user_id == user.id,
+        models.Timelog.id              == entry_id,
+        models.Timelog.organisation_id == hr.organisation_id,
     ).first()
     if not e:
         raise HTTPException(404, "Entry not found")
