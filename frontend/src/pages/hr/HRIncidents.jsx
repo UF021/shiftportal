@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { getIncidents, reviewIncident, forwardIncident, triggerIncidentReminders } from '../../api/client'
+import {
+  getIncidents, reviewIncident, forwardIncident, triggerIncidentReminders,
+  getAutoForwards, upsertAutoForward, deleteAutoForward, getMySites,
+} from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 const BASE = (import.meta.env.VITE_API_URL || '/api')
@@ -31,35 +34,14 @@ function PhotoThumb({ src, label }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <img
-        src={src}
-        alt={label}
-        onClick={() => setOpen(true)}
-        style={{
-          width: 70, height: 55, objectFit: 'cover', borderRadius: 6,
-          cursor: 'zoom-in', border: '1px solid #e0ead0',
-        }}
-      />
+      <img src={src} alt={label} onClick={() => setOpen(true)}
+        style={{ width: 70, height: 55, objectFit: 'cover', borderRadius: 6, cursor: 'zoom-in', border: '1px solid #e0ead0' }} />
       {open && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)',
-            zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <img
-            src={src}
-            alt={label}
-            style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: 10, objectFit: 'contain' }}
-          />
-          <button
-            style={{
-              position: 'absolute', top: 16, right: 20, background: 'none', border: 'none',
-              color: '#fff', fontSize: 28, cursor: 'pointer',
-            }}
-            onClick={() => setOpen(false)}
-          >✕</button>
+        <div onClick={() => setOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src={src} alt={label} style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: 10, objectFit: 'contain' }} />
+          <button style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}
+            onClick={() => setOpen(false)}>✕</button>
         </div>
       )}
     </>
@@ -69,8 +51,7 @@ function PhotoThumb({ src, label }) {
 function IncidentDetail({ inc, onClose, onReview, onForward, colour }) {
   const c = colour || '#6abf3f'
   const token = localStorage.getItem('sp_token')
-  const photoUrl = (n) =>
-    `${BASE}/incidents/${inc.id}/photo/${n}?token=${token}`
+  const photoUrl = (n) => `${BASE}/incidents/${inc.id}/photo/${n}?token=${token}`
 
   function Section({ title, children }) {
     return (
@@ -93,103 +74,72 @@ function IncidentDetail({ inc, onClose, onReview, onForward, colour }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 1000,
-      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-      overflowY: 'auto', padding: '24px 16px',
-    }}>
-      <div style={{
-        background: 'var(--navy-mid)', borderRadius: 16, border: '1px solid var(--border)',
-        width: '100%', maxWidth: 720, padding: '28px 28px',
-      }}>
-        {/* Header */}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '24px 16px' }}>
+      <div style={{ background: 'var(--navy-mid)', borderRadius: 16, border: '1px solid var(--border)', width: '100%', maxWidth: 720, padding: '28px 28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Incident Report #{inc.id}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Submitted {fmtDt(inc.submitted_at)}</div>
+            {inc.forwarded_to && (
+              <div style={{ fontSize: 11, color: '#6abf3f', marginTop: 4 }}>
+                ↗ Forwarded to: {inc.forwarded_to}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => onForward(inc)}
-              style={{
-                padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)',
-                background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600,
-              }}
-            >↗ Forward</button>
+            <button onClick={() => onForward(inc)}
+              style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              ↗ Forward</button>
             {!inc.reviewed && (
-              <button
-                onClick={() => onReview(inc.id)}
-                style={{
-                  padding: '8px 18px', borderRadius: 8, border: 'none',
-                  background: c, color: '#fff', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 700,
-                }}
-              >Mark Reviewed</button>
+              <button onClick={() => onReview(inc.id)}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: c, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                Mark Reviewed</button>
             )}
             {inc.reviewed && (
               <Badge colour="#2e7d32" bg="rgba(106,191,63,.12)">✓ Reviewed {fmtDt(inc.reviewed_at)}</Badge>
             )}
-            <button
-              onClick={onClose}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}
-            >✕</button>
+            <button onClick={onClose}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>✕</button>
           </div>
         </div>
 
         <Section title="Staff Details">
-          <Row label="Staff Name"  value={inc.staff_name} />
-          <Row label="Staff ID"    value={inc.staff_id}   mono />
+          <Row label="Staff Name" value={inc.staff_name} />
+          <Row label="Staff ID"   value={inc.staff_id}   mono />
         </Section>
-
         <Section title="Incident Details">
           <Row label="Date"          value={fmtDate(inc.date_of_incident)} />
           <Row label="Time"          value={inc.time_of_incident} mono />
           <Row label="Site Location" value={inc.site_location} />
         </Section>
-
         <Section title="Emergency Services">
-          <Row
-            label="Police / emergency services called"
+          <Row label="Police / emergency services called"
             value={inc.police_called
               ? <Badge colour="#a02020" bg="rgba(224,85,85,.12)">Yes</Badge>
-              : <Badge>No</Badge>}
-          />
-          {inc.police_called && (
-            <>
-              <Row label="Officer Name"    value={inc.officer_name} />
-              <Row label="Collar / Badge"  value={inc.collar_number} mono />
-            </>
-          )}
+              : <Badge>No</Badge>} />
+          {inc.police_called && (<>
+            <Row label="Officer Name"   value={inc.officer_name} />
+            <Row label="Collar / Badge" value={inc.collar_number} mono />
+          </>)}
         </Section>
-
         <Section title="Duty Manager">
-          <Row
-            label="Duty Manager called"
+          <Row label="Duty Manager called"
             value={inc.duty_manager_called
               ? <Badge colour="#b45309" bg="rgba(251,191,36,.12)">Yes</Badge>
-              : <Badge>No</Badge>}
-          />
-          {inc.duty_manager_called && (
-            <Row label="Manager Name" value={inc.duty_manager_name} />
-          )}
+              : <Badge>No</Badge>} />
+          {inc.duty_manager_called && <Row label="Manager Name" value={inc.duty_manager_name} />}
         </Section>
-
         <Section title="Injuries">
-          <Row
-            label="Injuries reported"
+          <Row label="Injuries reported"
             value={inc.injuries
               ? <Badge colour="#a02020" bg="rgba(224,85,85,.12)">Yes</Badge>
-              : <Badge>No</Badge>}
-          />
+              : <Badge>No</Badge>} />
           {inc.injuries && inc.injury_description && (
             <div style={{ padding: '10px 12px', background: 'rgba(224,85,85,.06)', borderRadius: 8, border: '1px solid rgba(224,85,85,.2)', fontSize: 13, lineHeight: 1.6 }}>
               {inc.injury_description}
             </div>
           )}
         </Section>
-
-        {/* Photos */}
         {(inc.has_photo_1 || inc.has_photo_2 || inc.has_photo_3) && (
           <Section title="Attached Photos">
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -199,18 +149,121 @@ function IncidentDetail({ inc, onClose, onReview, onForward, colour }) {
             </div>
           </Section>
         )}
-
-        {/* Statement */}
         <Section title="Staff Statement">
-          <div style={{
-            padding: '14px 16px', background: 'var(--navy-light)', borderRadius: 10,
-            border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.8,
-            whiteSpace: 'pre-wrap', color: 'var(--text)',
-          }}>
+          <div style={{ padding: '14px 16px', background: 'var(--navy-light)', borderRadius: 10, border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
             {inc.statement}
           </div>
         </Section>
       </div>
+    </div>
+  )
+}
+
+function AutoForwardSettings({ colour }) {
+  const c = colour || '#6abf3f'
+  const [open,       setOpen]      = useState(false)
+  const [rules,      setRules]     = useState([])
+  const [sites,      setSites]     = useState([])
+  const [selSiteId,  setSelSiteId] = useState('')
+  const [emails,     setEmails]    = useState('')
+  const [saving,     setSaving]    = useState(false)
+  const [msg,        setMsg]       = useState('')
+
+  const loadRules = () =>
+    getAutoForwards().then(r => setRules(r.data || [])).catch(() => {})
+
+  useEffect(() => {
+    getMySites().then(r => setSites(r.data || [])).catch(() => {})
+    loadRules()
+  }, [])
+
+  const selSite = sites.find(s => String(s.id) === selSiteId)
+
+  async function handleSave() {
+    if (!selSite || !emails.trim()) return
+    setSaving(true); setMsg('')
+    try {
+      await upsertAutoForward({ site_id: selSite.id, site_name: selSite.name, emails: emails.trim() })
+      setMsg('Saved')
+      setSelSiteId(''); setEmails('')
+      loadRules()
+    } catch (ex) {
+      setMsg(ex.response?.data?.detail || 'Failed to save')
+    } finally {
+      setSaving(false)
+      setTimeout(() => setMsg(''), 3000)
+    }
+  }
+
+  async function handleDelete(id) {
+    await deleteAutoForward(id).catch(() => {})
+    loadRules()
+  }
+
+  return (
+    <div style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 20, overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 700 }}>
+        <span>⚙ Auto-Forward Settings</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+          {rules.length} rule{rules.length !== 1 ? 's' : ''} configured {open ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 18px 18px', borderTop: '1px solid var(--border)' }}>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '12px 0 16px' }}>
+            Incident reports submitted from a matching site are automatically emailed to the configured address(es) the moment they are filed.
+          </p>
+
+          {/* Existing rules */}
+          {rules.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {rules.map(r => (
+                <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--navy-light)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{r.site_name}</div>
+                    <div style={{ fontSize: 12, color: '#6abf3f', marginTop: 2 }}>{r.emails}</div>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(r.id)}
+                    style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(224,85,85,.4)', background: 'rgba(224,85,85,.08)', color: '#e05555', fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add rule form */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 160px' }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 4 }}>Site</label>
+              <select value={selSiteId} onChange={e => setSelSiteId(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13 }}>
+                <option value="">— Select site —</option>
+                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '2 1 220px' }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 4 }}>Email address(es)</label>
+              <input
+                type="text" value={emails} onChange={e => setEmails(e.target.value)}
+                placeholder="manager@site.com, client@example.com"
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={saving || !selSiteId || !emails.trim()}
+              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: c, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (saving || !selSiteId || !emails.trim()) ? 0.5 : 1, fontFamily: 'DM Sans,sans-serif', flexShrink: 0 }}>
+              {saving ? 'Saving…' : 'Save Rule'}
+            </button>
+          </div>
+          {msg && <p style={{ fontSize: 12, color: msg === 'Saved' ? '#6abf3f' : '#e05555', marginTop: 8 }}>{msg}</p>}
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Separate multiple emails with commas. Saving a rule for a site that already has one updates it.</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -223,10 +276,10 @@ export default function HRIncidents() {
   const [selected,      setSelected]     = useState(null)
   const [filter,        setFilter]       = useState('all')
   const [search,        setSearch]       = useState('')
-  const [forwardInc,    setForwardInc]   = useState(null)   // incident being forwarded
+  const [forwardInc,    setForwardInc]   = useState(null)
   const [forwardEmails, setForwardEmails] = useState('')
   const [forwarding,    setForwarding]   = useState(false)
-  const [forwardResult, setForwardResult] = useState(null)  // {ok, msg}
+  const [forwardResult, setForwardResult] = useState(null)
   const [triggerBusy,   setTriggerBusy]  = useState(false)
   const [triggerMsg,    setTriggerMsg]   = useState('')
 
@@ -255,6 +308,7 @@ export default function HRIncidents() {
     try {
       await forwardIncident(forwardInc.id, forwardEmails)
       setForwardResult({ ok: true, msg: `Forwarded to ${forwardEmails}` })
+      await load()
       setTimeout(() => { setForwardInc(null); setForwardResult(null) }, 2500)
     } catch (ex) {
       setForwardResult({ ok: false, msg: ex.response?.data?.detail || 'Forward failed.' })
@@ -304,25 +358,19 @@ export default function HRIncidents() {
           {triggerMsg && (
             <span style={{ fontSize: 12, color: triggerMsg.includes('Fail') ? '#fca5a5' : '#6abf3f' }}>{triggerMsg}</span>
           )}
-          <button
-            onClick={handleTriggerReminders}
-            disabled={triggerBusy}
-            style={{
-              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-              border: '1px solid var(--border)', background: 'var(--navy-mid)',
-              color: 'var(--text-muted)', cursor: triggerBusy ? 'not-allowed' : 'pointer',
-              opacity: triggerBusy ? 0.6 : 1,
-            }}
-          >{triggerBusy ? 'Sending…' : 'Send Filing Reminders'}</button>
+          <button onClick={handleTriggerReminders} disabled={triggerBusy}
+            style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', background: 'var(--navy-mid)', color: 'var(--text-muted)', cursor: triggerBusy ? 'not-allowed' : 'pointer', opacity: triggerBusy ? 0.6 : 1 }}>
+            {triggerBusy ? 'Sending…' : 'Send Filing Reminders'}
+          </button>
         </div>
       </div>
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Total Reports',     val: data?.length ?? '…', col: c },
-          { label: 'Awaiting Review',   val: data ? pending : '…',  col: pending > 0 ? '#e05555' : '#6a8a6a' },
-          { label: 'Reviewed',          val: data ? reviewed : '…', col: '#2e7d32' },
+          { label: 'Total Reports',   val: data?.length ?? '…', col: c },
+          { label: 'Awaiting Review', val: data ? pending : '…', col: pending > 0 ? '#e05555' : '#6a8a6a' },
+          { label: 'Reviewed',        val: data ? reviewed : '…', col: '#2e7d32' },
         ].map(({ label, val, col }) => (
           <div key={label} style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
             <div style={{ fontSize: 28, fontWeight: 700, color: col, fontFamily: 'DM Mono,monospace' }}>{val}</div>
@@ -331,30 +379,17 @@ export default function HRIncidents() {
         ))}
       </div>
 
+      {/* Auto-forward settings */}
+      <AutoForwardSettings colour={c} />
+
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search by name, staff ID, or site…"
-          value={search}
+        <input type="text" placeholder="Search by name, staff ID, or site…" value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{
-            flex: 1, minWidth: 180, padding: '8px 12px', borderRadius: 8,
-            border: '1px solid var(--border)', background: 'var(--navy-light)',
-            color: 'var(--text)', fontSize: 13,
-          }}
-        />
+          style={{ flex: 1, minWidth: 180, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy-light)', color: 'var(--text)', fontSize: 13 }} />
         {['all', 'pending', 'reviewed'].map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-              cursor: 'pointer', border: '1px solid var(--border)',
-              background: filter === f ? c : 'var(--navy-light)',
-              color: filter === f ? '#fff' : 'var(--text-muted)',
-            }}
-          >
+          <button key={f} onClick={() => setFilter(f)}
+            style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', background: filter === f ? c : 'var(--navy-light)', color: filter === f ? '#fff' : 'var(--text-muted)' }}>
             {f === 'all' ? 'All' : f === 'pending' ? 'Pending' : 'Reviewed'}
           </button>
         ))}
@@ -370,7 +405,7 @@ export default function HRIncidents() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['Staff', 'Date / Time', 'Site', 'Police', 'Injuries', 'Photos', 'Status', ''].map(h => (
+                {['Staff', 'Date / Time', 'Site', 'Police', 'Injuries', 'Photos', 'Forwarded To', 'Status', ''].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>
                     {h}
                   </th>
@@ -379,13 +414,10 @@ export default function HRIncidents() {
             </thead>
             <tbody>
               {filtered.map(r => (
-                <tr
-                  key={r.id}
-                  onClick={() => setSelected(r)}
+                <tr key={r.id} onClick={() => setSelected(r)}
                   style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background .1s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--navy-light)'}
-                  onMouseLeave={e => e.currentTarget.style.background = ''}
-                >
+                  onMouseLeave={e => e.currentTarget.style.background = ''}>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 700 }}>{r.staff_name}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace' }}>{r.staff_id}</div>
@@ -394,7 +426,7 @@ export default function HRIncidents() {
                     <div style={{ fontWeight: 600 }}>{fmtDate(r.date_of_incident)}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'DM Mono,monospace' }}>{r.time_of_incident}</div>
                   </td>
-                  <td style={{ padding: '12px 14px', maxWidth: 180 }}>
+                  <td style={{ padding: '12px 14px', maxWidth: 160 }}>
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.site_location}</div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
@@ -412,20 +444,28 @@ export default function HRIncidents() {
                       ? <span style={{ fontSize: 12 }}>📷 {[r.has_photo_1, r.has_photo_2, r.has_photo_3].filter(Boolean).length}</span>
                       : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>}
                   </td>
+                  <td style={{ padding: '12px 14px', maxWidth: 180 }}>
+                    {r.forwarded_to
+                      ? (
+                        <div title={r.forwarded_to}>
+                          <span style={{ fontSize: 11, color: '#6abf3f', fontWeight: 600 }}>↗ </span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', maxWidth: 140, verticalAlign: 'middle' }}>
+                            {r.forwarded_to}
+                          </span>
+                        </div>
+                      )
+                      : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>}
+                  </td>
                   <td style={{ padding: '12px 14px' }}>
                     {r.reviewed
                       ? <Badge colour="#2e7d32" bg="rgba(106,191,63,.12)">Reviewed</Badge>
                       : <Badge colour="#b45309" bg="rgba(251,191,36,.12)">Pending</Badge>}
                   </td>
                   <td style={{ padding: '12px 14px' }}>
-                    <button
-                      onClick={e => { e.stopPropagation(); setSelected(r) }}
-                      style={{
-                        padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)',
-                        background: 'transparent', color: 'var(--text-muted)', fontSize: 12,
-                        cursor: 'pointer', fontWeight: 600,
-                      }}
-                    >View</button>
+                    <button onClick={e => { e.stopPropagation(); setSelected(r) }}
+                      style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                      View
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -444,70 +484,47 @@ export default function HRIncidents() {
         />
       )}
 
-      {/* ── Forward modal ── */}
+      {/* Forward modal */}
       {forwardInc && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 1100,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
-        }}>
-          <div style={{
-            background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: 28, width: '100%', maxWidth: 480,
-          }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 480 }}>
             <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
               Forward Incident Report #{forwardInc.id}
             </h3>
-            <p style={{ margin: '0 0 16px', fontSize: 12, color: 'var(--text-muted)' }}>
+            <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--text-muted)' }}>
               {forwardInc.date_of_incident} · {forwardInc.site_location}
             </p>
+            {forwardInc.forwarded_to && (
+              <p style={{ margin: '0 0 14px', fontSize: 11, color: '#6abf3f' }}>
+                Already forwarded to: {forwardInc.forwarded_to}
+              </p>
+            )}
 
             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
               Recipient Email Addresses
             </label>
-            <textarea
-              value={forwardEmails}
-              onChange={e => setForwardEmails(e.target.value)}
-              placeholder="e.g. manager@site.com, client@example.com"
-              rows={3}
-              style={{
-                width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                background: 'var(--navy)', color: 'var(--text)', fontSize: 13,
-                fontFamily: 'DM Sans,sans-serif', resize: 'vertical', boxSizing: 'border-box',
-                outline: 'none',
-              }}
-            />
+            <textarea value={forwardEmails} onChange={e => setForwardEmails(e.target.value)}
+              placeholder="e.g. manager@site.com, client@example.com" rows={3}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy)', color: 'var(--text)', fontSize: 13, fontFamily: 'DM Sans,sans-serif', resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
             <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '6px 0 0' }}>
               Separate multiple addresses with commas. All incident fields and photos will be included.
             </p>
 
             {forwardResult && (
-              <div style={{
-                marginTop: 12, padding: '8px 12px', borderRadius: 8, fontSize: 13,
-                background: forwardResult.ok ? 'rgba(106,191,63,.1)' : '#2d1515',
-                border: `1px solid ${forwardResult.ok ? '#6abf3f' : '#e05555'}`,
-                color: forwardResult.ok ? '#6abf3f' : '#fca5a5',
-              }}>{forwardResult.msg}</div>
+              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, fontSize: 13, background: forwardResult.ok ? 'rgba(106,191,63,.1)' : '#2d1515', border: `1px solid ${forwardResult.ok ? '#6abf3f' : '#e05555'}`, color: forwardResult.ok ? '#6abf3f' : '#fca5a5' }}>
+                {forwardResult.msg}
+              </div>
             )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-              <button
-                onClick={() => { setForwardInc(null); setForwardResult(null) }}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--border)',
-                  background: 'transparent', color: 'var(--text-muted)', fontSize: 13,
-                  cursor: 'pointer', fontFamily: 'DM Sans,sans-serif',
-                }}
-              >Cancel</button>
-              <button
-                onClick={handleForward}
-                disabled={forwarding || !forwardEmails.trim()}
-                style={{
-                  flex: 2, padding: '10px', borderRadius: 8, border: 'none',
-                  background: c, color: '#fff', fontSize: 13, fontWeight: 700,
-                  cursor: (forwarding || !forwardEmails.trim()) ? 'not-allowed' : 'pointer',
-                  fontFamily: 'DM Sans,sans-serif', opacity: (forwarding || !forwardEmails.trim()) ? 0.6 : 1,
-                }}
-              >{forwarding ? 'Sending…' : 'Forward Report'}</button>
+              <button onClick={() => { setForwardInc(null); setForwardResult(null) }}
+                style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+                Cancel
+              </button>
+              <button onClick={handleForward} disabled={forwarding || !forwardEmails.trim()}
+                style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: c, color: '#fff', fontSize: 13, fontWeight: 700, cursor: (forwarding || !forwardEmails.trim()) ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans,sans-serif', opacity: (forwarding || !forwardEmails.trim()) ? 0.6 : 1 }}>
+                {forwarding ? 'Sending…' : 'Forward Report'}
+              </button>
             </div>
           </div>
         </div>

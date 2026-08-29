@@ -566,10 +566,31 @@ class IncidentReport(Base):
     reviewed_at          = Column(DateTime(timezone=True), nullable=True)
     reviewed_by          = Column(Integer, ForeignKey('users.id'), nullable=True)
 
+    # Forwarding — comma-separated emails this report has been sent to
+    forwarded_to         = Column(Text, nullable=True)
+
     submitted_at         = Column(DateTime(timezone=True), server_default=func.now())
 
     user                 = relationship("User", foreign_keys=[user_id])
     reviewer             = relationship("User", foreign_keys=[reviewed_by])
+
+
+# ── IncidentAutoForward ───────────────────────────────────────────────────────
+# One row per org + site. Emails (comma-separated) receive a copy of every new
+# incident report whose site_location matches the site_name (case-insensitive).
+
+class IncidentAutoForward(Base):
+    __tablename__ = 'incident_auto_forwards'
+
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete='CASCADE'), nullable=False, index=True)
+    site_id         = Column(Integer, ForeignKey('sites.id', ondelete='CASCADE'), nullable=False)
+    site_name       = Column(String(200), nullable=False)
+    emails          = Column(Text, nullable=False)  # comma-separated
+    created_by_id   = Column(Integer, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    site = relationship("Site", foreign_keys=[site_id])
 
 
 class PreRegistration(Base):

@@ -93,7 +93,13 @@ async def submit_incident(
     try:
         _check_commendation(me, db)
     except Exception:
-        pass  # never block submission on email failure
+        pass
+
+    # Auto-forward: check if any rule matches this site_location
+    try:
+        _auto_forward(incident, me.organisation_id, db)
+    except Exception:
+        pass
 
     return {"id": incident.id, "message": "Incident report submitted successfully"}
 
@@ -206,6 +212,7 @@ def _fmt(r: models.IncidentReport) -> dict:
         "reviewed":             r.reviewed,
         "reviewed_at":          r.reviewed_at.isoformat() if r.reviewed_at else None,
         "submitted_at":         r.submitted_at.isoformat() if r.submitted_at else None,
+        "forwarded_to":         r.forwarded_to or None,
     }
 
 
@@ -343,6 +350,10 @@ def forward_incident(
     org_name = (org.brand_name or org.name) if org else "HR Team"
 
     _send_forward_email(inc, recipients, hr.full_name, org_name, org_reply_to(org) if org else None)
+
+    # Persist forwarded_to — accumulate without duplicates
+    _record_forwarded(inc, recipients, db)
+
     return {"ok": True, "sent_to": recipients}
 
 
@@ -464,6 +475,116 @@ def _send_forward_email(inc, recipients: list, forwarded_by: str, org_name: str,
             from_name = f"{org_name} HR",
             reply_to  = reply_to,
         )
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _record_forwarded(inc: models.IncidentReport, recipients: list, db):
+    """Merge new recipients into inc.forwarded_to and commit."""
+    existing = set(e.strip() for e in inc.forwarded_to.split(',') if inc.forwarded_to and e.strip())
+    existing.update(recipients)
+    inc.forwarded_to = ', '.join(sorted(existing))
+    db.commit()
+
+
+def _auto_forward(incident: models.IncidentReport, org_id: int, db):
+    """Check auto-forward rules and send if the site_location matches."""
+    rules = db.query(models.IncidentAutoForward).filter(
+        models.IncidentAutoForward.organisation_id == org_id
+    ).all()
+    if not rules:
+        return
+
+    site_loc = (incident.site_location or '').lower()
+    matched_emails: list[str] = []
+
+    for rule in rules:
+        if rule.site_name.lower() in site_loc or site_loc in rule.site_name.lower():
+            for e in rule.emails.split(','):
+                e = e.strip()
+                if e:
+                    matched_emails.append(e)
+
+    if not matched_emails:
+        return
+
+    org = db.query(models.Organisation).filter(
+        models.Organisation.id == org_id
+    ).first()
+    org_name = (org.brand_name or org.name) if org else "HR Team"
+
+    _send_forward_email(incident, matched_emails, f"{org_name} (auto)", org_name,
+                        org_reply_to(org) if org else None)
+    _record_forwarded(incident, matched_emails, db)
+
+
+# ── HR: auto-forward config CRUD ──────────────────────────────────────────────
+
+class AutoForwardBody(BaseModel):
+    site_id:   int
+    site_name: str
+    emails:    str  # comma-separated
+
+
+@router.get("/auto-forward")
+def list_auto_forwards(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    rules = db.query(models.IncidentAutoForward).filter(
+        models.IncidentAutoForward.organisation_id == hr.organisation_id
+    ).order_by(models.IncidentAutoForward.site_name).all()
+    return [
+        {"id": r.id, "site_id": r.site_id, "site_name": r.site_name, "emails": r.emails}
+        for r in rules
+    ]
+
+
+@router.post("/auto-forward")
+def upsert_auto_forward(
+    body: AutoForwardBody,
+    db:   Session = Depends(get_db),
+    hr:   models.User = Depends(require_hr),
+):
+    emails = ', '.join(e.strip() for e in body.emails.split(',') if e.strip())
+    if not emails:
+        raise HTTPException(400, "At least one email required")
+
+    existing = db.query(models.IncidentAutoForward).filter(
+        models.IncidentAutoForward.organisation_id == hr.organisation_id,
+        models.IncidentAutoForward.site_id         == body.site_id,
+    ).first()
+
+    if existing:
+        existing.site_name = body.site_name
+        existing.emails    = emails
+    else:
+        db.add(models.IncidentAutoForward(
+            organisation_id = hr.organisation_id,
+            site_id         = body.site_id,
+            site_name       = body.site_name,
+            emails          = emails,
+            created_by_id   = hr.id,
+        ))
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/auto-forward/{rule_id}")
+def delete_auto_forward(
+    rule_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    rule = db.query(models.IncidentAutoForward).filter(
+        models.IncidentAutoForward.id              == rule_id,
+        models.IncidentAutoForward.organisation_id == hr.organisation_id,
+    ).first()
+    if not rule:
+        raise HTTPException(404, "Rule not found")
+    db.delete(rule)
+    db.commit()
+    return {"ok": True}
 
 
 # ── HR: trigger incident reminders now ────────────────────────────────────────
