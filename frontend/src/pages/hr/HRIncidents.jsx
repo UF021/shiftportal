@@ -161,13 +161,13 @@ function IncidentDetail({ inc, onClose, onReview, onForward, colour }) {
 
 function AutoForwardSettings({ colour }) {
   const c = colour || '#6abf3f'
-  const [open,       setOpen]      = useState(false)
-  const [rules,      setRules]     = useState([])
-  const [sites,      setSites]     = useState([])
-  const [selSiteId,  setSelSiteId] = useState('')
-  const [emails,     setEmails]    = useState('')
-  const [saving,     setSaving]    = useState(false)
-  const [msg,        setMsg]       = useState('')
+  const [open,      setOpen]   = useState(false)
+  const [rules,     setRules]  = useState([])
+  const [sites,     setSites]  = useState([])
+  const [selIds,    setSelIds] = useState(new Set())   // selected site IDs (numbers)
+  const [emails,    setEmails] = useState('')
+  const [saving,    setSaving] = useState(false)
+  const [msg,       setMsg]    = useState('')
 
   const loadRules = () =>
     getAutoForwards().then(r => setRules(r.data || [])).catch(() => {})
@@ -177,15 +177,26 @@ function AutoForwardSettings({ colour }) {
     loadRules()
   }, [])
 
-  const selSite = sites.find(s => String(s.id) === selSiteId)
+  function toggleSite(id) {
+    setSelIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   async function handleSave() {
-    if (!selSite || !emails.trim()) return
+    if (!selIds.size || !emails.trim()) return
     setSaving(true); setMsg('')
     try {
-      await upsertAutoForward({ site_id: selSite.id, site_name: selSite.name, emails: emails.trim() })
-      setMsg('Saved')
-      setSelSiteId(''); setEmails('')
+      await Promise.all(
+        [...selIds].map(id => {
+          const site = sites.find(s => s.id === id)
+          return upsertAutoForward({ site_id: site.id, site_name: site.name, emails: emails.trim() })
+        })
+      )
+      setMsg(`Saved ${selIds.size} rule${selIds.size > 1 ? 's' : ''}`)
+      setSelIds(new Set()); setEmails('')
       loadRules()
     } catch (ex) {
       setMsg(ex.response?.data?.detail || 'Failed to save')
@@ -198,6 +209,16 @@ function AutoForwardSettings({ colour }) {
   async function handleDelete(id) {
     await deleteAutoForward(id).catch(() => {})
     loadRules()
+  }
+
+  const allSelected = sites.length > 0 && sites.every(s => selIds.has(s.id))
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelIds(new Set())
+    } else {
+      setSelIds(new Set(sites.map(s => s.id)))
+    }
   }
 
   return (
@@ -237,31 +258,55 @@ function AutoForwardSettings({ colour }) {
           )}
 
           {/* Add rule form */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div style={{ flex: '1 1 160px' }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 4 }}>Site</label>
-              <select value={selSiteId} onChange={e => setSelSiteId(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13 }}>
-                <option value="">— Select site —</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+            {/* Site multi-select checkbox list */}
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>
+                Sites {selIds.size > 0 && <span style={{ color: c }}>({selIds.size} selected)</span>}
+              </label>
+              <div style={{ background: 'var(--navy)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 200, overflowY: 'auto', padding: '6px 0' }}>
+                {sites.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, padding: '8px 12px' }}>No sites configured</p>
+                )}
+                {sites.length > 1 && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', marginBottom: 2 }}>
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                      style={{ accentColor: c, width: 14, height: 14 }} />
+                    Select all
+                  </label>
+                )}
+                {sites.map(s => (
+                  <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 12px', cursor: 'pointer', fontSize: 13, background: selIds.has(s.id) ? `${c}18` : 'transparent' }}>
+                    <input type="checkbox" checked={selIds.has(s.id)} onChange={() => toggleSite(s.id)}
+                      style={{ accentColor: c, width: 14, height: 14 }} />
+                    {s.name}
+                  </label>
+                ))}
+              </div>
             </div>
-            <div style={{ flex: '2 1 220px' }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 4 }}>Email address(es)</label>
-              <input
-                type="text" value={emails} onChange={e => setEmails(e.target.value)}
-                placeholder="manager@site.com, client@example.com"
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
+
+            {/* Email + save */}
+            <div style={{ flex: '2 1 220px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Email address(es)</label>
+                <input
+                  type="text" value={emails} onChange={e => setEmails(e.target.value)}
+                  placeholder="manager@site.com, client@example.com"
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--navy)', color: 'var(--text)', fontFamily: 'DM Sans,sans-serif', fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
+              </div>
+              <button
+                onClick={handleSave}
+                disabled={saving || !selIds.size || !emails.trim()}
+                style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: c, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (saving || !selIds.size || !emails.trim()) ? 0.5 : 1, fontFamily: 'DM Sans,sans-serif' }}>
+                {saving ? 'Saving…' : `Save Rule${selIds.size > 1 ? 's' : ''}`}
+              </button>
+              {msg && <p style={{ fontSize: 12, color: msg.startsWith('Saved') ? '#6abf3f' : '#e05555', margin: 0 }}>{msg}</p>}
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
+                Separate multiple emails with commas. Saving a rule for a site that already has one updates it.
+              </p>
             </div>
-            <button
-              onClick={handleSave}
-              disabled={saving || !selSiteId || !emails.trim()}
-              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: c, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (saving || !selSiteId || !emails.trim()) ? 0.5 : 1, fontFamily: 'DM Sans,sans-serif', flexShrink: 0 }}>
-              {saving ? 'Saving…' : 'Save Rule'}
-            </button>
           </div>
-          {msg && <p style={{ fontSize: 12, color: msg === 'Saved' ? '#6abf3f' : '#e05555', marginTop: 8 }}>{msg}</p>}
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Separate multiple emails with commas. Saving a rule for a site that already has one updates it.</p>
         </div>
       )}
     </div>
