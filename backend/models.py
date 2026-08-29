@@ -169,6 +169,7 @@ class User(Base):
     is_erased       = Column(Boolean, default=False)   # GDPR right to erasure applied  # HR can block portal + clock-in access
     is_archived     = Column(Boolean, default=False)  # Auto-set when no hours in 6 weeks
     archived_at     = Column(DateTime(timezone=True), nullable=True)
+    is_rejected     = Column(Boolean, default=False)  # Soft-deleted registration (recoverable)
 
     # HR-assigned
     staff_id        = Column(String(30), nullable=True, default="TBC")
@@ -683,3 +684,23 @@ class TrainingReminderLog(Base):
     target_type     = Column(String(20))               # 'payroll', 'subcontract', 'individual', 'auto'
     recipient_count = Column(Integer, default=0)
     triggered_by    = Column(String(10), default='manual')  # 'manual' or 'auto'
+
+
+# ── UserChangeLog ─────────────────────────────────────────────────────────────
+# Populated by (a) app code via log_field_change() and (b) the DB trigger
+# fn_log_critical_user_changes which writes source='trigger' with no changed_by_id.
+# Trigger-only rows (changed_by_id IS NULL) indicate direct DB edits.
+
+class UserChangeLog(Base):
+    __tablename__ = 'user_change_log'
+
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    user_id         = Column(Integer, nullable=False, index=True)
+    organisation_id = Column(Integer, nullable=True,  index=True)
+    changed_by_id   = Column(Integer, nullable=True)
+    changed_by_name = Column(String(200), nullable=True)
+    changed_at      = Column(DateTime(timezone=True), server_default=func.now())
+    field_name      = Column(String(100), nullable=False)
+    old_value       = Column(Text, nullable=True)
+    new_value       = Column(Text, nullable=True)
+    source          = Column(String(100), nullable=True)  # 'app' or 'trigger'

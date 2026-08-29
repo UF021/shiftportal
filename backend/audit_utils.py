@@ -51,3 +51,25 @@ def log_action(
         entity_name     = entity_name or '',
         detail          = json.dumps(detail) if detail else None,
     ))
+
+
+def log_field_change(
+    db:         Session,
+    user:       'models.User',
+    changed_by: 'models.User | None',
+    field:      str,
+    old_val,
+    new_val,
+    source:     str = 'app',
+):
+    """Record a single field change on a user record. Call before db.commit()."""
+    db.add(models.UserChangeLog(
+        user_id         = user.id,
+        organisation_id = user.organisation_id,
+        changed_by_id   = changed_by.id   if changed_by else None,
+        changed_by_name = changed_by.full_name if changed_by else None,
+        field_name      = field,
+        old_value       = str(old_val) if old_val is not None else None,
+        new_value       = str(new_val) if new_val is not None else None,
+        source          = source,
+    ))

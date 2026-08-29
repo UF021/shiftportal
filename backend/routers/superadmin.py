@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 from database import get_db
 from auth_utils import require_superadmin, hash_password
@@ -97,3 +98,36 @@ def extend_trial(
                org.name if org else str(org_id), {"days_added": days})
     db.commit()
     return {"message": f"Trial extended by {days} days", "trial_ends_at": sub.trial_ends_at.isoformat()}
+
+
+@router.get("/user-changes")
+def user_changes(
+    user_id:  Optional[int] = None,
+    org_id:   Optional[int] = None,
+    field:    Optional[str] = None,
+    source:   Optional[str] = None,
+    limit:    int = 200,
+    db:       Session = Depends(get_db),
+    _:        models.User = Depends(require_superadmin),
+):
+    q = db.query(models.UserChangeLog)
+    if user_id: q = q.filter(models.UserChangeLog.user_id  == user_id)
+    if org_id:  q = q.filter(models.UserChangeLog.organisation_id == org_id)
+    if field:   q = q.filter(models.UserChangeLog.field_name == field)
+    if source:  q = q.filter(models.UserChangeLog.source == source)
+    rows = q.order_by(models.UserChangeLog.changed_at.desc()).limit(limit).all()
+    return [
+        {
+            "id":             r.id,
+            "user_id":        r.user_id,
+            "organisation_id":r.organisation_id,
+            "changed_by_id":  r.changed_by_id,
+            "changed_by_name":r.changed_by_name,
+            "changed_at":     r.changed_at.isoformat() if r.changed_at else None,
+            "field_name":     r.field_name,
+            "old_value":      r.old_value,
+            "new_value":      r.new_value,
+            "source":         r.source,
+        }
+        for r in rows
+    ]

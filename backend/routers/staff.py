@@ -11,7 +11,7 @@ from typing import List, Optional
 from database import get_db
 from schemas import EditUserRequest
 from auth_utils import get_current_user, require_hr, org_guard
-from audit_utils import log_action
+from audit_utils import log_action, log_field_change
 import models
 
 log = logging.getLogger(__name__)
@@ -247,6 +247,7 @@ def list_staff(
                 continue  # clocked in within 6 weeks — keep
             if u.id in holiday_exempt:
                 continue  # on approved holiday — keep
+            log_field_change(db, u, None, 'is_archived', False, True, source='auto-archive')
             u.is_archived = True
             u.archived_at = datetime.now(timezone.utc)
             archived_any = True
@@ -298,9 +299,14 @@ def update_staff(
 
     # Role (staff ↔ manager only — HR/superadmin must not be demoted this way)
     if req.role is not None and req.role in ('staff', 'manager'):
+        if models.UserRole(req.role) != u.role:
+            log_field_change(db, u, hr, 'role', u.role.value, req.role)
         u.role = models.UserRole(req.role)
     # Employment
-    if req.staff_id              is not None: u.staff_id              = req.staff_id
+    if req.staff_id is not None:
+        if req.staff_id != u.staff_id:
+            log_field_change(db, u, hr, 'staff_id', u.staff_id, req.staff_id)
+        u.staff_id = req.staff_id
     if req.employment_start_date is not None: u.employment_start_date = req.employment_start_date
     if req.pay_rate              is not None: u.pay_rate              = req.pay_rate
     if req.assigned_site_id      is not None: u.assigned_site_id      = req.assigned_site_id
@@ -390,6 +396,7 @@ def block_staff(
     org_guard(hr, u.organisation_id)
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only block staff accounts")
+    log_field_change(db, u, hr, 'is_blocked', False, True)
     u.is_blocked = True
     log_action(db, u.organisation_id, hr, 'staff.block', 'staff', u.id, u.full_name)
     db.commit()
@@ -408,6 +415,7 @@ def unblock_staff(
     org_guard(hr, u.organisation_id)
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only unblock staff accounts")
+    log_field_change(db, u, hr, 'is_blocked', True, False)
     u.is_blocked = False
     log_action(db, u.organisation_id, hr, 'staff.unblock', 'staff', u.id, u.full_name)
     db.commit()
@@ -426,6 +434,7 @@ def archive_staff(
     org_guard(hr, u.organisation_id)
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only archive staff accounts")
+    log_field_change(db, u, hr, 'is_archived', False, True)
     u.is_archived = True
     u.archived_at = datetime.now(timezone.utc)
     log_action(db, u.organisation_id, hr, 'staff.archive', 'staff', u.id, u.full_name)
@@ -445,6 +454,7 @@ def unarchive_staff(
     org_guard(hr, u.organisation_id)
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only unarchive staff accounts")
+    log_field_change(db, u, hr, 'is_archived', True, False)
     u.is_archived = False
     u.archived_at = None
     # Reset activated_at so the auto-archive grace period (6 weeks from activated_at)

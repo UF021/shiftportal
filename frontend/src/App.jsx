@@ -59,10 +59,12 @@ import ManagerStaff     from './pages/manager/ManagerStaff'
 import ManagerHolidays  from './pages/manager/ManagerHolidays'
 
 // Superadmin
-import SuperLayout  from './pages/superadmin/SuperLayout'
-import SuperDash    from './pages/superadmin/SuperDash'
-import SuperOrgs    from './pages/superadmin/SuperOrgs'
-import SuperNewOrg  from './pages/superadmin/SuperNewOrg'
+import SuperLayout      from './pages/superadmin/SuperLayout'
+import SuperDash        from './pages/superadmin/SuperDash'
+import SuperOrgs        from './pages/superadmin/SuperOrgs'
+import SuperNewOrg      from './pages/superadmin/SuperNewOrg'
+import SuperUserChanges from './pages/superadmin/SuperUserChanges'
+import StatusPage       from './pages/public/StatusPage'
 
 function Guard({ children, role }) {
   const { user, loading } = useAuth()
@@ -171,10 +173,14 @@ export default function App() {
 
       {/* ── Superadmin ── */}
       <Route path="/super" element={<Guard role={['superadmin']}><SuperLayout /></Guard>}>
-        <Route index       element={<SuperDash />} />
-        <Route path="orgs" element={<SuperOrgs />} />
-        <Route path="new"  element={<SuperNewOrg />} />
+        <Route index              element={<SuperDash />} />
+        <Route path="orgs"        element={<SuperOrgs />} />
+        <Route path="new"         element={<SuperNewOrg />} />
+        <Route path="user-changes" element={<SuperUserChanges />} />
       </Route>
+
+      {/* ── Public status page ── */}
+      <Route path="/status" element={<StatusPage />} />
 
       {/* ── Root redirect ── */}
       <Route path="/" element={

@@ -56,9 +56,11 @@ export const mergeStaff               = (primary_id, secondary_id, keep_staff_id
 export const importStaffCSV           = (staff)     => api.post('/staff/import', { staff })
 
 // Registrations
-export const getPending   = ()       => api.get('/registrations/pending')
-export const activateUser = (id, d) => api.post(`/registrations/${id}/activate`, d)
-export const rejectUser   = id      => api.post(`/registrations/${id}/reject`)
+export const getPending      = ()       => api.get('/registrations/pending')
+export const activateUser    = (id, d)  => api.post(`/registrations/${id}/activate`, d)
+export const rejectUser      = id       => api.post(`/registrations/${id}/reject`)
+export const getRejected     = ()       => api.get('/registrations/rejected')
+export const reconsiderUser  = id       => api.post(`/registrations/${id}/reconsider`)
 
 // Timelogs
 export const getMyLogs    = ()       => api.get('/timelogs/my')
@@ -162,10 +164,14 @@ export const getManagerStaff     = ()  => api.get('/manager/staff')
 export const getManagerHolidays  = ()  => api.get('/manager/holidays')
 
 // Superadmin
-export const superDashboard = ()      => api.get('/superadmin/dashboard')
-export const listOrgs       = ()      => api.get('/orgs/')
-export const createOrg      = d       => api.post('/orgs/', d)
-export const toggleOrg      = id      => api.post(`/superadmin/organisations/${id}/toggle-active`)
-export const extendTrial    = (id,d)  => api.post(`/superadmin/organisations/${id}/extend-trial`, null, { params: d })
-export const assignPlan     = d       => api.post('/billing/assign', d)
-export const orgSignup      = d       => api.post('/orgs/signup', d)
+export const superDashboard  = ()      => api.get('/superadmin/dashboard')
+export const listOrgs        = ()      => api.get('/orgs/')
+export const createOrg       = d       => api.post('/orgs/', d)
+export const toggleOrg       = id      => api.post(`/superadmin/organisations/${id}/toggle-active`)
+export const extendTrial     = (id,d)  => api.post(`/superadmin/organisations/${id}/extend-trial`, null, { params: d })
+export const assignPlan      = d       => api.post('/billing/assign', d)
+export const orgSignup       = d       => api.post('/orgs/signup', d)
+export const getUserChanges  = params  => api.get('/superadmin/user-changes', { params })
+
+// Status (public, no auth)
+export const getApiStatus    = ()      => axios.get(`${BASE}/status`)

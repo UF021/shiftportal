@@ -452,4 +452,27 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text as _text
+    db = SessionLocal()
+    try:
+        db.execute(_text("SELECT 1"))
+        return {"status": "ok", "db": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "degraded", "db": str(e)})
+    finally:
+        db.close()
+
+
+@app.get("/api/status")
+def api_status():
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text as _text
+    db = SessionLocal()
+    try:
+        db.execute(_text("SELECT 1"))
+        return {"status": "operational", "db": "connected"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "degraded", "db": str(e)})
+    finally:
+        db.close()

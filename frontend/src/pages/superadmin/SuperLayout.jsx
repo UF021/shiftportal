@@ -2,9 +2,10 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../api/AuthContext'
 
 const NAV = [
-  { path:'/super',      icon:'📊', label:'Dashboard' },
-  { path:'/super/orgs', icon:'🏢', label:'Organisations' },
-  { path:'/super/new',  icon:'➕', label:'New Organisation' },
+  { path:'/super',              icon:'📊', label:'Dashboard' },
+  { path:'/super/orgs',         icon:'🏢', label:'Organisations' },
+  { path:'/super/new',          icon:'➕', label:'New Organisation' },
+  { path:'/super/user-changes', icon:'🔍', label:'User Change Log' },
 ]
 
 export default function SuperLayout() {
