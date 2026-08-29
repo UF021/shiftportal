@@ -136,6 +136,89 @@ def list_incidents(
     return [_fmt(r) for r in rows]
 
 
+# ── HR: auto-forward config CRUD ──────────────────────────────────────────────
+# These MUST be declared before /{incident_id}/... routes so Starlette's router
+# does not match the literal string "auto-forward" as an incident_id parameter.
+
+class AutoForwardBody(BaseModel):
+    site_id:   int
+    site_name: str
+    emails:    str  # comma-separated
+
+
+@router.get("/auto-forward")
+def list_auto_forwards(
+    db: Session = Depends(get_db),
+    hr: models.User = Depends(require_hr),
+):
+    rules = db.query(models.IncidentAutoForward).filter(
+        models.IncidentAutoForward.organisation_id == hr.organisation_id
+    ).order_by(models.IncidentAutoForward.site_name).all()
+    return [
+        {"id": r.id, "site_id": r.site_id, "site_name": r.site_name, "emails": r.emails}
+        for r in rules
+    ]
+
+
+@router.post("/auto-forward")
+def upsert_auto_forward(
+    body: AutoForwardBody,
+    db:   Session = Depends(get_db),
+    hr:   models.User = Depends(require_hr),
+):
+    emails = ', '.join(e.strip() for e in body.emails.split(',') if e.strip())
+    if not emails:
+        raise HTTPException(400, "At least one email required")
+
+    existing = db.query(models.IncidentAutoForward).filter(
+        models.IncidentAutoForward.organisation_id == hr.organisation_id,
+        models.IncidentAutoForward.site_id         == body.site_id,
+    ).first()
+
+    if existing:
+        existing.site_name = body.site_name
+        existing.emails    = emails
+    else:
+        db.add(models.IncidentAutoForward(
+            organisation_id = hr.organisation_id,
+            site_id         = body.site_id,
+            site_name       = body.site_name,
+            emails          = emails,
+            created_by_id   = hr.id,
+        ))
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/auto-forward/{rule_id}")
+def delete_auto_forward(
+    rule_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    rule = db.query(models.IncidentAutoForward).filter(
+        models.IncidentAutoForward.id              == rule_id,
+        models.IncidentAutoForward.organisation_id == hr.organisation_id,
+    ).first()
+    if not rule:
+        raise HTTPException(404, "Rule not found")
+    db.delete(rule)
+    db.commit()
+    return {"ok": True}
+
+
+# ── HR: trigger incident reminders now ────────────────────────────────────────
+
+@router.post("/trigger-reminders")
+def trigger_incident_reminders(
+    bg: BackgroundTasks,
+    hr: models.User = Depends(require_hr),
+):
+    from scheduled import send_incident_filing_reminders
+    bg.add_task(send_incident_filing_reminders)
+    return {"ok": True, "message": "Reminder job queued — emails will be sent shortly"}
+
+
 # ── HR: get photo ─────────────────────────────────────────────────────────────
 
 @router.get("/{incident_id}/photo/{n}")
@@ -518,82 +601,3 @@ def _auto_forward(incident: models.IncidentReport, org_id: int, db):
     _record_forwarded(incident, matched_emails, db)
 
 
-# ── HR: auto-forward config CRUD ──────────────────────────────────────────────
-
-class AutoForwardBody(BaseModel):
-    site_id:   int
-    site_name: str
-    emails:    str  # comma-separated
-
-
-@router.get("/auto-forward")
-def list_auto_forwards(
-    db: Session = Depends(get_db),
-    hr: models.User = Depends(require_hr),
-):
-    rules = db.query(models.IncidentAutoForward).filter(
-        models.IncidentAutoForward.organisation_id == hr.organisation_id
-    ).order_by(models.IncidentAutoForward.site_name).all()
-    return [
-        {"id": r.id, "site_id": r.site_id, "site_name": r.site_name, "emails": r.emails}
-        for r in rules
-    ]
-
-
-@router.post("/auto-forward")
-def upsert_auto_forward(
-    body: AutoForwardBody,
-    db:   Session = Depends(get_db),
-    hr:   models.User = Depends(require_hr),
-):
-    emails = ', '.join(e.strip() for e in body.emails.split(',') if e.strip())
-    if not emails:
-        raise HTTPException(400, "At least one email required")
-
-    existing = db.query(models.IncidentAutoForward).filter(
-        models.IncidentAutoForward.organisation_id == hr.organisation_id,
-        models.IncidentAutoForward.site_id         == body.site_id,
-    ).first()
-
-    if existing:
-        existing.site_name = body.site_name
-        existing.emails    = emails
-    else:
-        db.add(models.IncidentAutoForward(
-            organisation_id = hr.organisation_id,
-            site_id         = body.site_id,
-            site_name       = body.site_name,
-            emails          = emails,
-            created_by_id   = hr.id,
-        ))
-    db.commit()
-    return {"ok": True}
-
-
-@router.delete("/auto-forward/{rule_id}")
-def delete_auto_forward(
-    rule_id: int,
-    db:      Session = Depends(get_db),
-    hr:      models.User = Depends(require_hr),
-):
-    rule = db.query(models.IncidentAutoForward).filter(
-        models.IncidentAutoForward.id              == rule_id,
-        models.IncidentAutoForward.organisation_id == hr.organisation_id,
-    ).first()
-    if not rule:
-        raise HTTPException(404, "Rule not found")
-    db.delete(rule)
-    db.commit()
-    return {"ok": True}
-
-
-# ── HR: trigger incident reminders now ────────────────────────────────────────
-
-@router.post("/trigger-reminders")
-def trigger_incident_reminders(
-    bg: BackgroundTasks,
-    hr: models.User = Depends(require_hr),
-):
-    from scheduled import send_incident_filing_reminders
-    bg.add_task(send_incident_filing_reminders)
-    return {"ok": True, "message": "Reminder job queued — emails will be sent shortly"}
