@@ -2,6 +2,35 @@ import { useState } from 'react'
 import { useBrand } from '../../api/BrandContext'
 import api, { updatePayrollNumber } from '../../api/client'
 
+function PayrollNumberInput({ userId, initial }) {
+  const [val, setVal] = useState(initial || '')
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    try { await updatePayrollNumber(userId, val) } catch { /* silent */ }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <input
+      type="text"
+      value={val}
+      placeholder="—"
+      onChange={ev => setVal(ev.target.value)}
+      onBlur={save}
+      onKeyDown={ev => { if (ev.key === 'Enter') ev.target.blur() }}
+      style={{
+        width: 70, padding: '4px 7px', borderRadius: 5,
+        border: saving ? '1px solid #6abf3f' : '1px solid var(--border)',
+        background: 'var(--navy)', color: 'var(--text)',
+        fontSize: 12, fontFamily: 'DM Mono,monospace',
+        outline: 'none', textAlign: 'center',
+      }}
+    />
+  )
+}
+
 function isoToday() { return new Date().toISOString().slice(0, 10) }
 
 function isoMonday(d = new Date()) {
@@ -84,7 +113,6 @@ export default function HRPayroll() {
   const [loading, setLoading] = useState(false)
   const [err,  setErr]    = useState('')
   const [dlBusy, setDlBusy] = useState(false)
-  const [pnEdits, setPnEdits] = useState({})
 
   async function load() {
     if (!from || !to) return
@@ -138,10 +166,6 @@ export default function HRPayroll() {
     }}>{children}</td>
   )
 
-  async function savePn(userId, value) {
-    try { await updatePayrollNumber(userId, value) } catch { /* silent */ }
-  }
-
   function EmployeeTable({ rows, sectionLabel }) {
     if (!rows.length) return null
     const sectionHours  = rows.reduce((s, e) => s + e.hours, 0)
@@ -175,28 +199,13 @@ export default function HRPayroll() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(e => {
-                const pnVal = pnEdits[e.user_id] ?? e.payroll_number ?? ''
-                return (
+              {rows.map(e => (
                   <tr key={e.user_id} style={{
                     borderBottom: '1px solid var(--border)',
                     background: e.is_new_employee ? 'rgba(234,179,8,.08)' : 'transparent',
                   }}>
                     <td style={{ padding: '6px 10px' }}>
-                      <input
-                        type="text"
-                        value={pnVal}
-                        placeholder="—"
-                        onChange={ev => setPnEdits(prev => ({ ...prev, [e.user_id]: ev.target.value }))}
-                        onBlur={() => savePn(e.user_id, pnVal)}
-                        onKeyDown={ev => { if (ev.key === 'Enter') { ev.target.blur() } }}
-                        style={{
-                          width: 70, padding: '4px 7px', borderRadius: 5,
-                          border: '1px solid var(--border)', background: 'var(--navy)',
-                          color: 'var(--text)', fontSize: 12, fontFamily: 'DM Mono,monospace',
-                          outline: 'none', textAlign: 'center',
-                        }}
-                      />
+                      <PayrollNumberInput userId={e.user_id} initial={e.payroll_number || ''} />
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', fontSize: 12 }}>
                       {e.name}
@@ -224,8 +233,7 @@ export default function HRPayroll() {
                     <TD mono right bold col={c}>{e.gross_pay > 0 ? fmtCurrency(e.gross_pay) : '—'}</TD>
                     <TD mono col="var(--text-muted)">{e.staff_id}</TD>
                   </tr>
-                )
-              })}
+              ))}
               <tr style={{ borderTop: `2px solid var(--border)`, background: 'var(--navy)' }}>
                 <td colSpan={10} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Subtotal</td>
                 <TD mono right bold col={c}>{fmtHours(sectionHours)}</TD>
