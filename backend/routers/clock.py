@@ -18,6 +18,7 @@ def _localize_uk(year: int, month: int, day: int, hour: int, minute: int) -> dat
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -263,6 +264,7 @@ def _has_open_clock_in(db: Session, user_id: int) -> bool:
         .filter(
             models.ClockEvent.user_id    == user_id,
             models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .order_by(models.ClockEvent.timestamp.desc())
         .first()
@@ -1113,6 +1115,35 @@ def clock_in(
     if getattr(user, 'is_archived', False):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been archived. Please contact HR.")
 
+    # ── Compliance gate — block if warning expired and still non-compliant ──────
+    warned_at = getattr(user, 'compliance_warned_at', None)
+    if warned_at:
+        from datetime import timezone as _tz
+        deadline = warned_at.astimezone(_tz.utc).replace(tzinfo=None) if warned_at.tzinfo else warned_at
+        now_naive = datetime.now()
+        if (now_naive - deadline).days >= 7:
+            # Check compliance: training + documents
+            _passed = {t.module for t in db.query(models.TrainingProgress).filter(
+                models.TrainingProgress.user_id == user.id,
+                models.TrainingProgress.passed  == True,
+            ).all()}
+            _all_modules = {'module1', 'module2', 'module3'}
+            _training_ok = _all_modules.issubset(_passed)
+            _confirmed = {r.doc_key for r in db.query(models.DocReadConfirmation).filter(
+                models.DocReadConfirmation.user_id == user.id,
+            ).all()}
+            _all_docs = db.query(models.OrgDocument).filter(
+                models.OrgDocument.organisation_id == org.id,
+            ).all()
+            _docs_ok = all(
+                d.doc_key in _confirmed for d in _all_docs if d.doc_content is not None or d.doc_url
+            )
+            if not (_training_ok and _docs_ok):
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN,
+                    "compliance_block: Please log into the staff portal and complete your outstanding compliance requirements before clocking in."
+                )
+
     # ── Scheduled start is mandatory for every clock-in ──────────────────────
     if not body.scheduled_start or not body.scheduled_start.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Scheduled start time is required to clock in")
@@ -1254,12 +1285,13 @@ def clock_out(
     org, site = _get_site(db, org_slug, site_code)
     user = _lookup_staff(db, org.id, body.staff_id, body.full_name)
 
-    # Find the most recent open clock_in for this user (any site)
+    # Find the most recent open clock_in for this user (any site), excluding HOLIDAY PAY synthetic entries
     last_in = (
         db.query(models.ClockEvent)
         .filter(
             models.ClockEvent.user_id    == user.id,
             models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .order_by(models.ClockEvent.timestamp.desc())
         .first()

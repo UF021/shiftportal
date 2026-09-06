@@ -407,6 +407,68 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     return {"message": "Password updated successfully. You can now sign in."}
 
 
+TRAINING_MODULES = ['module1', 'module2', 'module3']
+TRAINING_NAMES = {'module1': 'Company Policies & Procedures', 'module2': 'SIA Door Supervisor', 'module3': "Martyn's Law"}
+
+
+@router.get("/me/compliance")
+def get_compliance(
+    db:           Session     = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Return compliance status — unconfirmed docs and incomplete training modules."""
+    org_id = current_user.organisation_id
+    if not org_id:
+        return {"is_compliant": True, "unconfirmed_docs": [], "incomplete_training": [], "warned_at": None, "deadline": None}
+
+    all_docs = db.query(models.OrgDocument).filter(
+        models.OrgDocument.organisation_id == org_id,
+    ).all()
+    confirmed_keys = {
+        r.doc_key for r in db.query(models.DocReadConfirmation).filter(
+            models.DocReadConfirmation.user_id == current_user.id,
+        ).all()
+    }
+    unconfirmed_docs = [
+        d.doc_name for d in all_docs
+        if (d.doc_content is not None or d.doc_url) and d.doc_key not in confirmed_keys
+    ]
+
+    training_rows = db.query(models.TrainingProgress).filter(
+        models.TrainingProgress.user_id == current_user.id
+    ).all()
+    passed_modules = {t.module for t in training_rows if t.passed}
+    incomplete_training = [TRAINING_NAMES[m] for m in TRAINING_MODULES if m not in passed_modules]
+
+    is_compliant = not unconfirmed_docs and not incomplete_training
+    warned_at    = current_user.compliance_warned_at
+    deadline     = (warned_at + timedelta(days=7)) if warned_at else None
+
+    return {
+        "is_compliant":       is_compliant,
+        "unconfirmed_docs":   unconfirmed_docs,
+        "incomplete_training": incomplete_training,
+        "warned_at":          warned_at.isoformat() if warned_at else None,
+        "deadline":           deadline.isoformat() if deadline else None,
+    }
+
+
+@router.post("/me/compliance/warn", status_code=200)
+def record_compliance_warning(
+    db:           Session     = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Record the first time a compliance warning was shown to this user (idempotent)."""
+    if current_user.compliance_warned_at is None:
+        current_user.compliance_warned_at = datetime.now(timezone.utc)
+        db.commit()
+    warned_at = current_user.compliance_warned_at
+    return {
+        "warned_at": warned_at.isoformat(),
+        "deadline":  (warned_at + timedelta(days=7)).isoformat(),
+    }
+
+
 @router.get("/org/{slug}")
 def get_org_public(slug: str, db: Session = Depends(get_db)):
     """Public endpoint — returns branding for login/register pages."""

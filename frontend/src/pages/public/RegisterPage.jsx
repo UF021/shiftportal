@@ -4,24 +4,13 @@ import { register, getPreRegistration } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 import OrgLogo from '../../components/OrgLogo'
 
-const STEPS = ['Personal Details','Employment Docs','Emergency Contact','Declarations','Set Password']
-const DECLS = [
-  ['decl_policy',       'I have read and understood the Working Procedures / Company Policy document.'],
-  ['decl_portal',       'I know how to accurately report my hours using the online staff portal.'],
-  ['decl_line_manager', 'I know who my line manager is and have their contact details.'],
-  ['decl_pay_schedule', 'I have the monthly pay schedule for the current year.'],
-  ['decl_trained',      'I have been adequately trained to do my job.'],
-  ['decl_accurate',     'I confirm that all information provided is accurate and true to the best of my knowledge.'],
-  ['decl_contact',      'I consent to my employer contacting me via my provided contact details on matters relating to my employment.'],
-]
+const STEPS = ['Personal Details','Employment Docs','Emergency Contact','Set Password']
 
 const EMPTY = {
   title:'Mr', first_name:'', last_name:'', date_of_birth:'', nationality:'',
   email:'', phone:'', address_line1:'', address_line2:'', city:'', postcode:'',
   ni_number:'', right_to_work:true, sia_licence:'', sia_expiry:'',
   nok_name:'', nok_phone:'', nok_relation:'',
-  decl_policy:false, decl_portal:false, decl_line_manager:false,
-  decl_pay_schedule:false, decl_trained:false, decl_accurate:false, decl_contact:false,
   password:'', confirm_password:'',
 }
 
@@ -111,9 +100,7 @@ export default function RegisterPage() {
     }
     if (step === 2 && (!form.nok_name || !form.nok_phone))
       return setErr('Please provide next of kin name and phone number.'), false
-    if (step === 3 && !DECLS.every(([k]) => form[k]))
-      return setErr('Please confirm all declarations before proceeding.'), false
-    if (step === 4) {
+    if (step === 3) {
       if (form.password.length < 8) return setErr('Password must be at least 8 characters.'), false
       if (form.password !== form.confirm_password) return setErr('Passwords do not match.'), false
     }
@@ -122,7 +109,7 @@ export default function RegisterPage() {
 
   async function next() {
     if (!validate()) return
-    if (step < 4) { setStep(s => s + 1); return }
+    if (step < 3) { setStep(s => s + 1); return }
     setBusy(true)
     try {
       const payload = { ...form, org_slug: slug }
@@ -228,34 +215,8 @@ export default function RegisterPage() {
           <Field id="nok_phone"    label="Phone Number *" type="tel" placeholder="+44..." form={form} set={set} />
         </>}
 
-        {/* Step 4 — Declarations */}
+        {/* Step 4 — Password */}
         {step === 3 && <>
-          <h3 style={{ fontSize:18, fontWeight:700, marginBottom:4, color:'#1a2a1a' }}>Declarations</h3>
-          <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20 }}>Tap anywhere on a row to confirm each statement.</p>
-          {DECLS.map(([key, label]) => (
-            <div key={key} onClick={() => set(key, !form[key])} style={{
-              display:'flex', alignItems:'flex-start', gap:12, padding:12,
-              border:`1.5px solid ${form[key] ? c : '#d0e0d0'}`,
-              borderRadius:10, marginBottom:10, cursor:'pointer',
-              background: form[key] ? c + '18' : 'transparent',
-              transition:'all .15s', userSelect:'none',
-            }}>
-              <div style={{
-                width:20, height:20, borderRadius:4, flexShrink:0, marginTop:1,
-                background: form[key] ? c : 'transparent',
-                border: `2px solid ${form[key] ? c : '#8aaa8a'}`,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                transition:'all .15s',
-              }}>
-                {form[key] && <span style={{ color:'#fff', fontSize:13, fontWeight:700 }}>✓</span>}
-              </div>
-              <span style={{ fontSize:13, lineHeight:1.55, color:'#1a2a1a' }}>{label}</span>
-            </div>
-          ))}
-        </>}
-
-        {/* Step 5 */}
-        {step === 4 && <>
           <h3 style={{ fontSize:18, fontWeight:700, marginBottom:4, color:'#1a2a1a' }}>Create Your Password</h3>
           <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20 }}>You will sign in with your email address and this password.</p>
           <Field id="password"         label="Password * (minimum 8 characters)" type="password" form={form} set={set} />
@@ -275,7 +236,7 @@ export default function RegisterPage() {
             : <span />
           }
           <button onClick={next} disabled={busy} style={{ padding:'10px 24px', borderRadius:9, border:'none', background:c, color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:700, cursor:'pointer', opacity:busy?.6:1 }}>
-            {busy ? 'Submitting…' : step === 4 ? 'Submit Registration' : 'Next →'}
+            {busy ? 'Submitting…' : step === 3 ? 'Submit Registration' : 'Next →'}
           </button>
         </div>
 

@@ -31,7 +31,9 @@ export const getMe        = ()               => api.get('/auth/me')
 export const getOrgPublic    = slug             => api.get(`/auth/org/${slug}`)
 export const verifyIdentity  = data             => api.post('/auth/verify-identity', data)
 export const resetPassword   = data             => api.post('/auth/reset-password', data)
-export const updateMyDetails = data             => api.patch('/auth/me/details', data)
+export const updateMyDetails        = data => api.patch('/auth/me/details', data)
+export const getMyCompliance        = ()   => api.get('/auth/me/compliance')
+export const recordComplianceWarning = ()  => api.post('/auth/me/compliance/warn')
 
 // Contact enquiries
 export const getContactMessages = ()        => api.get('/contact/')

@@ -354,12 +354,13 @@ def send_missed_clockout_alerts():
         orgs = db.query(models.Organisation).filter(models.Organisation.is_active == True).all()
         total_sent = 0
 
+        from sqlalchemy import func as _sqlfunc
         for org in orgs:
             clock_ins = db.query(models.ClockEvent).filter(
                 models.ClockEvent.organisation_id == org.id,
                 models.ClockEvent.event_type      == models.ClockEventType.clock_in,
                 models.ClockEvent.timestamp       >= day_start,
-                models.ClockEvent.entry_notes     != '[HOLIDAY PAY]',
+                _sqlfunc.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
             ).all()
 
             open_shifts = []
@@ -793,12 +794,13 @@ def send_long_shift_alerts():
         now_utc    = datetime.now(timezone.utc)
         cutoff_utc = now_utc - timedelta(hours=15)
 
+        from sqlalchemy import func as _sqlfunc
         # All unalerted clock-ins older than 15 h
         old_ins = db.query(models.ClockEvent).filter(
             models.ClockEvent.event_type        == models.ClockEventType.clock_in,
             models.ClockEvent.timestamp         <= cutoff_utc,
             models.ClockEvent.long_shift_alerted == False,
-            models.ClockEvent.entry_notes        != '[HOLIDAY PAY]',
+            _sqlfunc.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         ).all()
 
         alerted = 0

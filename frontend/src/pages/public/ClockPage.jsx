@@ -209,6 +209,8 @@ export default function ClockPage() {
           setFormError('Your Staff ID was not recognised. Please double-check it — it should look like IFM-045. You can find it on your staff portal dashboard or in your activation email. If you\'ve lost it, contact HR.')
         } else if (detail.includes('name not recognised')) {
           setFormError('Your name does not match our records for that Staff ID. Enter your full name exactly as you registered — e.g. John Smith. If you\'re still having trouble, speak to your Duty Manager.')
+        } else if (detail.includes('compliance_block')) {
+          setFormError('You must log into the staff portal and complete your outstanding compliance requirements (documents and training) before you can clock in. Please speak to your Duty Manager if you need help.')
         } else if (detail.includes('not yet activated')) {
           setFormError('Your account has not been activated yet. Please contact HR to complete your registration before you can clock in.')
         } else if (detail.includes('suspended') || detail.includes('blocked')) {
@@ -986,22 +988,40 @@ export default function ClockPage() {
           )}
 
           {isIn ? (
-            result.is_late ? (
-              <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 10, textAlign: 'center', background: '#fde8e8', border: '2px solid #e05555' }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: '#a02020', lineHeight: 1.1 }}>
-                  ⚠️ {result.minutes_late} {result.minutes_late === 1 ? 'minute' : 'minutes'} late
+            <>
+              {result.is_late ? (
+                <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 10, textAlign: 'center', background: '#fde8e8', border: '2px solid #e05555' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#a02020', lineHeight: 1.1 }}>
+                    ⚠️ {result.minutes_late} {result.minutes_late === 1 ? 'minute' : 'minutes'} late
+                  </div>
+                  <div style={{ fontSize: 13, color: '#c05050', marginTop: 6, fontWeight: 600 }}>
+                    Please ensure you arrive on time for future shifts
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, color: '#c05050', marginTop: 6, fontWeight: 600 }}>
-                  Please ensure you arrive on time for future shifts
+              ) : (
+                <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 10, textAlign: 'center', background: '#e8f8e0', border: '2px solid #6abf3f' }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: '#1a6a1a' }}>
+                    ✅ On Time
+                  </div>
+                </div>
+              )}
+
+              {/* INCIDENT REMINDER — very prominent */}
+              <div style={{
+                marginTop: 14, padding: '18px 16px', borderRadius: 12,
+                background: '#b71c1c', border: '3px solid #ff1744',
+                textAlign: 'center',
+                boxShadow: '0 4px 20px rgba(183,28,28,.4)',
+              }}>
+                <div style={{ fontSize: 32, marginBottom: 6 }}>🚨</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', marginBottom: 8, lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                  REPORT ALL INCIDENTS
+                </div>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,.9)', lineHeight: 1.6 }}>
+                  If <strong>ANY incident</strong> occurs during your shift — no matter how minor — you <strong>MUST</strong> report it via the Staff Portal before leaving site.
                 </div>
               </div>
-            ) : (
-              <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 10, textAlign: 'center', background: '#e8f8e0', border: '2px solid #6abf3f' }}>
-                <div style={{ fontSize: 26, fontWeight: 900, color: '#1a6a1a' }}>
-                  ✅ On Time
-                </div>
-              </div>
-            )
+            </>
           ) : (
             <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, textAlign: 'center', fontSize: 16, fontWeight: 700, background: '#e8f0ff', color: '#1a3a8a' }}>
               🕐 Shift duration: {fmtDur(result.shift_minutes)}

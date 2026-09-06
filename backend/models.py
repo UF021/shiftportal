@@ -177,7 +177,8 @@ class User(Base):
     pay_rate        = Column(Float, nullable=True)
     assigned_site_id= Column(Integer, ForeignKey("sites.id"), nullable=True)
     staff_type               = Column(String(20), nullable=True, default='payroll')  # 'payroll' | 'subcontract'
-    incident_reminder_sent_at = Column(DateTime(timezone=True), nullable=True)
+    incident_reminder_sent_at  = Column(DateTime(timezone=True), nullable=True)
+    compliance_warned_at       = Column(DateTime(timezone=True), nullable=True)
 
     # Personal (from registration)
     title           = Column(String(10),  nullable=True)

@@ -399,7 +399,12 @@ export function HRTimelogs() {
       {/* Mode tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         {[['timelogs', '⏱ Timelogs'], ['pay_report', '📊 Pay Report'], ['holiday_pay', '💰 Holiday Pay']].map(([v, l]) => (
-          <button key={v} onClick={() => setMode(v)} style={{
+          <button key={v} onClick={() => {
+            setMode(v)
+            if (v === 'pay_report' && paySelected.size === 0) {
+              setPaySelected(new Set(staff.filter(s => (s.staff_type || 'payroll') === 'payroll').map(s => s.id)))
+            }
+          }} style={{
             padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', fontSize: 13,
             border: `1px solid ${mode === v ? 'var(--green)' : 'var(--border)'}`,
             background: mode === v ? 'var(--green-muted)' : 'transparent',
@@ -840,11 +845,19 @@ export function HRTimelogs() {
 
             {/* Staff multi-select */}
             <div className="card" style={{ marginBottom: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Select Staff ({paySelected.size} of {staff.length} selected)</span>
-                <button onClick={toggleAllPayStaff} className="btn btn-outline" style={{ fontSize: 12, padding: '4px 12px' }}>
-                  {paySelected.size === staff.length ? 'Deselect All' : 'Select All'}
-                </button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => setPaySelected(new Set(staff.filter(s => (s.staff_type || 'payroll') === 'payroll').map(s => s.id)))}
+                    className="btn btn-outline" style={{ fontSize: 12, padding: '4px 12px' }}
+                  >
+                    Payroll Only
+                  </button>
+                  <button onClick={toggleAllPayStaff} className="btn btn-outline" style={{ fontSize: 12, padding: '4px 12px' }}>
+                    {paySelected.size === staff.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
                 {staff.map(s => (
