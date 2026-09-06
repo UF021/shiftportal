@@ -172,7 +172,8 @@ class User(Base):
     is_rejected     = Column(Boolean, default=False)  # Soft-deleted registration (recoverable)
 
     # HR-assigned
-    staff_id        = Column(String(30), nullable=True, default="TBC")
+    staff_id        = Column(String(30),  nullable=True, default="TBC")
+    payroll_number  = Column(String(50),  nullable=True)
     employment_start_date = Column(Date, nullable=True)
     pay_rate        = Column(Float, nullable=True)
     assigned_site_id= Column(Integer, ForeignKey("sites.id"), nullable=True)

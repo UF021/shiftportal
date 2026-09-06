@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useBrand } from '../../api/BrandContext'
-import api from '../../api/client'
+import api, { updatePayrollNumber } from '../../api/client'
 
 function isoToday() { return new Date().toISOString().slice(0, 10) }
 
@@ -84,6 +84,7 @@ export default function HRPayroll() {
   const [loading, setLoading] = useState(false)
   const [err,  setErr]    = useState('')
   const [dlBusy, setDlBusy] = useState(false)
+  const [pnEdits, setPnEdits] = useState({})
 
   async function load() {
     if (!from || !to) return
@@ -137,6 +138,10 @@ export default function HRPayroll() {
     }}>{children}</td>
   )
 
+  async function savePn(userId, value) {
+    try { await updatePayrollNumber(userId, value) } catch { /* silent */ }
+  }
+
   function EmployeeTable({ rows, sectionLabel }) {
     if (!rows.length) return null
     const sectionHours  = rows.reduce((s, e) => s + e.hours, 0)
@@ -149,11 +154,11 @@ export default function HRPayroll() {
           {sectionLabel} · {rows.length} {rows.length === 1 ? 'employee' : 'employees'}
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1100 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1200 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--navy)' }}>
+                <TH>Payroll No.</TH>
                 <TH>Name</TH>
-                <TH>Staff ID</TH>
                 <TH>Type</TH>
                 <TH>Address</TH>
                 <TH>NI Number</TH>
@@ -166,47 +171,68 @@ export default function HRPayroll() {
                 <TH right>Bank Hol</TH>
                 <TH right>Hol Pay</TH>
                 <TH right>Gross Pay</TH>
+                <TH>Staff ID</TH>
               </tr>
             </thead>
             <tbody>
-              {rows.map(e => (
-                <tr key={e.user_id} style={{
-                  borderBottom: '1px solid var(--border)',
-                  background: e.is_new_employee ? 'rgba(234,179,8,.08)' : 'transparent',
-                }}>
-                  <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', fontSize: 12 }}>
-                    {e.name}
-                    {e.is_new_employee && (
-                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(234,179,8,.2)', color: '#fcd34d', verticalAlign: 'middle' }}>
-                        ⭐ NEW
-                      </span>
-                    )}
-                  </td>
-                  <TD mono>{e.staff_id}</TD>
-                  <TD><TypeBadge type={e.staff_type} /></TD>
-                  <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--text-muted)', maxWidth: 200 }}>
-                    {e.address || '—'}
-                  </td>
-                  <TD mono>{e.ni_number || '—'}</TD>
-                  <TD mono>{fmtDob(e.date_of_birth)}</TD>
-                  <TD mono>{e.phone || '—'}</TD>
-                  <td style={{ padding: '10px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
-                    {fmtDate(e.employment_start_date)}
-                  </td>
-                  <TD mono right col="var(--text-muted)">{e.pay_rate > 0 ? `£${e.pay_rate.toFixed(2)}/hr` : '—'}</TD>
-                  <TD mono right col="var(--text-muted)">{e.shifts}</TD>
-                  <TD mono right col={c}>{fmtHours(e.hours)}</TD>
-                  <TD mono right col={e.bank_holiday_hours > 0 ? '#fcd34d' : 'var(--text-muted)'}>{e.bank_holiday_hours > 0 ? fmtHours(e.bank_holiday_hours) : '—'}</TD>
-                  <TD mono right col={e.holiday_pay_hours > 0 ? '#86efac' : 'var(--text-muted)'}>{e.holiday_pay_hours > 0 ? fmtHours(e.holiday_pay_hours) : '—'}</TD>
-                  <TD mono right bold col={c}>{e.gross_pay > 0 ? fmtCurrency(e.gross_pay) : '—'}</TD>
-                </tr>
-              ))}
+              {rows.map(e => {
+                const pnVal = pnEdits[e.user_id] ?? e.payroll_number ?? ''
+                return (
+                  <tr key={e.user_id} style={{
+                    borderBottom: '1px solid var(--border)',
+                    background: e.is_new_employee ? 'rgba(234,179,8,.08)' : 'transparent',
+                  }}>
+                    <td style={{ padding: '6px 10px' }}>
+                      <input
+                        type="text"
+                        value={pnVal}
+                        placeholder="—"
+                        onChange={ev => setPnEdits(prev => ({ ...prev, [e.user_id]: ev.target.value }))}
+                        onBlur={() => savePn(e.user_id, pnVal)}
+                        onKeyDown={ev => { if (ev.key === 'Enter') { ev.target.blur() } }}
+                        style={{
+                          width: 70, padding: '4px 7px', borderRadius: 5,
+                          border: '1px solid var(--border)', background: 'var(--navy)',
+                          color: 'var(--text)', fontSize: 12, fontFamily: 'DM Mono,monospace',
+                          outline: 'none', textAlign: 'center',
+                        }}
+                      />
+                    </td>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                      {e.name}
+                      {e.is_new_employee && (
+                        <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(234,179,8,.2)', color: '#fcd34d', verticalAlign: 'middle' }}>
+                          ⭐ NEW
+                        </span>
+                      )}
+                    </td>
+                    <TD><TypeBadge type={e.staff_type} /></TD>
+                    <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--text-muted)', maxWidth: 200 }}>
+                      {e.address || '—'}
+                    </td>
+                    <TD mono>{e.ni_number || '—'}</TD>
+                    <TD mono>{fmtDob(e.date_of_birth)}</TD>
+                    <TD mono>{e.phone || '—'}</TD>
+                    <td style={{ padding: '10px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                      {fmtDate(e.employment_start_date)}
+                    </td>
+                    <TD mono right col="var(--text-muted)">{e.pay_rate > 0 ? `£${e.pay_rate.toFixed(2)}/hr` : '—'}</TD>
+                    <TD mono right col="var(--text-muted)">{e.shifts}</TD>
+                    <TD mono right col={c}>{fmtHours(e.hours)}</TD>
+                    <TD mono right col={e.bank_holiday_hours > 0 ? '#fcd34d' : 'var(--text-muted)'}>{e.bank_holiday_hours > 0 ? fmtHours(e.bank_holiday_hours) : '—'}</TD>
+                    <TD mono right col={e.holiday_pay_hours > 0 ? '#86efac' : 'var(--text-muted)'}>{e.holiday_pay_hours > 0 ? fmtHours(e.holiday_pay_hours) : '—'}</TD>
+                    <TD mono right bold col={c}>{e.gross_pay > 0 ? fmtCurrency(e.gross_pay) : '—'}</TD>
+                    <TD mono col="var(--text-muted)">{e.staff_id}</TD>
+                  </tr>
+                )
+              })}
               <tr style={{ borderTop: `2px solid var(--border)`, background: 'var(--navy)' }}>
                 <td colSpan={10} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Subtotal</td>
                 <TD mono right bold col={c}>{fmtHours(sectionHours)}</TD>
                 <TD mono right bold col="#fcd34d">{sectionBH > 0 ? fmtHours(sectionBH) : '—'}</TD>
                 <TD mono right bold col="#86efac">{sectionHolPay > 0 ? fmtHours(sectionHolPay) : '—'}</TD>
                 <TD mono right bold col={c}>{fmtCurrency(sectionGross)}</TD>
+                <td />
               </tr>
             </tbody>
           </table>

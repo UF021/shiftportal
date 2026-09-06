@@ -157,7 +157,8 @@ export const deleteScheduledShift = (id)      => api.delete(`/shifts/${id}`)
 export const copyShiftWeek        = (d)       => api.post('/shifts/copy-week', d)
 
 // Payroll
-export const getPayrollSummary = (p) => api.get('/payroll/summary', { params: p })
+export const getPayrollSummary    = (p)        => api.get('/payroll/summary', { params: p })
+export const updatePayrollNumber  = (uid, num) => api.patch(`/payroll/staff/${uid}/payroll-number`, { payroll_number: num })
 
 // Reports
 export const getReportsOverview = (days) => api.get('/reports/overview', { params: { days } })

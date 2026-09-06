@@ -12,7 +12,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -121,6 +121,7 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
 
         employees.append({
             "user_id":              uid,
+            "payroll_number":       u.payroll_number or "",
             "name":                 f"{u.first_name or ''} {u.last_name or ''}".strip(),
             "email":                u.email,
             "staff_id":             u.staff_id or "—",
@@ -188,16 +189,16 @@ def payroll_export_csv(
 
     # Column headers
     w.writerow([
-        "Staff ID", "Full Name", "Email", "Staff Type",
+        "Payroll No.", "Full Name", "Email", "Staff Type",
         "Address", "NI Number", "Date of Birth", "Phone",
         "Employment Start", "New This Period?",
         "Shifts", "Hours Worked", "Bank Holiday Hours", "Holiday Pay Hours",
-        "Pay Rate (£/hr)", "Gross Pay (£)",
+        "Pay Rate (£/hr)", "Gross Pay (£)", "Staff ID",
     ])
 
     for e in data["employees"]:
         w.writerow([
-            e["staff_id"],
+            e["payroll_number"],
             e["name"],
             e["email"],
             e["staff_type"].title(),
@@ -213,6 +214,7 @@ def payroll_export_csv(
             f"{e['holiday_pay_hours']:.2f}",
             f"{e['pay_rate']:.2f}",
             f"{e['gross_pay']:.2f}",
+            e["staff_id"],
         ])
 
     # Totals row
@@ -225,6 +227,7 @@ def payroll_export_csv(
         f"{sum(e['holiday_pay_hours'] for e in data['employees']):.2f}",
         "",
         f"{data['total_gross']:.2f}",
+        "",
     ])
 
     out.seek(0)
@@ -234,3 +237,21 @@ def payroll_export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.patch("/staff/{user_id}/payroll-number")
+def update_payroll_number(
+    user_id:        int,
+    payroll_number: str    = Body(..., embed=True),
+    db:             Session = Depends(get_db),
+    hr:             models.User = Depends(require_hr),
+):
+    user = db.query(models.User).filter(
+        models.User.id              == user_id,
+        models.User.organisation_id == hr.organisation_id,
+    ).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.payroll_number = payroll_number.strip() or None
+    db.commit()
+    return {"ok": True}
