@@ -41,6 +41,18 @@ function fmtHours(h) {
   return `${Math.floor(total / 60)}h ${total % 60}m`
 }
 
+function fmtDob(iso) {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
 const QUICK_PERIODS = [
   { label: 'This Week',   from: () => isoMonday(),            to: () => addDays(isoMonday(), 6) },
   { label: 'Last Week',   from: () => addDays(isoMonday(), -7), to: () => addDays(isoMonday(), -1) },
@@ -127,44 +139,78 @@ export default function HRPayroll() {
 
   function EmployeeTable({ rows, sectionLabel }) {
     if (!rows.length) return null
-    const sectionHours = rows.reduce((s, e) => s + e.hours, 0)
-    const sectionGross = rows.reduce((s, e) => s + e.gross_pay, 0)
+    const sectionHours  = rows.reduce((s, e) => s + e.hours, 0)
+    const sectionGross  = rows.reduce((s, e) => s + e.gross_pay, 0)
+    const sectionBH     = rows.reduce((s, e) => s + (e.bank_holiday_hours || 0), 0)
+    const sectionHolPay = rows.reduce((s, e) => s + (e.holiday_pay_hours  || 0), 0)
     return (
       <div style={{ marginBottom: 24 }}>
         <div style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--navy)', borderBottom: '1px solid var(--border)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
           {sectionLabel} · {rows.length} {rows.length === 1 ? 'employee' : 'employees'}
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <TH>Name</TH>
-              <TH>Staff ID</TH>
-              <TH>Type</TH>
-              <TH right>Pay Rate</TH>
-              <TH right>Shifts</TH>
-              <TH right>Hours</TH>
-              <TH right>Gross Pay</TH>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(e => (
-              <tr key={e.user_id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <TD bold>{e.name}</TD>
-                <TD mono>{e.staff_id}</TD>
-                <TD><TypeBadge type={e.staff_type} /></TD>
-                <TD mono right col="var(--text-muted)">{e.pay_rate > 0 ? `£${e.pay_rate.toFixed(2)}/hr` : '—'}</TD>
-                <TD mono right col="var(--text-muted)">{e.shifts}</TD>
-                <TD mono right col={c}>{fmtHours(e.hours)}</TD>
-                <TD mono right bold col={c}>{e.gross_pay > 0 ? fmtCurrency(e.gross_pay) : '—'}</TD>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1100 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--navy)' }}>
+                <TH>Name</TH>
+                <TH>Staff ID</TH>
+                <TH>Type</TH>
+                <TH>Address</TH>
+                <TH>NI Number</TH>
+                <TH>Date of Birth</TH>
+                <TH>Phone</TH>
+                <TH>Start Date</TH>
+                <TH right>Pay Rate</TH>
+                <TH right>Shifts</TH>
+                <TH right>Hours</TH>
+                <TH right>Bank Hol</TH>
+                <TH right>Hol Pay</TH>
+                <TH right>Gross Pay</TH>
               </tr>
-            ))}
-            <tr style={{ borderTop: `2px solid var(--border)`, background: 'var(--navy)' }}>
-              <td colSpan={5} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Subtotal</td>
-              <TD mono right bold col={c}>{fmtHours(sectionHours)}</TD>
-              <TD mono right bold col={c}>{fmtCurrency(sectionGross)}</TD>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map(e => (
+                <tr key={e.user_id} style={{
+                  borderBottom: '1px solid var(--border)',
+                  background: e.is_new_employee ? 'rgba(234,179,8,.08)' : 'transparent',
+                }}>
+                  <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', fontSize: 12 }}>
+                    {e.name}
+                    {e.is_new_employee && (
+                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(234,179,8,.2)', color: '#fcd34d', verticalAlign: 'middle' }}>
+                        ⭐ NEW
+                      </span>
+                    )}
+                  </td>
+                  <TD mono>{e.staff_id}</TD>
+                  <TD><TypeBadge type={e.staff_type} /></TD>
+                  <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--text-muted)', maxWidth: 200 }}>
+                    {e.address || '—'}
+                  </td>
+                  <TD mono>{e.ni_number || '—'}</TD>
+                  <TD mono>{fmtDob(e.date_of_birth)}</TD>
+                  <TD mono>{e.phone || '—'}</TD>
+                  <td style={{ padding: '10px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                    {fmtDate(e.employment_start_date)}
+                  </td>
+                  <TD mono right col="var(--text-muted)">{e.pay_rate > 0 ? `£${e.pay_rate.toFixed(2)}/hr` : '—'}</TD>
+                  <TD mono right col="var(--text-muted)">{e.shifts}</TD>
+                  <TD mono right col={c}>{fmtHours(e.hours)}</TD>
+                  <TD mono right col={e.bank_holiday_hours > 0 ? '#fcd34d' : 'var(--text-muted)'}>{e.bank_holiday_hours > 0 ? fmtHours(e.bank_holiday_hours) : '—'}</TD>
+                  <TD mono right col={e.holiday_pay_hours > 0 ? '#86efac' : 'var(--text-muted)'}>{e.holiday_pay_hours > 0 ? fmtHours(e.holiday_pay_hours) : '—'}</TD>
+                  <TD mono right bold col={c}>{e.gross_pay > 0 ? fmtCurrency(e.gross_pay) : '—'}</TD>
+                </tr>
+              ))}
+              <tr style={{ borderTop: `2px solid var(--border)`, background: 'var(--navy)' }}>
+                <td colSpan={10} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Subtotal</td>
+                <TD mono right bold col={c}>{fmtHours(sectionHours)}</TD>
+                <TD mono right bold col="#fcd34d">{sectionBH > 0 ? fmtHours(sectionBH) : '—'}</TD>
+                <TD mono right bold col="#86efac">{sectionHolPay > 0 ? fmtHours(sectionHolPay) : '—'}</TD>
+                <TD mono right bold col={c}>{fmtCurrency(sectionGross)}</TD>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     )
   }
@@ -259,15 +305,31 @@ export default function HRPayroll() {
               <EmployeeTable rows={subcontractStaff} sectionLabel="Subcontract Staff" />
 
               {/* Grand total */}
-              <div style={{ padding: '14px 18px', borderTop: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--navy)' }}>
+              <div style={{ padding: '14px 18px', borderTop: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--navy)', flexWrap: 'wrap', gap: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Grand Total — {data.employees.length} {data.employees.length === 1 ? 'employee' : 'employees'}</div>
-                <div style={{ display: 'flex', gap: 32 }}>
+                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: c }}>{data.total_hours} hrs</div>
+                    <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: c }}>{data.total_hours} hrs</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total Hours</div>
                   </div>
+                  {data.employees.some(e => e.bank_holiday_hours > 0) && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: '#fcd34d' }}>
+                        {fmtHours(data.employees.reduce((s, e) => s + (e.bank_holiday_hours || 0), 0))}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bank Holiday</div>
+                    </div>
+                  )}
+                  {data.employees.some(e => e.holiday_pay_hours > 0) && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: '#86efac' }}>
+                        {fmtHours(data.employees.reduce((s, e) => s + (e.holiday_pay_hours || 0), 0))}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Holiday Pay</div>
+                    </div>
+                  )}
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: c }}>{fmtCurrency(data.total_gross)}</div>
+                    <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: c }}>{fmtCurrency(data.total_gross)}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Gross Payroll</div>
                   </div>
                 </div>
