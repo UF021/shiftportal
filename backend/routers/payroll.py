@@ -167,22 +167,29 @@ def payroll_summary(
 
 @router.get("/export.csv")
 def payroll_export_csv(
-    from_date: date    = Query(...),
-    to_date:   date    = Query(...),
-    db:        Session = Depends(get_db),
-    hr:        models.User = Depends(require_hr),
+    from_date:  date           = Query(...),
+    to_date:    date           = Query(...),
+    staff_type: Optional[str]  = Query(None, description="Filter: 'payroll' or 'subcontract'"),
+    db:         Session        = Depends(get_db),
+    hr:         models.User    = Depends(require_hr),
 ):
     if (to_date - from_date).days > MAX_DAYS:
-        from fastapi import HTTPException
         raise HTTPException(400, "Date range must not exceed 366 days")
 
     data = _calc(from_date, to_date, hr.organisation_id, db)
 
+    employees = data["employees"]
+    if staff_type:
+        employees = [e for e in employees if e["staff_type"] == staff_type]
+
     out = io.StringIO()
     w   = csv.writer(out)
 
+    label = "Payroll Staff Only" if staff_type == "payroll" else \
+            "Subcontract Staff Only" if staff_type else "All Staff"
+
     # Header block
-    w.writerow(["Payroll Export"])
+    w.writerow(["Payroll Export", label])
     w.writerow(["Period", f"{from_date} to {to_date}"])
     w.writerow(["Generated", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")])
     w.writerow([])
@@ -196,7 +203,7 @@ def payroll_export_csv(
         "Pay Rate (£/hr)", "Gross Pay (£)", "Staff ID",
     ])
 
-    for e in data["employees"]:
+    for e in employees:
         w.writerow([
             e["payroll_number"],
             e["name"],
@@ -221,17 +228,18 @@ def payroll_export_csv(
     w.writerow([])
     w.writerow([
         "", "TOTALS", "", "", "", "", "", "", "", "",
-        sum(e["shifts"] for e in data["employees"]),
-        f"{data['total_hours']:.2f}",
-        f"{sum(e['bank_holiday_hours'] for e in data['employees']):.2f}",
-        f"{sum(e['holiday_pay_hours'] for e in data['employees']):.2f}",
+        sum(e["shifts"] for e in employees),
+        f"{sum(e['hours'] for e in employees):.2f}",
+        f"{sum(e['bank_holiday_hours'] for e in employees):.2f}",
+        f"{sum(e['holiday_pay_hours'] for e in employees):.2f}",
         "",
-        f"{data['total_gross']:.2f}",
+        f"{sum(e['gross_pay'] for e in employees):.2f}",
         "",
     ])
 
     out.seek(0)
-    filename = f"payroll_{from_date}_{to_date}.csv"
+    suffix = f"_{staff_type}" if staff_type else ""
+    filename = f"payroll_{from_date}_{to_date}{suffix}.csv"
     return StreamingResponse(
         iter([out.getvalue()]),
         media_type="text/csv",

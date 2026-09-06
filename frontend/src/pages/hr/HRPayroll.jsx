@@ -3,31 +3,58 @@ import { useBrand } from '../../api/BrandContext'
 import api, { updatePayrollNumber } from '../../api/client'
 
 function PayrollNumberInput({ userId, initial }) {
-  const [val, setVal] = useState(initial || '')
+  const [val,    setVal]    = useState(initial || '')
+  const [saved,  setSaved]  = useState(initial || '')
   const [saving, setSaving] = useState(false)
+  const [tick,   setTick]   = useState(false)
+  const dirty = val !== saved
 
   async function save() {
+    if (!dirty || saving) return
     setSaving(true)
-    try { await updatePayrollNumber(userId, val) } catch { /* silent */ }
+    try {
+      await updatePayrollNumber(userId, val)
+      setSaved(val)
+      setTick(true)
+      setTimeout(() => setTick(false), 2000)
+    } catch { /* silent */ }
     finally { setSaving(false) }
   }
 
   return (
-    <input
-      type="text"
-      value={val}
-      placeholder="—"
-      onChange={ev => setVal(ev.target.value)}
-      onBlur={save}
-      onKeyDown={ev => { if (ev.key === 'Enter') ev.target.blur() }}
-      style={{
-        width: 70, padding: '4px 7px', borderRadius: 5,
-        border: saving ? '1px solid #6abf3f' : '1px solid var(--border)',
-        background: 'var(--navy)', color: 'var(--text)',
-        fontSize: 12, fontFamily: 'DM Mono,monospace',
-        outline: 'none', textAlign: 'center',
-      }}
-    />
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <input
+        type="text"
+        value={val}
+        placeholder="—"
+        onChange={ev => setVal(ev.target.value)}
+        onKeyDown={ev => { if (ev.key === 'Enter') save() }}
+        style={{
+          width: 62, padding: '4px 7px', borderRadius: 5,
+          border: dirty ? '1px solid #fcd34d' : '1px solid var(--border)',
+          background: 'var(--navy)', color: 'var(--text)',
+          fontSize: 12, fontFamily: 'DM Mono,monospace',
+          outline: 'none', textAlign: 'center', transition: 'border-color .15s',
+        }}
+      />
+      {dirty ? (
+        <button
+          onClick={save}
+          disabled={saving}
+          title="Save payroll number"
+          style={{
+            padding: '3px 8px', borderRadius: 4, border: 'none',
+            background: '#6abf3f', color: '#fff', fontSize: 10,
+            fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
+            opacity: saving ? .7 : 1,
+          }}
+        >
+          {saving ? '…' : 'Save'}
+        </button>
+      ) : tick ? (
+        <span style={{ fontSize: 12, color: '#6abf3f' }}>✓</span>
+      ) : null}
+    </div>
   )
 }
 
@@ -112,7 +139,8 @@ export default function HRPayroll() {
   const [data, setData]   = useState(null)
   const [loading, setLoading] = useState(false)
   const [err,  setErr]    = useState('')
-  const [dlBusy, setDlBusy] = useState(false)
+  const [dlBusy,   setDlBusy]   = useState(false)
+  const [dlMenu,   setDlMenu]   = useState(false)
 
   async function load() {
     if (!from || !to) return
@@ -125,17 +153,16 @@ export default function HRPayroll() {
     } finally { setLoading(false) }
   }
 
-  async function downloadCSV() {
-    setDlBusy(true)
+  async function downloadCSV(staffType) {
+    setDlBusy(true); setDlMenu(false)
     try {
-      const r = await api.get('/payroll/export.csv', {
-        params: { from_date: from, to_date: to },
-        responseType: 'blob',
-      })
+      const params = { from_date: from, to_date: to }
+      if (staffType) params.staff_type = staffType
+      const r = await api.get('/payroll/export.csv', { params, responseType: 'blob' })
       const url = URL.createObjectURL(r.data)
       const a   = document.createElement('a')
       a.href     = url
-      a.download = `payroll_${from}_${to}.csv`
+      a.download = `payroll_${from}_${to}${staffType ? '_' + staffType : ''}.csv`
       a.click()
       URL.revokeObjectURL(url)
     } catch { setErr('Export failed.') }
@@ -316,16 +343,61 @@ export default function HRPayroll() {
             ))}
           </div>
 
-          {/* Export button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-            <button onClick={downloadCSV} disabled={dlBusy} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '9px 18px', borderRadius: 8, border: `1px solid ${c}`,
-              background: c + '18', color: c, fontSize: 13, fontWeight: 700,
-              cursor: dlBusy ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans,sans-serif',
-            }}>
-              {dlBusy ? '⏳ Exporting…' : '📥 Export CSV'}
+          {/* Export button + dropdown */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14, position: 'relative' }}>
+            <button
+              onClick={() => setDlMenu(v => !v)}
+              disabled={dlBusy}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 18px', borderRadius: 8, border: `1px solid ${c}`,
+                background: c + '18', color: c, fontSize: 13, fontWeight: 700,
+                cursor: dlBusy ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans,sans-serif',
+              }}
+            >
+              {dlBusy ? '⏳ Exporting…' : '📥 Export CSV ▾'}
             </button>
+            {dlMenu && (
+              <div style={{
+                position: 'absolute', top: '110%', right: 0, zIndex: 50,
+                background: 'var(--navy-mid)', border: '1px solid var(--border)',
+                borderRadius: 8, overflow: 'hidden', minWidth: 200,
+                boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+              }}>
+                {[
+                  { label: '📋 All Staff',        type: null },
+                  { label: '💷 Payroll Staff Only', type: 'payroll' },
+                  { label: '🤝 Subcontract Only',  type: 'subcontract' },
+                ].map(({ label, type }) => (
+                  <button
+                    key={label}
+                    onClick={() => downloadCSV(type)}
+                    style={{
+                      display: 'block', width: '100%', padding: '11px 16px',
+                      background: 'transparent', border: 'none', color: 'var(--text)',
+                      fontSize: 13, textAlign: 'left', cursor: 'pointer',
+                      fontFamily: 'DM Sans,sans-serif',
+                      borderBottom: '1px solid var(--border)',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--navy)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setDlMenu(false)}
+                  style={{
+                    display: 'block', width: '100%', padding: '9px 16px',
+                    background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                    fontSize: 12, textAlign: 'left', cursor: 'pointer',
+                    fontFamily: 'DM Sans,sans-serif',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Results table */}
