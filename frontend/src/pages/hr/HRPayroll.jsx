@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useBrand } from '../../api/BrandContext'
-import api, { updatePayrollNumber } from '../../api/client'
+import api, { updatePayrollNumber, getPayrollStaffNums } from '../../api/client'
 
 function PayrollNumberInput({ userId, initial }) {
   const [val,    setVal]    = useState(initial || '')
@@ -141,6 +141,18 @@ export default function HRPayroll() {
   const [err,  setErr]    = useState('')
   const [dlBusy,   setDlBusy]   = useState(false)
   const [dlMenu,   setDlMenu]   = useState(false)
+  const [pnOpen,   setPnOpen]   = useState(false)
+  const [pnStaff,  setPnStaff]  = useState([])
+  const [pnLoading,setPnLoading]= useState(false)
+
+  useEffect(() => {
+    if (!pnOpen || pnStaff.length) return
+    setPnLoading(true)
+    getPayrollStaffNums()
+      .then(r => setPnStaff(r.data))
+      .catch(() => {})
+      .finally(() => setPnLoading(false))
+  }, [pnOpen])
 
   async function load() {
     if (!from || !to) return
@@ -283,6 +295,55 @@ export default function HRPayroll() {
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
           Hours × pay rate per employee · export to CSV for Xero / QuickBooks
         </div>
+      </div>
+
+      {/* Payroll Numbers panel */}
+      <div style={{ background: 'var(--navy-mid)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
+        <button
+          onClick={() => setPnOpen(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            width: '100%', padding: '13px 18px', background: 'transparent',
+            border: 'none', cursor: 'pointer', color: 'var(--text)',
+            fontFamily: 'DM Sans,sans-serif',
+          }}
+        >
+          <span style={{ fontWeight: 700, fontSize: 14 }}>Manage Payroll Numbers</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{pnOpen ? '▲ Hide' : '▼ Show'}</span>
+        </button>
+        {pnOpen && (
+          <div style={{ borderTop: '1px solid var(--border)' }}>
+            {pnLoading ? (
+              <div style={{ padding: '20px 18px', fontSize: 13, color: 'var(--text-muted)' }}>Loading staff…</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--navy)', borderBottom: '1px solid var(--border)' }}>
+                      {['Name', 'Type', 'Payroll Number'].map(h => (
+                        <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pnStaff.map(s => (
+                      <tr key={s.user_id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '9px 16px', fontWeight: 600, color: 'var(--text)' }}>{s.name}</td>
+                        <td style={{ padding: '9px 16px' }}><TypeBadge type={s.staff_type} /></td>
+                        <td style={{ padding: '6px 16px' }}>
+                          <PayrollNumberInput userId={s.user_id} initial={s.payroll_number} />
+                        </td>
+                      </tr>
+                    ))}
+                    {!pnStaff.length && (
+                      <tr><td colSpan={3} style={{ padding: '16px', color: 'var(--text-muted)', fontSize: 13 }}>No active staff found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Period selector */}

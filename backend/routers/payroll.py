@@ -247,6 +247,34 @@ def payroll_export_csv(
     )
 
 
+@router.get("/staff-numbers")
+def get_staff_numbers(
+    db: Session        = Depends(get_db),
+    hr: models.User    = Depends(require_hr),
+):
+    """All active staff in the org with their current payroll numbers."""
+    users = (
+        db.query(models.User)
+        .filter(
+            models.User.organisation_id == hr.organisation_id,
+            models.User.is_archived     == False,
+            models.User.is_erased       == False,
+            models.User.is_pending      == False,
+        )
+        .order_by(models.User.last_name, models.User.first_name)
+        .all()
+    )
+    return [
+        {
+            "user_id":        u.id,
+            "name":           f"{u.first_name or ''} {u.last_name or ''}".strip(),
+            "staff_type":     u.staff_type or "payroll",
+            "payroll_number": u.payroll_number or "",
+        }
+        for u in users
+    ]
+
+
 @router.patch("/staff/{user_id}/payroll-number")
 def update_payroll_number(
     user_id:        int,
