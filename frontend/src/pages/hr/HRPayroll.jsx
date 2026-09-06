@@ -337,7 +337,7 @@ export default function HRPayroll() {
 
               {/* Disclaimer */}
               <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-dim)' }}>
-                Gross pay = hours worked × pay rate. Does not include NI, pension, tax, or deductions. Export CSV for import into Xero, QuickBooks, or your payroll processor.
+                Gross pay = (worked hours + holiday pay hours) × pay rate. Bank holiday hours are included in worked hours. Does not include NI, pension, tax, or deductions. Export CSV for import into Xero, QuickBooks, or your payroll processor.
               </div>
             </div>
           )}

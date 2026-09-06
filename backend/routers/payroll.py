@@ -107,7 +107,7 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
         bh_hours  = round(user_bh_mins[uid] / 60, 2)
         hol_hours = round(user_hol_mins[uid] / 60, 2)
         rate      = u.pay_rate or 0.0
-        gross     = round(hours * rate, 2)
+        gross     = round((hours + hol_hours) * rate, 2)
 
         addr_parts = [p for p in [
             u.address_line1, u.address_line2, u.city, u.postcode
