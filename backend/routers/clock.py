@@ -329,8 +329,12 @@ def my_history(
     for ci in reversed(clock_ins):
         if ci.id == open_in_id:
             continue
+        _ci_hp = ci.entry_notes == '[HOLIDAY PAY]'
         co = next(
-            (o for o in clock_outs if o.timestamp > ci.timestamp and o.id not in used_out_ids),
+            (o for o in clock_outs
+             if o.timestamp > ci.timestamp
+             and o.id not in used_out_ids
+             and (o.entry_notes == '[HOLIDAY PAY]') == _ci_hp),
             None,
         )
         if co:
@@ -510,7 +514,15 @@ def all_events(
     entries    = []
     total_mins = 0
     for ci in clock_ins:
-        co            = next((o for o in outs_by_user.get(ci.user_id, []) if o.timestamp > ci.timestamp and o.id not in used_out_ids[ci.user_id]), None)
+        # Real clock-ins must only pair with real clock-outs; HOLIDAY PAY entries
+        # must only pair with HOLIDAY PAY clock-outs. Without this guard, a future
+        # HOLIDAY PAY clock-out (created at approval time with a pre-calculated
+        # shift_minutes) would "close" a real ongoing shift, showing wrong hours.
+        _ci_hp = ci.entry_notes == '[HOLIDAY PAY]'
+        co            = next((o for o in outs_by_user.get(ci.user_id, [])
+                              if o.timestamp > ci.timestamp
+                              and o.id not in used_out_ids[ci.user_id]
+                              and (o.entry_notes == '[HOLIDAY PAY]') == _ci_hp), None)
         if co:
             used_out_ids[ci.user_id].add(co.id)
         site_name     = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
