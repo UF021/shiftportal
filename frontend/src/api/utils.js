@@ -1,3 +1,9 @@
+export function fmtShortDate(dateStr) {
+  if (!dateStr) return '—'
+  const [y, m, d] = String(dateStr).slice(0, 10).split('-')
+  return `${d}/${m}/${y}`
+}
+
 export function fmtDate(dateStr) {
   if (!dateStr) return '—'
   const d = new Date(dateStr + 'T12:00:00')

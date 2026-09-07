@@ -182,6 +182,16 @@ def payroll_export_csv(
     if staff_type:
         employees = [e for e in employees if e["staff_type"] == staff_type]
 
+    def _dmy(iso):
+        """Convert ISO date string YYYY-MM-DD to DD/MM/YYYY for CSV display."""
+        if not iso:
+            return ''
+        try:
+            y, m, d = str(iso)[:10].split('-')
+            return f'{d}/{m}/{y}'
+        except Exception:
+            return str(iso)
+
     out = io.StringIO()
     w   = csv.writer(out)
 
@@ -190,7 +200,7 @@ def payroll_export_csv(
 
     # Header block
     w.writerow(["Payroll Export", label])
-    w.writerow(["Period", f"{from_date} to {to_date}"])
+    w.writerow(["Period", f"{_dmy(str(from_date))} to {_dmy(str(to_date))}"])
     w.writerow(["Generated", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")])
     w.writerow([])
 
@@ -211,9 +221,9 @@ def payroll_export_csv(
             e["staff_type"].title(),
             e["address"],
             e["ni_number"],
-            e["date_of_birth"],
+            _dmy(e["date_of_birth"]),
             e["phone"],
-            e["employment_start_date"],
+            _dmy(e["employment_start_date"]),
             "Yes" if e["is_new_employee"] else "",
             e["shifts"],
             f"{e['hours']:.2f}",

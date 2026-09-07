@@ -537,7 +537,7 @@ export default function HRIncidents() {
               Forward Incident Report #{forwardInc.id}
             </h3>
             <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--text-muted)' }}>
-              {forwardInc.date_of_incident} · {forwardInc.site_location}
+              {fmtDate(forwardInc.date_of_incident)} · {forwardInc.site_location}
             </p>
             {forwardInc.forwarded_to && (
               <p style={{ margin: '0 0 14px', fontSize: 11, color: '#6abf3f' }}>

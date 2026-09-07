@@ -5,6 +5,12 @@ import { useBrand } from '../../api/BrandContext'
 
 const POLICY_TEXT = `The holiday year runs from 1 April to 31 March. You are entitled to four weeks of paid holiday per year. Each week of holiday is equivalent to your working week. If you work four days a week, you will be entitled to four days multiplied by four weeks, totaling 16 days holiday a year. The holiday must be accrued before it can be taken. This equates to 2.3 days of paid holiday (or an equivalent) per full month of employment. Holiday pay will be calculated on your average hours worked over the previous 3 months.`
 
+function fmtD(iso) {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
 export function StaffHolidays() {
   const { colour } = useBrand()
   const c = colour || '#6abf3f'
@@ -173,7 +179,7 @@ export function StaffHolidays() {
         {data?.requests?.length ? data.requests.map(h => (
           <div key={h.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 0', borderBottom:'1px solid #f0f4f0', flexWrap:'wrap' }}>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#1a2a1a' }}>{h.from_date} → {h.to_date} ({h.days} day{h.days !== 1 ? 's' : ''})</div>
+              <div style={{ fontSize:13, fontWeight:600, color:'#1a2a1a' }}>{fmtD(h.from_date)} → {fmtD(h.to_date)} ({h.days} day{h.days !== 1 ? 's' : ''})</div>
               {h.note && <div style={{ fontSize:12, color:'#6a8a6a', marginTop:2 }}>{h.note}</div>}
             </div>
             <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
