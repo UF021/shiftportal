@@ -1152,6 +1152,20 @@ def clock_in(
     if _has_open_clock_in(db, user.id):
         raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")
 
+    # ── Duplicate submission guard (network retries / double-tap) ─────────────
+    _sixty_ago = datetime.now(timezone.utc) - timedelta(seconds=60)
+    _recent_in = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user.id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            models.ClockEvent.timestamp  >= _sixty_ago,
+        )
+        .first()
+    )
+    if _recent_in:
+        raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")
+
     # ── Manager override path — skip GPS entirely ────────────────────────────
     if body.manager_override:
         if not body.manager_name or not body.manager_name.strip():
@@ -1309,6 +1323,20 @@ def clock_out(
         .first()
     )
     if last_out:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active clock-in found. You have already clocked out.")
+
+    # ── Duplicate submission guard (network retries / double-tap) ─────────────
+    _sixty_ago_out = datetime.now(timezone.utc) - timedelta(seconds=60)
+    _recent_out = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user.id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_out,
+            models.ClockEvent.timestamp  >= _sixty_ago_out,
+        )
+        .first()
+    )
+    if _recent_out:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active clock-in found. You have already clocked out.")
 
     # ── Manager override path for clock-out — skip GPS ───────────────────────
