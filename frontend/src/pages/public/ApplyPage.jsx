@@ -24,7 +24,6 @@ const EMPTY = {
   employment_history: '',
   nationality: '', right_to_work: 'true',
   nok_name: '', nok_phone: '',
-  info_accurate: false, consent_references: false,
 }
 
 function Lbl({ children }) {
@@ -149,10 +148,6 @@ export default function ApplyPage() {
     if (step === 4) {
       if (!form.nok_name.trim() || !form.nok_phone.trim())
         return setErr('Please provide emergency contact details.'), false
-      if (!form.info_accurate)
-        return setErr('Please confirm that all information provided is accurate.'), false
-      if (!form.consent_references)
-        return setErr('Please confirm consent to contact previous employers for references.'), false
       const ans = parseInt(captchaAns, 10)
       if (isNaN(ans) || ans !== captchaA + captchaB) {
         refreshCaptcha()
@@ -350,32 +345,6 @@ export default function ApplyPage() {
           <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20 }}>Please provide an emergency contact and confirm the declarations below.</p>
           <FInput label="Name of Next of Kin / Emergency Contact *" value={form.nok_name} onChange={e => set('nok_name', e.target.value)} placeholder="Full name" />
           <FInput label="Contact Telephone Number (Next of Kin) *" type="tel" value={form.nok_phone} onChange={e => set('nok_phone', e.target.value)} placeholder="+44..." />
-
-          <div style={{ borderTop:'1px solid #e0ead0', paddingTop:18, marginTop:8 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#1a2a1a', marginBottom:12 }}>Declarations</div>
-            {[
-              ['info_accurate',      'I confirm that all information provided is accurate and true to the best of my knowledge.'],
-              ['consent_references', 'I consent to Ikan Facilities Management Ltd contacting previous employers for an employment reference.'],
-            ].map(([key, label]) => (
-              <div key={key} onClick={() => set(key, !form[key])} style={{
-                display:'flex', alignItems:'flex-start', gap:12, padding:12,
-                border:`1.5px solid ${form[key] ? c : '#d0e0d0'}`,
-                borderRadius:10, marginBottom:10, cursor:'pointer',
-                background: form[key] ? c + '18' : 'transparent',
-                transition:'all .15s', userSelect:'none',
-              }}>
-                <div style={{
-                  width:20, height:20, borderRadius:4, flexShrink:0, marginTop:1,
-                  background: form[key] ? c : 'transparent',
-                  border:`2px solid ${form[key] ? c : '#8aaa8a'}`,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                }}>
-                  {form[key] && <span style={{ color:'#fff', fontSize:13, fontWeight:700 }}>✓</span>}
-                </div>
-                <span style={{ fontSize:13, lineHeight:1.6, color:'#1a2a1a' }}>{label}</span>
-              </div>
-            ))}
-          </div>
 
           {/* Human verification */}
           <div style={{ marginTop:20, background:'#f0f8f0', border:'1.5px solid #c0e0c0', borderRadius:10, padding:'16px 18px' }}>

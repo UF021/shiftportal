@@ -1331,6 +1331,7 @@ def clock_out(
             models.ClockEvent.user_id    == user.id,
             models.ClockEvent.event_type == models.ClockEventType.clock_out,
             models.ClockEvent.timestamp  > last_in.timestamp,
+            func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .first()
     )

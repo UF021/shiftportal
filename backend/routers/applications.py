@@ -133,9 +133,9 @@ async def submit_application(
     # Emergency
     nok_name:           str = Form(...),
     nok_phone:          str = Form(...),
-    # Declarations
-    info_accurate:      str = Form(...),
-    consent_references: str = Form(...),
+    # Declarations (optional — removed from public form, defaulting to accepted)
+    info_accurate:      str = Form("true"),
+    consent_references: str = Form("true"),
     # File uploads
     sia_badge:          Optional[UploadFile] = File(None),
     immigration_doc:    Optional[UploadFile] = File(None),
