@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from database import engine, Base, SessionLocal
 from routers import auth, staff, registrations, timelogs, holidays, organisations, superadmin, clock, messages, applications, gps_captures, contact, incidents, training, billing, audit, gdpr, shifts, manager, payroll, reports
-from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts, send_weekly_payroll_training_reminder, send_incident_filing_reminders, send_long_shift_alerts
+from scheduled import send_lateness_warnings, send_sia_expiry_warnings, send_missed_clockout_alerts, send_trial_expiry_warnings, send_no_show_alerts, send_weekly_payroll_training_reminder, send_incident_filing_reminders, send_long_shift_alerts, send_weekly_hr_summary_report
 
 log = logging.getLogger(__name__)
 
@@ -397,11 +397,18 @@ async def lifespan(app: FastAPI):
         id='long_shift_alerts',
         replace_existing=True,
     )
+    scheduler.add_job(
+        send_weekly_hr_summary_report,
+        CronTrigger(day_of_week='mon', hour=8, minute=30, timezone=pytz.timezone('Europe/London')),
+        id='weekly_hr_summary_report',
+        replace_existing=True,
+    )
     scheduler.start()
 
     # Run immediately on this deploy to catch this coming Monday retrospectively
     import threading
     threading.Thread(target=send_lateness_warnings, daemon=True).start()
+    threading.Thread(target=send_weekly_hr_summary_report, daemon=True).start()
 
     yield
     scheduler.shutdown(wait=False)

@@ -342,14 +342,18 @@ def send_sia_expiry_warnings():
 
 def send_missed_clockout_alerts():
     """
-    Email HR admins a list of staff who clocked in today but have no
-    corresponding clock-out yet.  Excludes holiday-pay entries.
+    Email HR admins a list of staff who clocked in but have no clock-out yet,
+    where the clock-in was more than 15 hours ago.  This avoids false alarms
+    for evening / night-shift workers (e.g. 19:00 start finishing at 03:00).
+    Excludes holiday-pay synthetic entries.
     """
     log.info("[CLOCKOUT] Running missed clock-out check…")
     db = SessionLocal()
     try:
-        now_uk    = datetime.now(UK_TZ)
-        day_start = UK_TZ.localize(datetime(now_uk.year, now_uk.month, now_uk.day, 0, 0)).astimezone(timezone.utc)
+        now_utc          = datetime.now(timezone.utc)
+        fifteen_hours_ago = now_utc - timedelta(hours=15)
+        # Look back up to 48 h to catch overnight / late shifts from yesterday
+        look_back        = now_utc - timedelta(hours=48)
 
         orgs = db.query(models.Organisation).filter(models.Organisation.is_active == True).all()
         total_sent = 0
@@ -359,7 +363,8 @@ def send_missed_clockout_alerts():
             clock_ins = db.query(models.ClockEvent).filter(
                 models.ClockEvent.organisation_id == org.id,
                 models.ClockEvent.event_type      == models.ClockEventType.clock_in,
-                models.ClockEvent.timestamp       >= day_start,
+                models.ClockEvent.timestamp       >= look_back,
+                models.ClockEvent.timestamp       <= fifteen_hours_ago,
                 _sqlfunc.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
             ).all()
 
@@ -369,6 +374,7 @@ def send_missed_clockout_alerts():
                     models.ClockEvent.user_id    == ci.user_id,
                     models.ClockEvent.event_type == models.ClockEventType.clock_out,
                     models.ClockEvent.timestamp  >  ci.timestamp,
+                    _sqlfunc.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
                 ).first()
                 if not has_out:
                     user = db.query(models.User).filter(models.User.id == ci.user_id).first()
@@ -779,6 +785,186 @@ Best regards,
         from_name = f"{org_name} HR",
         reply_to  = reply_to,
     )
+
+# ── Weekly HR summary report — every Monday 08:30 UK ──────────────────────────
+
+def send_weekly_hr_summary_report():
+    """
+    Send HR admins a Monday morning digest of all staff who were flagged or
+    reminded in the past 7 days across four categories:
+      1. Lateness warnings
+      2. Outstanding training modules
+      3. Company policy not yet acknowledged
+      4. Incident-filing reminders
+    """
+    log.info("[HR-REPORT] Running weekly HR summary report…")
+    from collections import defaultdict
+    from sqlalchemy import or_ as _or
+
+    db = SessionLocal()
+    try:
+        now_utc   = datetime.now(timezone.utc)
+        week_ago  = now_utc - timedelta(days=7)
+        today_str = now_utc.astimezone(UK_TZ).strftime("%d/%m/%Y")
+
+        orgs = db.query(models.Organisation).filter(models.Organisation.is_active == True).all()
+        total_sent = 0
+
+        for org in orgs:
+            org_name = org.brand_name or org.name
+
+            hr_users = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.hr,
+                models.User.is_active       == True,
+            ).all()
+            if not hr_users:
+                continue
+
+            # ── 1. Lateness warnings sent this week ──────────────────────────
+            lateness_msgs = db.query(models.Message).filter(
+                models.Message.organisation_id == org.id,
+                models.Message.sent_at         >= week_ago,
+                _or(
+                    models.Message.title.like('Lateness Warning%'),
+                    models.Message.title.like('Second Formal Lateness%'),
+                    models.Message.title.like('FINAL WRITTEN NOTICE%'),
+                ),
+            ).all()
+
+            lateness_rows = ""
+            for m in lateness_msgs:
+                recip = db.query(models.User).filter(models.User.id == m.recipient_id).first()
+                name  = recip.full_name if recip else f"User #{m.recipient_id}"
+                sent  = m.sent_at.astimezone(UK_TZ).strftime("%d/%m/%Y") if m.sent_at else "—"
+                level = ("Final Written Notice" if "FINAL" in (m.title or "")
+                         else "2nd Formal Warning" if "Second Formal" in (m.title or "")
+                         else "Informal Warning")
+                lateness_rows += f"  {name:<30} {sent:<12} {level}\n"
+
+            # ── 2. Outstanding training (active payroll staff with missing modules) ──
+            from routers.training import VALID_MODULES
+            training_staff = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.staff,
+                models.User.is_active       == True,
+                models.User.is_archived.isnot(True),
+                models.User.is_blocked.isnot(True),
+                _or(models.User.staff_type == 'payroll', models.User.staff_type == None),
+            ).all()
+
+            training_rows = ""
+            for s in training_staff:
+                rows     = db.query(models.TrainingProgress).filter(
+                    models.TrainingProgress.user_id == s.id
+                ).all()
+                progress = {r.module: r for r in rows}
+                missing  = [
+                    m for m in VALID_MODULES
+                    if not (
+                        progress.get(m) and
+                        progress[m].passed and
+                        (progress[m].expires_at is None or
+                         progress[m].expires_at.replace(tzinfo=timezone.utc) > now_utc)
+                    )
+                ]
+                if missing:
+                    training_rows += f"  {s.full_name:<30} {len(missing)} module(s) outstanding: {', '.join(missing)}\n"
+
+            # ── 3. Company policy not acknowledged ───────────────────────────
+            policy_staff = db.query(models.User).filter(
+                models.User.organisation_id == org.id,
+                models.User.role            == models.UserRole.staff,
+                models.User.is_active       == True,
+                models.User.is_archived.isnot(True),
+                models.User.is_blocked.isnot(True),
+                _or(models.User.decl_policy == False, models.User.decl_policy == None),
+            ).order_by(models.User.last_name, models.User.first_name).all()
+
+            policy_rows = ""
+            for s in policy_staff:
+                policy_rows += f"  {s.full_name:<30} {s.email or '—'}\n"
+
+            # ── 4. Incident-filing reminders sent this week ──────────────────
+            incident_reminded = db.query(models.User).filter(
+                models.User.organisation_id        == org.id,
+                models.User.incident_reminder_sent_at >= week_ago,
+            ).order_by(models.User.last_name, models.User.first_name).all()
+
+            incident_rows = ""
+            for s in incident_reminded:
+                sent = s.incident_reminder_sent_at.astimezone(UK_TZ).strftime("%d/%m/%Y") if s.incident_reminder_sent_at else "—"
+                incident_rows += f"  {s.full_name:<30} Reminded: {sent}\n"
+
+            # ── Build email ──────────────────────────────────────────────────
+            sections = []
+
+            if lateness_rows:
+                sections.append(
+                    f"LATENESS WARNINGS ISSUED THIS WEEK\n"
+                    f"  {'Name':<30} {'Date':<12} Level\n"
+                    f"  {'-'*30} {'-'*12} {'-'*20}\n"
+                    f"{lateness_rows}"
+                )
+            else:
+                sections.append("LATENESS WARNINGS ISSUED THIS WEEK\n  None.\n")
+
+            if training_rows:
+                sections.append(
+                    f"OUTSTANDING TRAINING MODULES (payroll staff)\n"
+                    f"  {'Name':<30} Details\n"
+                    f"  {'-'*30} {'-'*40}\n"
+                    f"{training_rows}"
+                )
+            else:
+                sections.append("OUTSTANDING TRAINING MODULES\n  All payroll staff are up to date.\n")
+
+            if policy_rows:
+                sections.append(
+                    f"COMPANY POLICY NOT YET ACKNOWLEDGED\n"
+                    f"  {'Name':<30} Email\n"
+                    f"  {'-'*30} {'-'*30}\n"
+                    f"{policy_rows}"
+                )
+            else:
+                sections.append("COMPANY POLICY NOT YET ACKNOWLEDGED\n  All active staff have acknowledged the policy.\n")
+
+            if incident_rows:
+                sections.append(
+                    f"INCIDENT-FILING REMINDERS SENT THIS WEEK\n"
+                    f"  {'Name':<30} Status\n"
+                    f"  {'-'*30} {'-'*20}\n"
+                    f"{incident_rows}"
+                )
+            else:
+                sections.append("INCIDENT-FILING REMINDERS SENT THIS WEEK\n  None — all active staff have filed recently.\n")
+
+            body = (
+                f"Weekly HR Staff Compliance Report — {today_str}\n"
+                f"{'='*60}\n\n"
+                + "\n\n".join(sections)
+                + f"\n\nThis report is generated automatically every Monday at 08:30 UK time.\n"
+                f"Regards,\nIkan Notifications"
+            )
+
+            subject = f"Weekly HR Report — {today_str} | {org_name}"
+
+            for hr_user in hr_users:
+                send_email(
+                    to        = hr_user.email,
+                    subject   = subject,
+                    body      = body,
+                    from_name = f"{org_name} via Ikan",
+                    reply_to  = org.brand_email or org.contact_email,
+                )
+                total_sent += 1
+
+        log.info("[HR-REPORT] Weekly report sent to %d HR admin(s)", total_sent)
+    except Exception as exc:
+        log.error("[HR-REPORT] Weekly report failed: %s", exc)
+    finally:
+        db.close()
+
 
 # ── Long-shift alerts — hourly ─────────────────────────────────────────────────
 
