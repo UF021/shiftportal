@@ -417,9 +417,42 @@ def unblock_staff(
         raise HTTPException(403, "Can only unblock staff accounts")
     log_field_change(db, u, hr, 'is_blocked', True, False)
     u.is_blocked = False
+    if not u.is_active:
+        log_field_change(db, u, hr, 'is_active', False, True)
+        u.is_active = True
     log_action(db, u.organisation_id, hr, 'staff.unblock', 'staff', u.id, u.full_name)
     db.commit()
     return {"message": "Access restored", "id": u.id}
+
+
+@router.post("/{user_id}/reactivate")
+def reactivate_staff(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "User not found")
+    org_guard(hr, u.organisation_id)
+    if u.role != models.UserRole.staff:
+        raise HTTPException(403, "Can only reactivate staff accounts")
+    if u.is_active and not u.is_blocked:
+        raise HTTPException(400, "Account is already active")
+    if not u.is_active:
+        log_field_change(db, u, hr, 'is_active', False, True)
+        u.is_active = True
+    if u.is_blocked:
+        log_field_change(db, u, hr, 'is_blocked', True, False)
+        u.is_blocked = False
+    # Clear GPS failure records so the failure counter resets
+    db.query(models.ClockFailure).filter(
+        models.ClockFailure.user_id        == user_id,
+        models.ClockFailure.failure_reason == 'gps_mismatch',
+    ).delete(synchronize_session=False)
+    log_action(db, u.organisation_id, hr, 'staff.reactivate', 'staff', u.id, u.full_name)
+    db.commit()
+    return {"message": f"{u.full_name} reactivated successfully", "id": u.id}
 
 
 @router.post("/{user_id}/archive")
