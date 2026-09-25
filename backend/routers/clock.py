@@ -1251,7 +1251,9 @@ def clock_in(
             ).count()
 
             if failure_count >= 3:
-                user.is_active = False
+                user.is_active   = False
+                user.is_archived = True
+                user.archived_at = datetime.now(timezone.utc)
                 _record_failure(db, org.id, user.id, body.staff_id, site.id, 'account_blocked', body.gps_lat, body.gps_lng, dist, ip)
                 db.commit()
                 raise HTTPException(status.HTTP_403_FORBIDDEN, "Your account has been suspended after 3 failed location attempts. Please contact your supervisor.")

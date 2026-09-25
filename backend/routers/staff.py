@@ -354,6 +354,8 @@ def delete_staff(
     org_guard(hr, u.organisation_id)
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only delete staff accounts")
+    if not u.is_active or u.is_blocked:
+        raise HTTPException(403, "Suspended accounts cannot be deleted. Reactivate the account first.")
     db.delete(u)
     db.commit()
     return {"message": "Deleted", "id": user_id}
@@ -373,6 +375,8 @@ def bulk_delete_staff(
         except HTTPException:
             continue
         if u.role != models.UserRole.staff:
+            continue
+        if not u.is_active or u.is_blocked:
             continue
         db.delete(u)
         deleted += 1
@@ -398,6 +402,8 @@ def block_staff(
         raise HTTPException(403, "Can only block staff accounts")
     log_field_change(db, u, hr, 'is_blocked', False, True)
     u.is_blocked = True
+    u.is_archived = True
+    u.archived_at = datetime.now(timezone.utc)
     log_action(db, u.organisation_id, hr, 'staff.block', 'staff', u.id, u.full_name)
     db.commit()
     return {"message": "Access blocked", "id": u.id}
@@ -416,7 +422,9 @@ def unblock_staff(
     if u.role != models.UserRole.staff:
         raise HTTPException(403, "Can only unblock staff accounts")
     log_field_change(db, u, hr, 'is_blocked', True, False)
-    u.is_blocked = False
+    u.is_blocked  = False
+    u.is_archived = False
+    u.archived_at = None
     if not u.is_active:
         log_field_change(db, u, hr, 'is_active', False, True)
         u.is_active = True
@@ -445,6 +453,8 @@ def reactivate_staff(
     if u.is_blocked:
         log_field_change(db, u, hr, 'is_blocked', True, False)
         u.is_blocked = False
+    u.is_archived = False
+    u.archived_at = None
     # Clear GPS failure records so the failure counter resets
     db.query(models.ClockFailure).filter(
         models.ClockFailure.user_id        == user_id,

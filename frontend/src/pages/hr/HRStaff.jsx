@@ -601,13 +601,21 @@ export default function HRStaff() {
               border: `1px solid ${tab === 'active' ? 'var(--green)' : 'var(--border)'}` }}>
             Active
           </button>
-          <button onClick={() => { setTab('archived'); setSearch(''); setFilter(''); navigate('/hr/staff/archived') }}
-            className="btn" style={{ fontSize:13, padding:'7px 18px',
-              background: tab === 'archived' ? 'var(--amber,#f0a030)' : 'var(--navy-light)',
-              color: tab === 'archived' ? '#fff' : 'var(--text-muted)',
-              border: `1px solid ${tab === 'archived' ? 'var(--amber,#f0a030)' : 'var(--border)'}` }}>
-            Archived {archived.length > 0 && `(${archived.length})`}
-          </button>
+          {(() => {
+            const suspendedCount = archived.filter(s => !s.is_active || s.is_blocked).length
+            const archiveLabel = suspendedCount > 0
+              ? `Archive (${archived.length}) · ⛔ ${suspendedCount}`
+              : `Archive${archived.length > 0 ? ` (${archived.length})` : ''}`
+            return (
+              <button onClick={() => { setTab('archived'); setSearch(''); setFilter(''); navigate('/hr/staff/archived') }}
+                className="btn" style={{ fontSize:13, padding:'7px 18px',
+                  background: tab === 'archived' ? (suspendedCount > 0 ? '#c02020' : 'var(--amber,#f0a030)') : 'var(--navy-light)',
+                  color: tab === 'archived' ? '#fff' : (suspendedCount > 0 ? '#c02020' : 'var(--text-muted)'),
+                  border: `1px solid ${tab === 'archived' ? (suspendedCount > 0 ? '#c02020' : 'var(--amber,#f0a030)') : (suspendedCount > 0 ? 'rgba(192,32,32,.4)' : 'var(--border)')}` }}>
+                {archiveLabel}
+              </button>
+            )
+          })()}
         </div>
       </div>
 
@@ -670,32 +678,60 @@ export default function HRStaff() {
                 <th>SIA Licence</th>
                 <th>SIA Expiry</th>
                 <th>Last Clock-In</th>
-                <th>Archived</th>
+                <th>Status</th>
                 <th>Action</th>
               </tr></thead>
               <tbody>
                 {filteredArchived.length === 0 && (
                   <tr><td colSpan={7} style={{ textAlign:'center', color:'var(--text-muted)', padding:24 }}>No archived staff records</td></tr>
                 )}
-                {filteredArchived.map(s => (
-                  <tr key={s.id}>
-                    <td>
-                      <div style={{ fontWeight:600 }}>{s.full_name}</div>
-                      <div style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</div>
-                    </td>
-                    <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.staff_id || '—'}</td>
-                    <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.sia_licence || '—'}</td>
-                    <td><Badge st={siaStatus(s.sia_expiry)} /></td>
-                    <td style={{ fontSize:12, color:'var(--text-muted)' }}>{s.last_clock_in ? fmtDate(s.last_clock_in) : 'Never'}</td>
-                    <td style={{ fontSize:12, color:'var(--text-muted)' }}>{s.archived_at ? new Date(s.archived_at).toLocaleDateString('en-GB') : '—'}</td>
-                    <td>
-                      <button onClick={() => handleUnarchive(s)}
-                        className="btn" style={{ fontSize:11, padding:'4px 12px', background:'var(--green)', color:'#fff', border:'none' }}>
-                        Restore
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredArchived.map(s => {
+                  const suspended = !s.is_active || s.is_blocked
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <div style={{ fontWeight:600 }}>{s.full_name}</div>
+                        <div style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</div>
+                      </td>
+                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.staff_id || '—'}</td>
+                      <td style={{ fontFamily:'DM Mono,monospace', fontSize:12 }}>{s.sia_licence || '—'}</td>
+                      <td><Badge st={siaStatus(s.sia_expiry)} /></td>
+                      <td style={{ fontSize:12, color:'var(--text-muted)' }}>{s.last_clock_in ? fmtDate(s.last_clock_in) : 'Never'}</td>
+                      <td>
+                        {suspended ? (
+                          <span style={{
+                            display:'inline-flex', alignItems:'center', gap:4,
+                            fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:10,
+                            background:'rgba(224,85,85,.15)', color:'#c02020',
+                          }}>⛔ Suspended</span>
+                        ) : (
+                          <span style={{
+                            display:'inline-flex', alignItems:'center', gap:4,
+                            fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:10,
+                            background:'rgba(240,160,48,.12)', color:'#9a6000',
+                          }}>📦 Archived {s.archived_at ? new Date(s.archived_at).toLocaleDateString('en-GB') : ''}</span>
+                        )}
+                      </td>
+                      <td>
+                        {suspended ? (
+                          <button
+                            onClick={() => handleReactivate(s)}
+                            disabled={reactivatingId === s.id}
+                            className="btn"
+                            style={{ fontSize:11, padding:'4px 12px', background:'var(--green)', color:'#fff', border:'none' }}
+                          >
+                            {reactivatingId === s.id ? '…' : '✅ Reactivate'}
+                          </button>
+                        ) : (
+                          <button onClick={() => handleUnarchive(s)}
+                            className="btn" style={{ fontSize:11, padding:'4px 12px', background:'var(--green)', color:'#fff', border:'none' }}>
+                            Restore
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -849,21 +885,12 @@ export default function HRStaff() {
                       }}>🔒 Access Blocked</span>
                     )}
                     {!s.is_active && !s.is_blocked && (
-                      s.activated_at ? (
-                        <span style={{
-                          display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700,
-                          padding:'2px 7px', borderRadius:10,
-                          background:'rgba(224,85,85,.15)', color:'#c02020',
-                          verticalAlign:'middle',
-                        }}>⛔ Account Suspended</span>
-                      ) : (
-                        <span style={{
-                          display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700,
-                          padding:'2px 7px', borderRadius:10,
-                          background:'rgba(240,160,48,.15)', color:'#b07000',
-                          verticalAlign:'middle',
-                        }}>⏳ Awaiting Registration</span>
-                      )
+                      <span style={{
+                        display:'inline-block', marginLeft:6, fontSize:10, fontWeight:700,
+                        padding:'2px 7px', borderRadius:10,
+                        background:'rgba(240,160,48,.15)', color:'#b07000',
+                        verticalAlign:'middle',
+                      }}>⏳ Awaiting Registration</span>
                     )}
                     {duplicateIds.has(s.id) && (
                       <span
@@ -927,32 +954,18 @@ export default function HRStaff() {
                           style={{ padding:'5px 8px', borderRadius:6, border:'1px solid rgba(255,160,0,.5)', background:'rgba(255,160,0,.14)', color:'#7a4400', cursor:'pointer', fontSize:11, fontWeight:700 }}
                         >⚠ Merge</button>
                       )}
-                      {!s.is_active && s.activated_at && !s.is_blocked ? (
-                        <button
-                          onClick={() => handleReactivate(s)}
-                          disabled={reactivatingId === s.id}
-                          title="Reactivate account"
-                          style={{
-                            padding:'5px 8px', borderRadius:6,
-                            border:'1px solid rgba(106,191,63,.4)',
-                            background:'rgba(106,191,63,.1)', color:'#4a9f2a',
-                            cursor:'pointer', fontSize:13,
-                          }}
-                        >{reactivatingId === s.id ? '…' : '✅'}</button>
-                      ) : (
-                        <button
-                          onClick={() => handleToggleBlock(s)}
-                          disabled={blockingId === s.id}
-                          title={s.is_blocked ? 'Restore access' : 'Block access'}
-                          style={{
-                            padding:'5px 8px', borderRadius:6,
-                            border: s.is_blocked ? '1px solid rgba(106,191,63,.4)' : '1px solid rgba(176,48,48,.4)',
-                            background: s.is_blocked ? 'rgba(106,191,63,.1)' : 'rgba(176,48,48,.1)',
-                            color: s.is_blocked ? '#4a9f2a' : '#b03030',
-                            cursor:'pointer', fontSize:13,
-                          }}
-                        >{blockingId === s.id ? '…' : s.is_blocked ? '🔓' : '🔒'}</button>
-                      )}
+                      <button
+                        onClick={() => handleToggleBlock(s)}
+                        disabled={blockingId === s.id}
+                        title={s.is_blocked ? 'Restore access' : 'Suspend account'}
+                        style={{
+                          padding:'5px 8px', borderRadius:6,
+                          border: s.is_blocked ? '1px solid rgba(106,191,63,.4)' : '1px solid rgba(176,48,48,.4)',
+                          background: s.is_blocked ? 'rgba(106,191,63,.1)' : 'rgba(176,48,48,.1)',
+                          color: s.is_blocked ? '#4a9f2a' : '#b03030',
+                          cursor:'pointer', fontSize:13,
+                        }}
+                      >{blockingId === s.id ? '…' : s.is_blocked ? '🔓' : '🔒'}</button>
                       <button
                         onClick={() => handleArchive(s)}
                         title="Move to archive"
@@ -983,66 +996,38 @@ export default function HRStaff() {
             <p className="sub" style={{ marginBottom:16 }}>{editing.email} · Registered {editing.registered_at ? fmtDate(editing.registered_at.slice(0,10)) : '—'}</p>
 
             {/* ── Access Control banner ── */}
-            {(!editing.is_active && editing.activated_at && !editing.is_blocked) ? (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px', borderRadius: 10, marginBottom: 20,
-                background: 'rgba(224,85,85,.1)', border: '1px solid rgba(224,85,85,.35)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>⛔</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#c02020' }}>Account Suspended</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                      Clock-in access was suspended after 3 failed location attempts.
-                    </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', borderRadius: 10, marginBottom: 20,
+              background: editing.is_blocked ? 'rgba(224,85,85,.1)' : 'rgba(106,191,63,.08)',
+              border: `1px solid ${editing.is_blocked ? 'rgba(224,85,85,.35)' : 'rgba(106,191,63,.25)'}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{editing.is_blocked ? '🔒' : '✅'}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: editing.is_blocked ? '#c02020' : '#3a8020' }}>
+                    {editing.is_blocked ? 'Access Suspended' : 'Access Active'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {editing.is_blocked
+                      ? 'Account moved to archive. Staff cannot log in or clock in.'
+                      : 'This staff member has full portal and clock-in access.'}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleReactivate(editing)}
-                  disabled={reactivatingId === editing.id}
-                  style={{
-                    padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                    border: 'none', cursor: 'pointer', background: '#3a8020', color: '#fff',
-                  }}
-                >
-                  {reactivatingId === editing.id ? 'Processing…' : '✅ Reactivate Account'}
-                </button>
               </div>
-            ) : (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px', borderRadius: 10, marginBottom: 20,
-                background: editing.is_blocked ? 'rgba(224,85,85,.1)' : 'rgba(106,191,63,.08)',
-                border: `1px solid ${editing.is_blocked ? 'rgba(224,85,85,.35)' : 'rgba(106,191,63,.25)'}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>{editing.is_blocked ? '🔒' : '✅'}</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: editing.is_blocked ? '#c02020' : '#3a8020' }}>
-                      {editing.is_blocked ? 'Access Blocked' : 'Access Active'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                      {editing.is_blocked
-                        ? 'This staff member cannot log in or clock in via QR code.'
-                        : 'This staff member has full portal and clock-in access.'}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleToggleBlock(editing)}
-                  disabled={blockingId === editing.id}
-                  style={{
-                    padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                    border: 'none', cursor: 'pointer',
-                    background: editing.is_blocked ? '#3a8020' : '#b03030',
-                    color: '#fff',
-                  }}
-                >
-                  {blockingId === editing.id ? 'Processing…' : editing.is_blocked ? '🔓 Unblock Access' : '🔒 Block Access'}
-                </button>
-              </div>
-            )}
+              <button
+                onClick={() => handleToggleBlock(editing)}
+                disabled={blockingId === editing.id}
+                style={{
+                  padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  border: 'none', cursor: 'pointer',
+                  background: editing.is_blocked ? '#3a8020' : '#b03030',
+                  color: '#fff',
+                }}
+              >
+                {blockingId === editing.id ? 'Processing…' : editing.is_blocked ? '🔓 Restore Access' : '🔒 Suspend Account'}
+              </button>
+            </div>
 
             {/* ── Section helper ── */}
             {[
