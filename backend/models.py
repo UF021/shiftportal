@@ -145,6 +145,7 @@ class Site(Base):
     address         = Column(String(300), nullable=True)
     site_lat        = Column(Float, nullable=True)
     site_lng        = Column(Float, nullable=True)
+    gps_radius_m    = Column(Integer, nullable=True)   # override per-site; NULL = use default 70m
     is_active       = Column(Boolean, default=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
 

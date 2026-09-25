@@ -275,6 +275,32 @@ def reject_gps_capture(
     db.delete(capture); db.commit()
 
 
+class SiteRadiusUpdate(BaseModel):
+    gps_radius_m: Optional[int] = None   # None = revert to default 70m
+
+
+@router.patch("/me/sites/{site_id}/gps-radius", response_model=SiteOut)
+def update_site_gps_radius(
+    site_id: int,
+    req:     SiteRadiusUpdate,
+    db:      Session = Depends(get_db),
+    hr:      models.User = Depends(require_hr),
+):
+    s = db.query(models.Site).filter(
+        models.Site.id              == site_id,
+        models.Site.organisation_id == hr.organisation_id,
+        models.Site.is_active       == True,
+    ).first()
+    if not s:
+        raise HTTPException(404, "Site not found")
+    if req.gps_radius_m is not None and req.gps_radius_m < 30:
+        raise HTTPException(400, "GPS radius must be at least 30 metres")
+    s.gps_radius_m = req.gps_radius_m
+    db.commit()
+    db.refresh(s)
+    return s
+
+
 @router.delete("/me/sites/{site_id}", status_code=204)
 def delete_site(
     site_id: int,
