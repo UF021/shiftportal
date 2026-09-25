@@ -286,11 +286,13 @@ def update_site_gps_radius(
     db:      Session = Depends(get_db),
     hr:      models.User = Depends(require_hr),
 ):
-    s = db.query(models.Site).filter(
-        models.Site.id              == site_id,
-        models.Site.organisation_id == hr.organisation_id,
-        models.Site.is_active       == True,
-    ).first()
+    q = db.query(models.Site).filter(
+        models.Site.id        == site_id,
+        models.Site.is_active == True,
+    )
+    if hr.organisation_id is not None:
+        q = q.filter(models.Site.organisation_id == hr.organisation_id)
+    s = q.first()
     if not s:
         raise HTTPException(404, "Site not found")
     if req.gps_radius_m is not None and req.gps_radius_m < 30:
