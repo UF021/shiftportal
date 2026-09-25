@@ -131,3 +131,47 @@ def user_changes(
         }
         for r in rows
     ]
+
+
+@router.get("/sites")
+def list_all_sites(
+    org_id: Optional[int] = None,
+    db:     Session = Depends(get_db),
+    _:      models.User = Depends(require_superadmin),
+):
+    q = db.query(models.Site)
+    if org_id:
+        q = q.filter(models.Site.organisation_id == org_id)
+    sites = q.all()
+    return [
+        {
+            "id":           s.id,
+            "code":         s.code,
+            "name":         s.name,
+            "organisation_id": s.organisation_id,
+            "is_active":    s.is_active,
+            "gps_radius_m": s.gps_radius_m,
+            "site_lat":     s.site_lat,
+            "site_lng":     s.site_lng,
+        }
+        for s in sites
+    ]
+
+
+@router.patch("/sites/{site_id}/gps-radius")
+def set_site_gps_radius(
+    site_id: int,
+    body:    dict,
+    db:      Session = Depends(get_db),
+    _:       models.User = Depends(require_superadmin),
+):
+    s = db.query(models.Site).filter(models.Site.id == site_id).first()
+    if not s:
+        raise HTTPException(404, "Site not found")
+    radius = body.get("gps_radius_m")
+    if radius is not None and radius < 30:
+        raise HTTPException(400, "GPS radius must be at least 30 metres")
+    s.gps_radius_m = radius
+    db.commit()
+    db.refresh(s)
+    return {"id": s.id, "name": s.name, "gps_radius_m": s.gps_radius_m}
