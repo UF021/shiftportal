@@ -26,11 +26,16 @@ function PBadge({ priority }) {
 
 // ── Recipient picker ──────────────────────────────────────────────────────────
 
-function RecipientPicker({ staff, mode, setMode, selectedIds, setSelectedIds }) {
+function RecipientPicker({ staff, mode, setMode, selectedIds, setSelectedIds, typeFilter, setTypeFilter }) {
   const [search, setSearch] = useState('')
 
   const active = staff.filter(s => !s.is_blocked && s.is_active && !s.is_archived)
-  const visible = active.filter(s =>
+
+  const typeFiltered = typeFilter === 'all'
+    ? active
+    : active.filter(s => (s.staff_type || 'payroll') === typeFilter)
+
+  const visible = typeFiltered.filter(s =>
     !search || s.full_name.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -39,7 +44,7 @@ function RecipientPicker({ staff, mode, setMode, selectedIds, setSelectedIds }) 
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
   }
-  function selectAll() { setSelectedIds(active.map(s => s.id)) }
+  function selectAll() { setSelectedIds(typeFiltered.map(s => s.id)) }
   function clearAll()  { setSelectedIds([]) }
 
   const ipt = {
@@ -48,17 +53,46 @@ function RecipientPicker({ staff, mode, setMode, selectedIds, setSelectedIds }) 
     fontFamily:'DM Sans,sans-serif', fontSize:13, width:'100%', boxSizing:'border-box',
   }
 
+  const TYPE_OPTS = [
+    { key:'all',         label:'All' },
+    { key:'payroll',     label:'💼 Payroll' },
+    { key:'subcontract', label:'🔧 Subcontract' },
+  ]
+
+  const allLabel = typeFilter === 'payroll' ? '📢 All Payroll' : typeFilter === 'subcontract' ? '📢 All Subcontract' : '📢 All Staff'
+
   return (
     <div>
       <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:8 }}>
         Send To
       </label>
 
+      {/* Staff type filter */}
+      <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+        {TYPE_OPTS.map(o => (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => { setTypeFilter(o.key); clearAll() }}
+            style={{
+              padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:700,
+              cursor:'pointer', fontFamily:'DM Sans,sans-serif',
+              border: typeFilter === o.key ? '1px solid var(--brand, var(--green))' : '1px solid var(--border)',
+              background: typeFilter === o.key ? 'rgba(106,191,63,.12)' : 'var(--navy-light)',
+              color: typeFilter === o.key ? 'var(--green)' : 'var(--text-muted)',
+            }}
+          >{o.label}</button>
+        ))}
+        <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text-muted)', alignSelf:'center' }}>
+          {typeFiltered.length} eligible
+        </span>
+      </div>
+
       {/* Mode toggle */}
       <div style={{ display:'flex', gap:8, marginBottom:12 }}>
         {[
-          { key:'all',    label:'📢 All Staff' },
-          { key:'select', label:'👥 Select Staff' },
+          { key:'all',    label: allLabel },
+          { key:'select', label:'👤 Select Individual' },
         ].map(o => (
           <button
             key={o.key}
@@ -117,9 +151,16 @@ function RecipientPicker({ staff, mode, setMode, selectedIds, setSelectedIds }) 
                     onChange={() => toggleId(s.id)}
                     style={{ accentColor:'var(--green)', width:15, height:15, flexShrink:0 }}
                   />
-                  <span style={{ fontSize:13, fontWeight: checked ? 600 : 400 }}>{s.full_name}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <span style={{ fontSize:13, fontWeight: checked ? 600 : 400 }}>{s.full_name}</span>
+                    <span style={{
+                      marginLeft:6, fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:8,
+                      background: s.staff_type === 'subcontract' ? 'rgba(103,58,183,.12)' : 'rgba(106,191,63,.12)',
+                      color: s.staff_type === 'subcontract' ? '#512da8' : '#2e7d32',
+                    }}>{s.staff_type === 'subcontract' ? 'SUB' : 'PAY'}</span>
+                  </div>
                   {s.staff_id && (
-                    <span style={{ fontSize:11, color:'var(--text-muted)', marginLeft:'auto', fontFamily:'DM Mono,monospace' }}>{s.staff_id}</span>
+                    <span style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'DM Mono,monospace', flexShrink:0 }}>{s.staff_id}</span>
                   )}
                 </label>
               )
@@ -147,7 +188,8 @@ export default function HRMessages() {
   const [sent,    setSent]    = useState([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [mode,    setMode]    = useState('all')          // 'all' | 'select'
+  const [mode,       setMode]       = useState('all')   // 'all' | 'select'
+  const [typeFilter, setTypeFilter] = useState('all')   // 'all' | 'payroll' | 'subcontract'
   const [selectedIds, setSelectedIds] = useState([])
   const [form,    setForm]    = useState({ title:'', body:'', priority:'normal' })
   const [err,     setErr]     = useState('')
@@ -168,17 +210,30 @@ export default function HRMessages() {
     if (!form.title.trim() || !form.body.trim()) { setErr('Title and body are required.'); return }
     if (mode === 'select' && selectedIds.length === 0) { setErr('Please select at least one recipient.'); return }
     setSending(true); setErr(''); setSuccess(false)
+
+    // Resolve recipient_ids: null = backend sends to all active staff.
+    // When a type filter is active in broadcast mode, pass the filtered IDs explicitly.
+    let recipientIds = null
+    if (mode === 'select') {
+      recipientIds = selectedIds
+    } else if (typeFilter !== 'all') {
+      const active = staff.filter(s => !s.is_blocked && s.is_active && !s.is_archived)
+      recipientIds = active.filter(s => (s.staff_type || 'payroll') === typeFilter).map(s => s.id)
+      if (recipientIds.length === 0) { setErr('No eligible recipients in that group.'); setSending(false); return }
+    }
+
     try {
       await sendMessage({
         title:         form.title.trim(),
         body:          form.body.trim(),
         priority:      form.priority,
         recipient_id:  null,
-        recipient_ids: mode === 'select' ? selectedIds : null,
+        recipient_ids: recipientIds,
       })
       setForm({ title:'', body:'', priority:'normal' })
       setSelectedIds([])
       setMode('all')
+      setTypeFilter('all')
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
       getAllMessages().then(r => setSent(r.data || [])).catch(() => {})
@@ -226,6 +281,8 @@ export default function HRMessages() {
               setMode={setMode}
               selectedIds={selectedIds}
               setSelectedIds={setSelectedIds}
+              typeFilter={typeFilter}
+              setTypeFilter={setTypeFilter}
             />
 
             <div>
