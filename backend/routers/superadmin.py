@@ -263,6 +263,46 @@ def force_clockout(
     }
 
 
+@router.get("/clock-open-debug/{user_id}")
+def debug_open_shift(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    _:       models.User = Depends(require_superadmin),
+):
+    """Replicate _has_open_clock_in logic exactly and return intermediate values."""
+    from sqlalchemy import func as _func
+    from routers.clock import _has_open_clock_in
+
+    has_open = _has_open_clock_in(db, user_id)
+
+    last_in = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            _func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
+        )
+        .order_by(models.ClockEvent.timestamp.desc())
+        .first()
+    )
+    last_out = None
+    if last_in:
+        last_out = (
+            db.query(models.ClockEvent)
+            .filter(
+                models.ClockEvent.user_id    == user_id,
+                models.ClockEvent.event_type == models.ClockEventType.clock_out,
+                models.ClockEvent.timestamp  > last_in.timestamp,
+            )
+            .first()
+        )
+    return {
+        "has_open_clock_in": has_open,
+        "last_non_hp_clock_in":  {"id": last_in.id, "ts": last_in.timestamp.isoformat(), "notes": last_in.entry_notes} if last_in else None,
+        "first_clock_out_after": {"id": last_out.id, "ts": last_out.timestamp.isoformat(), "notes": last_out.entry_notes} if last_out else None,
+    }
+
+
 @router.get("/clock-failures")
 def list_clock_failures(
     user_id: Optional[int] = None,
