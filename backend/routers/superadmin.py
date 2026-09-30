@@ -175,3 +175,33 @@ def set_site_gps_radius(
     db.commit()
     db.refresh(s)
     return {"id": s.id, "name": s.name, "gps_radius_m": s.gps_radius_m}
+
+
+@router.get("/clock-failures")
+def list_clock_failures(
+    user_id: Optional[int] = None,
+    org_id:  Optional[int] = None,
+    limit:   int = 100,
+    db:      Session = Depends(get_db),
+    _:       models.User = Depends(require_superadmin),
+):
+    q = db.query(models.ClockFailure).order_by(models.ClockFailure.attempted_at.desc())
+    if user_id: q = q.filter(models.ClockFailure.user_id == user_id)
+    if org_id:  q = q.filter(models.ClockFailure.organisation_id == org_id)
+    rows = q.limit(limit).all()
+    return [
+        {
+            "id":              r.id,
+            "user_id":         r.user_id,
+            "user_name":       r.user.full_name if r.user else None,
+            "staff_id":        r.staff_id_entered,
+            "site_id":         r.site_id,
+            "site_name":       r.site.name if r.site else None,
+            "failure_reason":  r.failure_reason,
+            "distance_metres": r.distance_metres,
+            "gps_lat":         r.gps_lat,
+            "gps_lng":         r.gps_lng,
+            "attempted_at":    r.attempted_at.isoformat() if r.attempted_at else None,
+        }
+        for r in rows
+    ]
