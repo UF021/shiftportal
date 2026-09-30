@@ -39,8 +39,6 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
     import pytz
     UK_TZ = pytz.timezone('Europe/London')
 
-    # All real clock-outs in the period (excludes HOLIDAY PAY)
-    from sqlalchemy import func as _func
     clock_outs = (
         db.query(models.ClockEvent)
         .join(models.User, models.ClockEvent.user_id == models.User.id)
@@ -51,24 +49,8 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
             models.ClockEvent.shift_minutes   > 0,
             models.ClockEvent.timestamp       >= from_dt,
             models.ClockEvent.timestamp       <= to_dt,
-            _func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
             models.User.is_archived           == False,
             models.User.is_erased             == False,
-        )
-        .all()
-    )
-
-    # HOLIDAY PAY clock-outs in the period
-    holiday_pay_outs = (
-        db.query(models.ClockEvent)
-        .filter(
-            models.ClockEvent.organisation_id == org_id,
-            models.ClockEvent.event_type      == models.ClockEventType.clock_out,
-            models.ClockEvent.shift_minutes   != None,
-            models.ClockEvent.shift_minutes   > 0,
-            models.ClockEvent.timestamp       >= from_dt,
-            models.ClockEvent.timestamp       <= to_dt,
-            models.ClockEvent.entry_notes     == '[HOLIDAY PAY]',
         )
         .all()
     )
@@ -84,18 +66,33 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
         user_shifts[uid] += 1
         if uid not in user_obj:
             user_obj[uid] = co.user
-        # Bank holiday check using UK date of the clock-out
         date_str = co.timestamp.astimezone(UK_TZ).strftime('%Y-%m-%d')
         if is_bank_holiday(date_str):
             user_bh_mins[uid] += co.shift_minutes
 
-    user_hol_mins = defaultdict(int)
-    for co in holiday_pay_outs:
-        user_hol_mins[co.user_id] += co.shift_minutes
-        if co.user_id not in user_obj:
-            u2 = db.query(models.User).filter(models.User.id == co.user_id).first()
+    # Holiday pay from approved Holiday records (prorated for days within this period)
+    approved_hols = (
+        db.query(models.Holiday)
+        .filter(
+            models.Holiday.organisation_id == org_id,
+            models.Holiday.status          == models.HolidayStatus.approved,
+            models.Holiday.holiday_pay_hours > 0,
+            models.Holiday.from_date       <= to_date,
+            models.Holiday.to_date         >= from_date,
+        )
+        .all()
+    )
+    user_hol_hours = defaultdict(float)
+    for h in approved_hols:
+        overlap_start = max(h.from_date, from_date)
+        overlap_end   = min(h.to_date,   to_date)
+        overlap_days  = (overlap_end - overlap_start).days + 1
+        prorate       = overlap_days / h.days if h.days else 0
+        user_hol_hours[h.user_id] += h.holiday_pay_hours * prorate
+        if h.user_id not in user_obj:
+            u2 = db.query(models.User).filter(models.User.id == h.user_id).first()
             if u2 and not u2.is_archived and not u2.is_erased:
-                user_obj[co.user_id] = u2
+                user_obj[h.user_id] = u2
 
     employees = []
     for uid, u in sorted(
@@ -105,7 +102,7 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
         mins      = user_mins[uid]
         hours     = round(mins / 60, 2)
         bh_hours  = round(user_bh_mins[uid] / 60, 2)
-        hol_hours = round(user_hol_mins[uid] / 60, 2)
+        hol_hours = round(user_hol_hours[uid], 2)
         rate      = u.pay_rate or 0.0
         gross     = round((hours + hol_hours) * rate, 2)
 

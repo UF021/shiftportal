@@ -220,7 +220,6 @@ def force_clockout(
         .filter(
             models.ClockEvent.user_id    == user_id,
             models.ClockEvent.event_type == models.ClockEventType.clock_in,
-            _func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .order_by(models.ClockEvent.timestamp.desc())
         .first()
@@ -263,6 +262,18 @@ def force_clockout(
     }
 
 
+@router.delete("/clock-events/purge-holiday-pay", status_code=200)
+def purge_holiday_pay_events(
+    db: Session = Depends(get_db),
+    _:  models.User = Depends(require_superadmin),
+):
+    deleted = db.query(models.ClockEvent).filter(
+        models.ClockEvent.entry_notes == '[HOLIDAY PAY]'
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": deleted}
+
+
 @router.delete("/clock-events/{event_id}", status_code=204)
 def delete_clock_event(
     event_id: int,
@@ -293,7 +304,6 @@ def debug_open_shift(
         .filter(
             models.ClockEvent.user_id    == user_id,
             models.ClockEvent.event_type == models.ClockEventType.clock_in,
-            _func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .order_by(models.ClockEvent.timestamp.desc())
         .first()

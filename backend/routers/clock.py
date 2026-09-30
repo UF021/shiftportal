@@ -265,7 +265,6 @@ def _has_open_clock_in(db: Session, user_id: int) -> bool:
         .filter(
             models.ClockEvent.user_id    == user_id,
             models.ClockEvent.event_type == models.ClockEventType.clock_in,
-            func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .order_by(models.ClockEvent.timestamp.desc())
         .first()
@@ -453,23 +452,6 @@ def all_events(
         to_end = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc)
         q = q.filter(models.ClockEvent.timestamp <= to_end)
 
-    # Exclude future-dated HOLIDAY PAY entries. These are created weeks ahead when HR
-    # approves future holidays and would otherwise sit at the top of the DESC-ordered
-    # LIMIT 500 query, displacing real recent shifts.
-    #
-    # Written as an OR so NULL-handling is unambiguous (avoiding ~and_ which can
-    # mis-generate NOT A AND NOT B instead of NOT (A AND B) in some SQLAlchemy versions).
-    # Equivalent SQL: entry_notes != '[HOLIDAY PAY]' OR timestamp <= now
-    if not to_date:
-        from sqlalchemy import or_ as _or_, func as _func
-        now_utc = datetime.now(timezone.utc)
-        q = q.filter(
-            _or_(
-                _func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
-                models.ClockEvent.timestamp <= now_utc,
-            )
-        )
-
     clock_ins = q.order_by(models.ClockEvent.timestamp.desc()).limit(500).all()
     if not clock_ins:
         return {"entries": [], "total_mins": 0}
@@ -515,24 +497,15 @@ def all_events(
     entries    = []
     total_mins = 0
     for ci in clock_ins:
-        # Real clock-ins must only pair with real clock-outs; HOLIDAY PAY entries
-        # must only pair with HOLIDAY PAY clock-outs. Without this guard, a future
-        # HOLIDAY PAY clock-out (created at approval time with a pre-calculated
-        # shift_minutes) would "close" a real ongoing shift, showing wrong hours.
-        _ci_hp = ci.entry_notes == '[HOLIDAY PAY]'
-        co            = next((o for o in outs_by_user.get(ci.user_id, [])
-                              if o.timestamp > ci.timestamp
-                              and o.id not in used_out_ids[ci.user_id]
-                              and (o.entry_notes == '[HOLIDAY PAY]') == _ci_hp), None)
+        co = next((o for o in outs_by_user.get(ci.user_id, [])
+                   if o.timestamp > ci.timestamp
+                   and o.id not in used_out_ids[ci.user_id]), None)
         if co:
             used_out_ids[ci.user_id].add(co.id)
         site_name     = (ci.site.name if ci.site else None) or (co.site.name if co and co.site else None)
         shift_minutes = co.shift_minutes if co else None
-        is_holiday_pay = ci.entry_notes == '[HOLIDAY PAY]'
         is_override, manager_name = _parse_override(ci.entry_notes)
-        # QR clock-ins have entry_notes=NULL; manual entries have entry_notes="" or a string.
-        # Using `is not None` correctly identifies manual entries even when HR added no notes.
-        is_manual     = ci.entry_notes is not None and not is_override and not is_holiday_pay
+        is_manual     = ci.entry_notes is not None and not is_override
 
         ci_uk     = ci.timestamp.astimezone(UK_TZ)
         date_str  = ci_uk.date().isoformat()
@@ -551,7 +524,6 @@ def all_events(
             "minutes_late":     ci.minutes_late,
             "scheduled_start":  ci.scheduled_start,
             "is_manual":        is_manual,
-            "is_holiday_pay":   is_holiday_pay,
             "is_override":      is_override,
             "manager_name":     manager_name,
             "entry_notes":      ci.entry_notes or None,
@@ -1317,13 +1289,11 @@ def clock_out(
     org, site = _get_site(db, org_slug, site_code)
     user = _lookup_staff(db, org.id, body.staff_id, body.full_name)
 
-    # Find the most recent open clock_in for this user (any site), excluding HOLIDAY PAY synthetic entries
     last_in = (
         db.query(models.ClockEvent)
         .filter(
             models.ClockEvent.user_id    == user.id,
             models.ClockEvent.event_type == models.ClockEventType.clock_in,
-            func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .order_by(models.ClockEvent.timestamp.desc())
         .first()
@@ -1337,7 +1307,6 @@ def clock_out(
             models.ClockEvent.user_id    == user.id,
             models.ClockEvent.event_type == models.ClockEventType.clock_out,
             models.ClockEvent.timestamp  > last_in.timestamp,
-            func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         )
         .first()
     )

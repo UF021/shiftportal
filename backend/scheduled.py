@@ -365,7 +365,6 @@ def send_missed_clockout_alerts():
                 models.ClockEvent.event_type      == models.ClockEventType.clock_in,
                 models.ClockEvent.timestamp       >= look_back,
                 models.ClockEvent.timestamp       <= fifteen_hours_ago,
-                _sqlfunc.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
             ).all()
 
             open_shifts = []
@@ -374,7 +373,6 @@ def send_missed_clockout_alerts():
                     models.ClockEvent.user_id    == ci.user_id,
                     models.ClockEvent.event_type == models.ClockEventType.clock_out,
                     models.ClockEvent.timestamp  >  ci.timestamp,
-                    _sqlfunc.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
                 ).first()
                 if not has_out:
                     user = db.query(models.User).filter(models.User.id == ci.user_id).first()
@@ -986,7 +984,6 @@ def send_long_shift_alerts():
             models.ClockEvent.event_type        == models.ClockEventType.clock_in,
             models.ClockEvent.timestamp         <= cutoff_utc,
             models.ClockEvent.long_shift_alerted == False,
-            _sqlfunc.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
         ).all()
 
         alerted = 0

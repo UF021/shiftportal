@@ -86,49 +86,6 @@ def approve(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depend
     h.reviewed_at    = datetime.now(timezone.utc)
     h.reviewed_by_id = hr.id
 
-    # Create a HOLIDAY PAY clock entry for each day of the approved holiday
-    if h.holiday_pay_hours and h.holiday_pay_hours > 0:
-        avg_mins_per_day = round((h.holiday_pay_hours / h.days) * 60)
-        current = h.from_date
-        while current <= h.to_date:
-            # Skip if a HOLIDAY PAY clock-in already exists for this day (idempotent)
-            day_start_utc = UK_TZ.localize(datetime(current.year, current.month, current.day, 9, 0)).astimezone(timezone.utc)
-            day_end_utc   = day_start_utc + timedelta(hours=24)
-            already = db.query(models.ClockEvent).filter(
-                models.ClockEvent.user_id    == h.user_id,
-                models.ClockEvent.event_type == models.ClockEventType.clock_in,
-                models.ClockEvent.timestamp  >= day_start_utc,
-                models.ClockEvent.timestamp  <  day_end_utc,
-                models.ClockEvent.entry_notes == '[HOLIDAY PAY]',
-            ).first()
-            if not already:
-                clock_in_ts  = day_start_utc
-                clock_out_ts = clock_in_ts + timedelta(minutes=avg_mins_per_day)
-                ci = models.ClockEvent(
-                    organisation_id = h.organisation_id,
-                    user_id         = h.user_id,
-                    site_id         = None,
-                    event_type      = models.ClockEventType.clock_in,
-                    timestamp       = clock_in_ts,
-                    scheduled_start = None,
-                    is_late         = False,
-                    minutes_late    = 0,
-                    gps_verified    = False,
-                    entry_notes     = '[HOLIDAY PAY]',
-                )
-                co = models.ClockEvent(
-                    organisation_id = h.organisation_id,
-                    user_id         = h.user_id,
-                    site_id         = None,
-                    event_type      = models.ClockEventType.clock_out,
-                    timestamp       = clock_out_ts,
-                    shift_minutes   = avg_mins_per_day,
-                    entry_notes     = '[HOLIDAY PAY]',
-                )
-                db.add(ci)
-                db.add(co)
-            current += timedelta(days=1)
-
     staff = db.query(models.User).filter(models.User.id == h.user_id).first()
     org   = db.query(models.Organisation).filter(models.Organisation.id == h.organisation_id).first()
     log_action(db, h.organisation_id, hr, 'holiday.approve', 'holiday', h.id,
