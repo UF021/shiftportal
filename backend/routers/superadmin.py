@@ -177,6 +177,92 @@ def set_site_gps_radius(
     return {"id": s.id, "name": s.name, "gps_radius_m": s.gps_radius_m}
 
 
+@router.get("/clock-events")
+def list_clock_events(
+    user_id: Optional[int] = None,
+    org_id:  Optional[int] = None,
+    limit:   int = 20,
+    db:      Session = Depends(get_db),
+    _:       models.User = Depends(require_superadmin),
+):
+    q = db.query(models.ClockEvent).order_by(models.ClockEvent.timestamp.desc())
+    if user_id: q = q.filter(models.ClockEvent.user_id == user_id)
+    if org_id:  q = q.filter(models.ClockEvent.organisation_id == org_id)
+    rows = q.limit(limit).all()
+    return [
+        {
+            "id":          r.id,
+            "user_id":     r.user_id,
+            "site_id":     r.site_id,
+            "event_type":  r.event_type.value,
+            "timestamp":   r.timestamp.isoformat() if r.timestamp else None,
+            "scheduled_start": r.scheduled_start,
+            "shift_minutes":   r.shift_minutes,
+            "entry_notes": r.entry_notes,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/clock-events/force-clockout/{user_id}")
+def force_clockout(
+    user_id: int,
+    db:      Session = Depends(get_db),
+    sa:      models.User = Depends(require_superadmin),
+):
+    from sqlalchemy import func as _func
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    last_in = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            _func.coalesce(models.ClockEvent.entry_notes, '') != '[HOLIDAY PAY]',
+        )
+        .order_by(models.ClockEvent.timestamp.desc())
+        .first()
+    )
+    if not last_in:
+        return {"message": "No clock-in found", "user": user.full_name}
+
+    last_out = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_out,
+            models.ClockEvent.timestamp  > last_in.timestamp,
+        )
+        .first()
+    )
+    if last_out:
+        return {"message": "No open shift — already clocked out", "user": user.full_name,
+                "last_clock_in": last_in.timestamp.isoformat(), "last_clock_out": last_out.timestamp.isoformat()}
+
+    now = datetime.now(timezone.utc)
+    out = models.ClockEvent(
+        organisation_id = last_in.organisation_id,
+        user_id         = user_id,
+        site_id         = last_in.site_id,
+        event_type      = models.ClockEventType.clock_out,
+        timestamp       = now,
+        shift_minutes   = int((now - last_in.timestamp).total_seconds() / 60),
+        entry_notes     = f"Force-closed by superadmin ({sa.email})",
+    )
+    db.add(out)
+    db.commit()
+    return {
+        "message":       "Open shift closed",
+        "user":          user.full_name,
+        "clock_in_at":   last_in.timestamp.isoformat(),
+        "clock_out_at":  now.isoformat(),
+        "shift_minutes": out.shift_minutes,
+        "out_event_id":  out.id,
+    }
+
+
 @router.get("/clock-failures")
 def list_clock_failures(
     user_id: Optional[int] = None,
