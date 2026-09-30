@@ -1166,13 +1166,15 @@ def clock_in(
         raise HTTPException(status.HTTP_409_CONFLICT, "already_clocked_in")
 
     # ── Duplicate submission guard (network retries / double-tap) ─────────────
-    _sixty_ago = datetime.now(timezone.utc) - timedelta(seconds=60)
+    _now_utc    = datetime.now(timezone.utc)
+    _sixty_ago  = _now_utc - timedelta(seconds=60)
     _recent_in = (
         db.query(models.ClockEvent)
         .filter(
             models.ClockEvent.user_id    == user.id,
             models.ClockEvent.event_type == models.ClockEventType.clock_in,
             models.ClockEvent.timestamp  >= _sixty_ago,
+            models.ClockEvent.timestamp  <= _now_utc,   # upper bound keeps future HOLIDAY PAY out
         )
         .first()
     )
@@ -1343,13 +1345,15 @@ def clock_out(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active clock-in found. You have already clocked out.")
 
     # ── Duplicate submission guard (network retries / double-tap) ─────────────
-    _sixty_ago_out = datetime.now(timezone.utc) - timedelta(seconds=60)
+    _now_utc_out    = datetime.now(timezone.utc)
+    _sixty_ago_out  = _now_utc_out - timedelta(seconds=60)
     _recent_out = (
         db.query(models.ClockEvent)
         .filter(
             models.ClockEvent.user_id    == user.id,
             models.ClockEvent.event_type == models.ClockEventType.clock_out,
             models.ClockEvent.timestamp  >= _sixty_ago_out,
+            models.ClockEvent.timestamp  <= _now_utc_out,  # upper bound keeps future entries out
         )
         .first()
     )

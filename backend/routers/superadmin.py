@@ -263,6 +263,19 @@ def force_clockout(
     }
 
 
+@router.delete("/clock-events/{event_id}", status_code=204)
+def delete_clock_event(
+    event_id: int,
+    db:       Session = Depends(get_db),
+    sa:       models.User = Depends(require_superadmin),
+):
+    ev = db.query(models.ClockEvent).filter(models.ClockEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(404, "Event not found")
+    db.delete(ev)
+    db.commit()
+
+
 @router.get("/clock-open-debug/{user_id}")
 def debug_open_shift(
     user_id: int,
