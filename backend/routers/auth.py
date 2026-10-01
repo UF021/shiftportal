@@ -262,8 +262,6 @@ def get_me(current_user: models.User = Depends(get_current_user)):
 
 
 _DETAIL_FIELD_LABELS = {
-    'first_name':    'First Name',
-    'last_name':     'Last Name',
     'phone':         'Phone',
     'date_of_birth': 'Date of Birth',
     'nationality':   'Nationality',
@@ -274,6 +272,8 @@ _DETAIL_FIELD_LABELS = {
     'nok_name':      'Next of Kin Name',
     'nok_phone':     'Next of Kin Phone',
     'nok_relation':  'Next of Kin Relationship',
+    'sia_licence':   'SIA Licence Number',
+    'sia_expiry':    'SIA Expiry Date',
 }
 
 
@@ -287,11 +287,6 @@ def update_my_details(
 
     if current_user.role != models.UserRole.staff:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only staff accounts can use this endpoint")
-
-    if req.first_name is not None and not req.first_name.strip():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "First name cannot be empty")
-    if req.last_name is not None and not req.last_name.strip():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Last name cannot be empty")
 
     changes = {}
     for field, label in _DETAIL_FIELD_LABELS.items():
@@ -310,10 +305,13 @@ def update_my_details(
             continue
         if field == 'postcode':
             setattr(current_user, field, new_val.upper().strip() or None)
-        elif field in ('first_name', 'last_name'):
-            setattr(current_user, field, new_val.strip())
         else:
             setattr(current_user, field, new_val or None)
+
+    if req.sia_badge_photo is not None:
+        current_user.sia_badge_photo = req.sia_badge_photo or None
+        if req.sia_badge_photo:
+            changes['sia_badge_photo'] = {'label': 'SIA Badge Photo', 'old': None, 'new': 'updated'}
 
     if changes:
         db.add(models.ProfileChangeLog(

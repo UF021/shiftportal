@@ -195,10 +195,11 @@ class User(Base):
     postcode        = Column(String(20),  nullable=True)
 
     # Employment documents
-    ni_number       = Column(String(20),  nullable=True)
-    sia_licence     = Column(String(50),  nullable=True)
-    sia_expiry      = Column(Date,        nullable=True)
-    right_to_work   = Column(Boolean,     default=True)
+    ni_number        = Column(String(20),  nullable=True)
+    sia_licence      = Column(String(50),  nullable=True)
+    sia_expiry       = Column(Date,        nullable=True)
+    sia_badge_photo  = Column(Text,        nullable=True)   # base64 data URI
+    right_to_work    = Column(Boolean,     default=True)
 
     # Multi-site assignments (comma-separated site names)
     assigned_sites  = Column(Text, nullable=True)

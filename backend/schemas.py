@@ -136,6 +136,7 @@ class UserProfile(BaseModel):
     ni_number:             Optional[str]
     sia_licence:           Optional[str]
     sia_expiry:            Optional[date]
+    sia_badge_photo:       Optional[str]   = None
     right_to_work:         bool
     nok_name:              Optional[str]
     nok_phone:             Optional[str]
@@ -203,18 +204,19 @@ class EditUserRequest(BaseModel):
 
 
 class UpdateMyDetailsRequest(BaseModel):
-    first_name:    Optional[str]  = None
-    last_name:     Optional[str]  = None
-    phone:         Optional[str]  = None
-    date_of_birth: Optional[date] = None
-    nationality:   Optional[str]  = None
-    address_line1: Optional[str]  = None
-    address_line2: Optional[str]  = None
-    city:          Optional[str]  = None
-    postcode:      Optional[str]  = None
-    nok_name:      Optional[str]  = None
-    nok_phone:     Optional[str]  = None
-    nok_relation:  Optional[str]  = None
+    phone:           Optional[str]  = None
+    date_of_birth:   Optional[date] = None
+    nationality:     Optional[str]  = None
+    address_line1:   Optional[str]  = None
+    address_line2:   Optional[str]  = None
+    city:            Optional[str]  = None
+    postcode:        Optional[str]  = None
+    nok_name:        Optional[str]  = None
+    nok_phone:       Optional[str]  = None
+    nok_relation:    Optional[str]  = None
+    sia_licence:     Optional[str]  = None
+    sia_expiry:      Optional[date] = None
+    sia_badge_photo: Optional[str]  = None   # base64 data URI
 
 
 # ── Site ──────────────────────────────────────────────────────────────────────

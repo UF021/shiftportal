@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useAuth } from '../../api/AuthContext'
 import { useBrand } from '../../api/BrandContext'
 import { updateMyDetails } from '../../api/client'
@@ -35,11 +35,20 @@ export default function StaffProfile() {
   const { colour }            = useBrand()
   const c = colour || '#6abf3f'
 
+  // ── My Details edit state ────────────────────────────────────────────────
   const [editing,      setEditing]      = useState(false)
   const [saving,       setSaving]       = useState(false)
   const [saved,        setSaved]        = useState(false)
   const [err,          setErr]          = useState('')
   const [downloading,  setDownloading]  = useState(false)
+
+  // ── SIA edit state ───────────────────────────────────────────────────────
+  const [siaEditing,   setSiaEditing]   = useState(false)
+  const [siaSaving,    setSiaSaving]    = useState(false)
+  const [siaSaved,     setSiaSaved]     = useState(false)
+  const [siaErr,       setSiaErr]       = useState('')
+  const [siaForm,      setSiaForm]      = useState({})
+  const fileInputRef = useRef(null)
 
   async function downloadMyData() {
     setDownloading(true)
@@ -62,8 +71,6 @@ export default function StaffProfile() {
 
   function startEdit() {
     setForm({
-      first_name:    user?.first_name    || '',
-      last_name:     user?.last_name     || '',
       phone:         user?.phone         || '',
       date_of_birth: user?.date_of_birth || '',
       nationality:   user?.nationality   || '',
@@ -80,18 +87,37 @@ export default function StaffProfile() {
     setEditing(true)
   }
 
+  function startSiaEdit() {
+    setSiaForm({
+      sia_licence:     user?.sia_licence     || '',
+      sia_expiry:      user?.sia_expiry      || '',
+      sia_badge_photo: user?.sia_badge_photo || null,
+    })
+    setSiaSaved(false)
+    setSiaErr('')
+    setSiaEditing(true)
+  }
+
   function set(field) {
     return e => setForm(f => ({ ...f, [field]: e.target.value }))
   }
 
+  function handleBadgePhoto(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      setSiaErr('Photo must be under 5 MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = ev => setSiaForm(f => ({ ...f, sia_badge_photo: ev.target.result }))
+    reader.readAsDataURL(file)
+  }
+
   async function save() {
-    if (!form.first_name?.trim()) { setErr('First name cannot be empty.'); return }
-    if (!form.last_name?.trim())  { setErr('Last name cannot be empty.');  return }
     setSaving(true); setErr('')
     try {
       await updateMyDetails({
-        first_name:    form.first_name.trim(),
-        last_name:     form.last_name.trim(),
         phone:         form.phone         || null,
         date_of_birth: form.date_of_birth || null,
         nationality:   form.nationality   || null,
@@ -114,6 +140,27 @@ export default function StaffProfile() {
     }
   }
 
+  async function saveSia() {
+    if (!siaForm.sia_licence?.trim()) { setSiaErr('Licence number is required.'); return }
+    if (!siaForm.sia_expiry)          { setSiaErr('Expiry date is required.');    return }
+    setSiaSaving(true); setSiaErr('')
+    try {
+      await updateMyDetails({
+        sia_licence:     siaForm.sia_licence.trim().toUpperCase(),
+        sia_expiry:      siaForm.sia_expiry,
+        sia_badge_photo: siaForm.sia_badge_photo || null,
+      })
+      await refreshUser()
+      setSiaEditing(false)
+      setSiaSaved(true)
+      setTimeout(() => setSiaSaved(false), 5000)
+    } catch (ex) {
+      setSiaErr(ex.response?.data?.detail || 'Save failed. Please try again.')
+    } finally {
+      setSiaSaving(false)
+    }
+  }
+
   const sia  = user?.sia_expiry ? new Date(user.sia_expiry) : null
   const days = sia ? Math.ceil((sia - new Date()) / 86400000) : null
   const gone = days !== null && days < 0
@@ -133,26 +180,130 @@ export default function StaffProfile() {
         <PF label="Contract Type"    value="Zero Hours" />
       </div>
 
-      {/* ── Read-only: SIA ── */}
-      <div className="s-card">
-        <div className="s-card-title">🪪 SIA Licence</div>
-        <PF label="Licence Number" value={user?.sia_licence} />
-        <PF label="Expiry Date"    value={fmtDate(user?.sia_expiry)} />
-        {days !== null && (
-          <div style={{
-            background: gone ? '#fde8e8' : warn ? '#fef9e8' : '#f0faf0',
-            border: `1px solid ${gone ? '#e08080' : warn ? '#f0c060' : '#a0d080'}`,
-            borderRadius:10, padding:14, marginTop:10, textAlign:'center',
-          }}>
-            <div style={{ fontSize:36, fontWeight:700, fontFamily:'DM Mono,monospace', color:gone?'#e05555':warn?'#d97706':c }}>
-              {gone ? 'EXPIRED' : `${days} days`}
-            </div>
-            <div style={{ fontSize:12, color:'#6a8a6a', marginTop:4 }}>
-              {gone ? '⚠ Contact HR immediately' : warn ? 'Renewal required soon' : 'Until licence expiry'}
-            </div>
+      {/* ── SIA Licence (editable) ── */}
+      <div className="s-card" style={{ borderTop: `3px solid ${c}` }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+          <div className="s-card-title" style={{ marginBottom:0 }}>🪪 SIA Licence</div>
+          {!siaEditing && (
+            <button onClick={startSiaEdit} style={{
+              padding:'7px 16px', borderRadius:20, border:`1px solid ${c}`,
+              background:'transparent', color:c, fontFamily:'DM Sans,sans-serif',
+              fontSize:12, fontWeight:700, cursor:'pointer',
+            }}>Update SIA</button>
+          )}
+        </div>
+
+        {siaSaved && (
+          <div style={{ background:'#f0faf0', border:'1px solid #a0d080', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#2a6a2a', marginBottom:16 }}>
+            ✅ SIA details updated. HR has been notified.
           </div>
         )}
-        <PF label="Right to Work" value={user?.right_to_work ? 'Yes — confirmed' : 'No'} />
+
+        {!siaEditing ? (
+          <>
+            <PF label="Licence Number" value={user?.sia_licence} />
+            <PF label="Expiry Date"    value={fmtDate(user?.sia_expiry)} />
+            {days !== null && (
+              <div style={{
+                background: gone ? '#fde8e8' : warn ? '#fef9e8' : '#f0faf0',
+                border: `1px solid ${gone ? '#e08080' : warn ? '#f0c060' : '#a0d080'}`,
+                borderRadius:10, padding:14, marginTop:10, textAlign:'center',
+              }}>
+                <div style={{ fontSize:36, fontWeight:700, fontFamily:'DM Mono,monospace', color:gone?'#e05555':warn?'#d97706':c }}>
+                  {gone ? 'EXPIRED' : `${days} days`}
+                </div>
+                <div style={{ fontSize:12, color:'#6a8a6a', marginTop:4 }}>
+                  {gone ? '⚠ Contact HR immediately' : warn ? 'Renewal required soon' : 'Until licence expiry'}
+                </div>
+              </div>
+            )}
+            {user?.sia_badge_photo && (
+              <div style={{ marginTop:14 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'#8aaa8a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>Badge Photo (Data Section)</div>
+                <img
+                  src={user.sia_badge_photo}
+                  alt="SIA badge data section"
+                  style={{ maxWidth:'100%', maxHeight:200, borderRadius:8, border:'1px solid #d0ddd0', display:'block' }}
+                />
+              </div>
+            )}
+            <PF label="Right to Work" value={user?.right_to_work ? 'Yes — confirmed' : 'No'} />
+          </>
+        ) : (
+          <>
+            {siaErr && (
+              <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#a02020', marginBottom:16 }}>
+                ⚠ {siaErr}
+              </div>
+            )}
+
+            <FField label="Licence Number">
+              <input
+                style={{ ...inputStyle, textTransform:'uppercase' }}
+                value={siaForm.sia_licence}
+                onChange={e => setSiaForm(f => ({ ...f, sia_licence: e.target.value.toUpperCase() }))}
+                placeholder="e.g. 1013-3165-0072-5713"
+              />
+            </FField>
+
+            <FField label="Expiry Date">
+              <input
+                style={inputStyle}
+                type="date"
+                value={siaForm.sia_expiry}
+                onChange={e => setSiaForm(f => ({ ...f, sia_expiry: e.target.value }))}
+              />
+            </FField>
+
+            <FField label="Photo of SIA Badge (Data Section)">
+              <div style={{ border:'2px dashed #d0ddd0', borderRadius:10, padding:16, textAlign:'center', background:'#f8fbf8', cursor:'pointer' }}
+                onClick={() => fileInputRef.current?.click()}>
+                {siaForm.sia_badge_photo ? (
+                  <>
+                    <img
+                      src={siaForm.sia_badge_photo}
+                      alt="SIA badge preview"
+                      style={{ maxWidth:'100%', maxHeight:180, borderRadius:8, marginBottom:8, display:'block', margin:'0 auto 8px' }}
+                    />
+                    <div style={{ fontSize:12, color:'#6a8a6a' }}>Tap to replace photo</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize:28, marginBottom:6 }}>📷</div>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#4a6a4a', marginBottom:4 }}>Tap to upload badge photo</div>
+                    <div style={{ fontSize:11, color:'#8aaa8a' }}>Take a clear photo of the data section on the front of your SIA badge (max 5 MB)</div>
+                  </>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display:'none' }}
+                onChange={handleBadgePhoto}
+              />
+            </FField>
+
+            <div style={{ fontSize:12, color:'#8aaa8a', background:'#f8fbf8', borderRadius:8, padding:'10px 13px', marginBottom:20, lineHeight:1.5 }}>
+              ℹ️ HR will be notified of any SIA changes you submit. Please ensure your licence number and expiry date match your physical badge exactly.
+            </div>
+
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setSiaEditing(false)} style={{
+                flex:1, padding:'12px', borderRadius:10, border:'1px solid #d0ddd0',
+                background:'#f8fbf8', color:'#6a8a6a', fontFamily:'DM Sans,sans-serif',
+                fontSize:14, fontWeight:600, cursor:'pointer',
+              }}>Cancel</button>
+              <button onClick={saveSia} disabled={siaSaving} style={{
+                flex:2, padding:'12px', borderRadius:10, border:'none',
+                background:c, color:'#fff', fontFamily:'DM Sans,sans-serif',
+                fontSize:14, fontWeight:700, cursor:siaSaving?'not-allowed':'pointer',
+                opacity: siaSaving ? 0.7 : 1,
+              }}>{siaSaving ? 'Saving…' : 'Save SIA Details'}</button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── My Details: editable ── */}
@@ -198,13 +349,9 @@ export default function StaffProfile() {
 
             <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', color:'#8aaa8a', marginBottom:12 }}>Personal</div>
 
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              <FField label="First Name">
-                <input style={inputStyle} value={form.first_name} onChange={set('first_name')} />
-              </FField>
-              <FField label="Last Name">
-                <input style={inputStyle} value={form.last_name} onChange={set('last_name')} />
-              </FField>
+            <div style={{ padding:'10px 13px', borderRadius:8, background:'#f0f4f0', marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#8aaa8a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:3 }}>Full Name</div>
+              <div style={{ fontSize:14, color:'#4a6a4a' }}>{user?.first_name} {user?.last_name} <span style={{ fontSize:11, color:'#aaa' }}>(contact HR to change name)</span></div>
             </div>
 
             <FField label="Phone">
@@ -254,7 +401,7 @@ export default function StaffProfile() {
             </div>
 
             <div style={{ fontSize:12, color:'#8aaa8a', background:'#f8fbf8', borderRadius:8, padding:'10px 13px', marginBottom:20, lineHeight:1.5 }}>
-              ℹ️ HR will be notified of any changes you submit. Name changes may temporarily affect QR clock-in — contact your supervisor if this happens.
+              ℹ️ HR will be notified of any changes you submit.
             </div>
 
             <div style={{ display:'flex', gap:10 }}>
