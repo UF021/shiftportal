@@ -297,6 +297,12 @@ class HolidayOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class HolidayAmend(BaseModel):
+    from_date: Optional[date] = None
+    to_date:   Optional[date] = None
+    note:      Optional[str]  = None
+
+
 class HolidaySummary(BaseModel):
     total_allowance: int = 20
     approved_days:   int

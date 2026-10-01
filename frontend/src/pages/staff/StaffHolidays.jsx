@@ -1,6 +1,6 @@
 // StaffHolidays.jsx
 import { useEffect, useState } from 'react'
-import { getMyHols, requestHol, getMyHolidayStats } from '../../api/client'
+import { getMyHols, requestHol, getMyHolidayStats, amendHol, deleteHol } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
 const POLICY_TEXT = `The holiday year runs from 1 April to 31 March. You are entitled to four weeks of paid holiday per year. Each week of holiday is equivalent to your working week. If you work four days a week, you will be entitled to four days multiplied by four weeks, totaling 16 days holiday a year. The holiday must be accrued before it can be taken. This equates to 2.3 days of paid holiday (or an equivalent) per full month of employment. Holiday pay will be calculated on your average hours worked over the previous 3 months.`
@@ -9,6 +9,12 @@ function fmtD(iso) {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
+}
+
+const inputStyle = {
+  width:'100%', padding:'10px 12px', borderRadius:8, outline:'none',
+  border:'1.5px solid #d0e0d0', background:'#f8fbf8',
+  color:'#1a2a1a', fontFamily:'DM Sans,sans-serif', fontSize:14, boxSizing:'border-box',
 }
 
 export function StaffHolidays() {
@@ -21,6 +27,14 @@ export function StaffHolidays() {
   const [err,     setErr]    = useState('')
   const [ok,      setOk]     = useState('')
   const [infoOpen, setInfo]  = useState(false)
+
+  // edit / delete state
+  const [editHol,    setEditHol]    = useState(null)   // holiday being edited
+  const [editForm,   setEditForm]   = useState({})
+  const [editErr,    setEditErr]    = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [deleting,   setDeleting]   = useState(null)   // id being deleted
+  const [confirmDel, setConfirmDel] = useState(null)   // id to confirm delete
 
   // Calculator state
   const [daysInput,  setDaysInput]  = useState('')
@@ -66,6 +80,39 @@ export function StaffHolidays() {
     } catch(ex) { setErr(ex.response?.data?.detail || 'Request failed.') }
   }
 
+  function startEdit(h) {
+    setEditHol(h)
+    setEditForm({ from_date: h.from_date, to_date: h.to_date, note: h.note || '' })
+    setEditErr('')
+  }
+
+  async function saveEdit() {
+    if (!editForm.from_date || !editForm.to_date) { setEditErr('Please select both dates.'); return }
+    if (editForm.to_date < editForm.from_date)    { setEditErr('End date must be after start.'); return }
+    setEditSaving(true); setEditErr('')
+    try {
+      await amendHol(editHol.id, {
+        from_date: editForm.from_date,
+        to_date:   editForm.to_date,
+        note:      editForm.note || null,
+      })
+      setEditHol(null)
+      load()
+    } catch(ex) { setEditErr(ex.response?.data?.detail || 'Update failed.') }
+    finally { setEditSaving(false) }
+  }
+
+  async function confirmDelete() {
+    if (!confirmDel) return
+    setDeleting(confirmDel)
+    try {
+      await deleteHol(confirmDel)
+      setConfirmDel(null)
+      load()
+    } catch(ex) { alert(ex.response?.data?.detail || 'Delete failed.') }
+    finally { setDeleting(null) }
+  }
+
   const inp = (id, type='date', label) => (
     <div style={{ marginBottom:14 }}>
       <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>{label}</label>
@@ -89,6 +136,55 @@ export function StaffHolidays() {
               <button onClick={() => setInfo(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#6a8a6a' }}>✕</button>
             </div>
             <p style={{ fontSize:13, color:'#4a6a4a', lineHeight:1.8 }}>{POLICY_TEXT}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editHol && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={() => setEditHol(null)}>
+          <div style={{ background:'#fff', borderRadius:16, padding:'24px', maxWidth:400, width:'100%', boxShadow:'0 8px 40px rgba(0,0,0,.15)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#1a2a1a', marginBottom:16 }}>Edit Holiday Request</div>
+            {editErr && <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:8, padding:'10px 12px', fontSize:13, color:'#a02020', marginBottom:14 }}>⚠ {editErr}</div>}
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>From Date</label>
+              <input type="date" value={editForm.from_date} onChange={e => setEditForm(f => ({ ...f, from_date: e.target.value }))} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>To Date</label>
+              <input type="date" value={editForm.to_date} onChange={e => setEditForm(f => ({ ...f, to_date: e.target.value }))} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom:18 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Notes (optional)</label>
+              <textarea rows={2} value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))}
+                style={{ ...inputStyle, resize:'vertical' }} />
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setEditHol(null)} style={{ flex:1, padding:'11px', borderRadius:10, border:'1px solid #d0ddd0', background:'#f8fbf8', color:'#6a8a6a', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:600, cursor:'pointer' }}>Cancel</button>
+              <button onClick={saveEdit} disabled={editSaving} style={{ flex:2, padding:'11px', borderRadius:10, border:'none', background:c, color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:700, cursor:editSaving?'not-allowed':'pointer', opacity:editSaving?0.7:1 }}>
+                {editSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {confirmDel && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={() => setConfirmDel(null)}>
+          <div style={{ background:'#fff', borderRadius:16, padding:'24px', maxWidth:360, width:'100%', boxShadow:'0 8px 40px rgba(0,0,0,.15)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#1a2a1a', marginBottom:10 }}>Delete Holiday Request?</div>
+            <p style={{ fontSize:13, color:'#6a8a6a', marginBottom:20 }}>This will permanently remove the request. You can submit a new one if needed.</p>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setConfirmDel(null)} style={{ flex:1, padding:'11px', borderRadius:10, border:'1px solid #d0ddd0', background:'#f8fbf8', color:'#6a8a6a', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:600, cursor:'pointer' }}>Cancel</button>
+              <button onClick={confirmDelete} disabled={deleting === confirmDel} style={{ flex:1, padding:'11px', borderRadius:10, border:'none', background:'#e53535', color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                {deleting === confirmDel ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -177,22 +273,36 @@ export function StaffHolidays() {
       <div className="s-card">
         <div className="s-card-title">📋 My Requests</div>
         {data?.requests?.length ? data.requests.map(h => (
-          <div key={h.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 0', borderBottom:'1px solid #f0f4f0', flexWrap:'wrap' }}>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#1a2a1a' }}>{fmtD(h.from_date)} → {fmtD(h.to_date)} ({h.days} day{h.days !== 1 ? 's' : ''})</div>
-              {h.note && <div style={{ fontSize:12, color:'#6a8a6a', marginTop:2 }}>{h.note}</div>}
-            </div>
-            <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-              {h.holiday_pay_hours > 0 && (
-                <span style={{ padding:'3px 8px', borderRadius:12, fontSize:11, fontWeight:700, background:'#e8f8e0', color:'#3a7a20' }}>
-                  💰 {h.holiday_pay_hours}h pay
+          <div key={h.id} style={{ padding:'12px 0', borderBottom:'1px solid #f0f4f0' }}>
+            <div style={{ display:'flex', alignItems:'flex-start', gap:10, flexWrap:'wrap' }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#1a2a1a' }}>{fmtD(h.from_date)} → {fmtD(h.to_date)} ({h.days} day{h.days !== 1 ? 's' : ''})</div>
+                {h.note && <div style={{ fontSize:12, color:'#6a8a6a', marginTop:2 }}>{h.note}</div>}
+              </div>
+              <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                {h.holiday_pay_hours > 0 && (
+                  <span style={{ padding:'3px 8px', borderRadius:12, fontSize:11, fontWeight:700, background:'#e8f8e0', color:'#3a7a20' }}>
+                    💰 {h.holiday_pay_hours}h pay
+                  </span>
+                )}
+                <span style={{ padding:'3px 10px', borderRadius:12, fontSize:11, fontWeight:700,
+                  background: h.status==='approved'?'#e8f8e0':h.status==='rejected'?'#fde8e8':'#fef6e0',
+                  color:      h.status==='approved'?'#3a7a20':h.status==='rejected'?'#a02020':'#7a5000' }}>
+                  {h.status==='approved'?'✓ Approved':h.status==='rejected'?'✗ Rejected':'⏳ Pending'}
                 </span>
-              )}
-              <span style={{ padding:'3px 10px', borderRadius:12, fontSize:11, fontWeight:700,
-                background: h.status==='approved'?'#e8f8e0':h.status==='rejected'?'#fde8e8':'#fef6e0',
-                color:      h.status==='approved'?'#3a7a20':h.status==='rejected'?'#a02020':'#7a5000' }}>
-                {h.status==='approved'?'✓ Approved':h.status==='rejected'?'✗ Rejected':'⏳ Pending'}
-              </span>
+                {h.status === 'pending' && (
+                  <>
+                    <button onClick={() => startEdit(h)} style={{
+                      padding:'3px 10px', borderRadius:12, fontSize:11, fontWeight:700,
+                      border:'1px solid #b0c8b0', background:'transparent', color:'#4a7a4a', cursor:'pointer',
+                    }}>Edit</button>
+                    <button onClick={() => setConfirmDel(h.id)} style={{
+                      padding:'3px 10px', borderRadius:12, fontSize:11, fontWeight:700,
+                      border:'1px solid #e0a0a0', background:'transparent', color:'#a03030', cursor:'pointer',
+                    }}>Delete</button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )) : <p style={{ color:'#8aaa8a', fontSize:13 }}>No requests yet</p>}

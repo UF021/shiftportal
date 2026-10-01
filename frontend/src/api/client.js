@@ -72,11 +72,13 @@ export const deleteLog    = id      => api.delete(`/timelogs/${id}`)
 export const getAllLogs    = params  => api.get('/timelogs/all', { params })
 
 // Holidays
-export const getMyHols    = ()       => api.get('/holidays/my')
-export const requestHol   = d        => api.post('/holidays/', d)
-export const approveHol   = id      => api.patch(`/holidays/${id}/approve`)
-export const rejectHol    = id      => api.patch(`/holidays/${id}/reject`)
-export const getAllHols    = p       => api.get('/holidays/all', { params: p })
+export const getMyHols    = ()         => api.get('/holidays/my')
+export const requestHol   = d          => api.post('/holidays/', d)
+export const approveHol   = id         => api.patch(`/holidays/${id}/approve`)
+export const rejectHol    = id         => api.patch(`/holidays/${id}/reject`)
+export const amendHol     = (id, d)    => api.patch(`/holidays/${id}/amend`, d)
+export const deleteHol    = id         => api.delete(`/holidays/${id}`)
+export const getAllHols    = p          => api.get('/holidays/all', { params: p })
 
 // Org / HR
 export const getMyOrg     = ()  => api.get('/orgs/me')

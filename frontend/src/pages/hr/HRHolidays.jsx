@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
-import { getAllHols, getAllStaff, approveHol, rejectHol, getShiftAvg } from '../../api/client'
+import { getAllHols, getAllStaff, approveHol, rejectHol, getShiftAvg, amendHol, deleteHol } from '../../api/client'
 import { fmtDate, fmtDateTime } from '../../api/utils'
+
+const inputStyle = {
+  width:'100%', padding:'9px 12px', borderRadius:8, outline:'none',
+  border:'1px solid var(--border)', background:'var(--navy-light)',
+  color:'var(--text)', fontFamily:'DM Sans,sans-serif', fontSize:14, boxSizing:'border-box',
+}
 
 export default function HRHolidays() {
   const [hols,    setHols]    = useState([])
@@ -9,6 +15,14 @@ export default function HRHolidays() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [proc,    setProc]    = useState(null)
   const [confirm, setConfirm] = useState(null)   // { hol, avgHours, loading }
+
+  // edit / delete state
+  const [editHol,    setEditHol]    = useState(null)
+  const [editForm,   setEditForm]   = useState({})
+  const [editErr,    setEditErr]    = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(null)
+  const [deleting,   setDeleting]   = useState(null)
 
   const load = () => {
     getAllStaff().then(r => setStaff(r.data || [])).catch(() => {})
@@ -43,6 +57,39 @@ export default function HRHolidays() {
     try { await rejectHol(id); load() }
     catch(ex) { alert(ex.response?.data?.detail || 'Action failed') }
     finally { setProc(null) }
+  }
+
+  function startEdit(h) {
+    setEditHol(h)
+    setEditForm({ from_date: h.from_date, to_date: h.to_date, note: h.note || '' })
+    setEditErr('')
+  }
+
+  async function saveEdit() {
+    if (!editForm.from_date || !editForm.to_date) { setEditErr('Please select both dates.'); return }
+    if (editForm.to_date < editForm.from_date)    { setEditErr('End date must be after start.'); return }
+    setEditSaving(true); setEditErr('')
+    try {
+      await amendHol(editHol.id, {
+        from_date: editForm.from_date,
+        to_date:   editForm.to_date,
+        note:      editForm.note || null,
+      })
+      setEditHol(null)
+      load()
+    } catch(ex) { setEditErr(ex.response?.data?.detail || 'Update failed.') }
+    finally { setEditSaving(false) }
+  }
+
+  async function confirmDeleteHol() {
+    if (!confirmDel) return
+    setDeleting(confirmDel.id)
+    try {
+      await deleteHol(confirmDel.id)
+      setConfirmDel(null)
+      load()
+    } catch(ex) { alert(ex.response?.data?.detail || 'Delete failed.') }
+    finally { setDeleting(null) }
   }
 
   const staffType = id => staff.find(s => s.id === id)?.staff_type || 'payroll'
@@ -113,14 +160,21 @@ export default function HRHolidays() {
                     </div>
                   </td>
                   <td>
-                    {h.status === 'pending' && (
-                      <div style={{ display:'flex', gap:6 }}>
-                        <button onClick={() => startApprove(h)} disabled={proc === h.id} className="btn btn-brand" style={{ fontSize:11, padding:'5px 10px' }}>
-                          {proc === h.id ? '…' : '✓'}
-                        </button>
-                        <button onClick={() => handleReject(h.id)} disabled={proc === h.id} className="btn btn-danger" style={{ fontSize:11, padding:'5px 10px' }}>✗</button>
-                      </div>
-                    )}
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                      {h.status === 'pending' && (
+                        <>
+                          <button onClick={() => startApprove(h)} disabled={proc === h.id} className="btn btn-brand" style={{ fontSize:11, padding:'5px 10px' }}>
+                            {proc === h.id ? '…' : '✓'}
+                          </button>
+                          <button onClick={() => handleReject(h.id)} disabled={proc === h.id} className="btn btn-danger" style={{ fontSize:11, padding:'5px 10px' }}>✗</button>
+                        </>
+                      )}
+                      <button onClick={() => startEdit(h)} className="btn btn-outline" style={{ fontSize:11, padding:'5px 10px' }}>Edit</button>
+                      <button onClick={() => setConfirmDel({ id: h.id, name: name(h.user_id || h.staff_id), from: h.from_date, to: h.to_date })}
+                        className="btn btn-danger" style={{ fontSize:11, padding:'5px 10px', background:'transparent', color:'var(--red)' }}>
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )) : (
@@ -138,12 +192,8 @@ export default function HRHolidays() {
             <h3>Confirm Approval</h3>
             <p className="sub">Review holiday pay estimate before approving</p>
             <div style={{ background:'var(--navy-light)', borderRadius:10, padding:'16px', marginBottom:18, lineHeight:2 }}>
-              <div style={{ fontSize:14 }}>
-                <strong>Employee:</strong> {confirm.name}
-              </div>
-              <div style={{ fontSize:14 }}>
-                <strong>Days requested:</strong> {confirm.hol.days}
-              </div>
+              <div style={{ fontSize:14 }}><strong>Employee:</strong> {confirm.name}</div>
+              <div style={{ fontSize:14 }}><strong>Days requested:</strong> {confirm.hol.days}</div>
               <div style={{ fontSize:14 }}>
                 <strong>Average shift:</strong>{' '}
                 {confirm.loading ? 'Calculating…' : confirm.avgHours != null ? `${confirm.avgHours}h` : 'No clock data'}
@@ -163,6 +213,60 @@ export default function HRHolidays() {
               <button onClick={() => setConfirm(null)} className="btn btn-outline">Cancel</button>
               <button onClick={confirmApprove} disabled={confirm.loading || proc !== null} className="btn btn-brand">
                 {proc ? 'Approving…' : '✓ Confirm Approval'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editHol && (
+        <div className="modal-overlay" onClick={() => setEditHol(null)}>
+          <div className="modal" style={{ width:420 }} onClick={e => e.stopPropagation()}>
+            <h3>Edit Holiday Request</h3>
+            <p className="sub">{name(editHol.user_id || editHol.staff_id)} · currently {editHol.status}</p>
+            {editErr && <div style={{ background:'#fde8e8', border:'1px solid #e08080', borderRadius:8, padding:'10px 12px', fontSize:13, color:'#a02020', marginBottom:14 }}>⚠ {editErr}</div>}
+            {editHol.status === 'approved' && (
+              <div style={{ background:'#fef9e8', border:'1px solid #f0c060', borderRadius:8, padding:'10px 12px', fontSize:12, color:'#7a5000', marginBottom:14 }}>
+                ⚠ Changing dates on an approved holiday will recalculate holiday pay hours.
+              </div>
+            )}
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>From Date</label>
+              <input type="date" value={editForm.from_date} onChange={e => setEditForm(f => ({ ...f, from_date: e.target.value }))} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>To Date</label>
+              <input type="date" value={editForm.to_date} onChange={e => setEditForm(f => ({ ...f, to_date: e.target.value }))} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom:18 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Notes (optional)</label>
+              <textarea rows={2} value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))}
+                style={{ ...inputStyle, resize:'vertical' }} />
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setEditHol(null)} className="btn btn-outline">Cancel</button>
+              <button onClick={saveEdit} disabled={editSaving} className="btn btn-brand">
+                {editSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {confirmDel && (
+        <div className="modal-overlay" onClick={() => setConfirmDel(null)}>
+          <div className="modal" style={{ width:380 }} onClick={e => e.stopPropagation()}>
+            <h3>Delete Holiday Request?</h3>
+            <p className="sub">{confirmDel.name} · {fmtDate(confirmDel.from)} → {fmtDate(confirmDel.to)}</p>
+            <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:20 }}>
+              This will permanently remove the request and update payroll calculations accordingly.
+            </p>
+            <div className="modal-footer">
+              <button onClick={() => setConfirmDel(null)} className="btn btn-outline">Cancel</button>
+              <button onClick={confirmDeleteHol} disabled={deleting === confirmDel?.id} className="btn btn-danger">
+                {deleting === confirmDel?.id ? 'Deleting…' : 'Delete Request'}
               </button>
             </div>
           </div>

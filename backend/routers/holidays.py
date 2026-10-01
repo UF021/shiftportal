@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime, timezone, timedelta
 
 from database import get_db
-from schemas import HolidayCreate, HolidayOut, HolidaySummary
+from schemas import HolidayCreate, HolidayAmend, HolidayOut, HolidaySummary
 from auth_utils import get_current_user, require_hr, org_guard
 from audit_utils import log_action
 from email_utils import send_email, org_sender, org_reply_to
@@ -14,6 +14,23 @@ UK_TZ = pytz.timezone('Europe/London')
 
 router = APIRouter()
 ALLOWANCE = 20
+
+_HR_ROLES = (models.UserRole.hr, models.UserRole.manager, models.UserRole.superadmin)
+
+
+def _recalc_holiday_pay(h: models.Holiday, db: Session):
+    """Recalculate holiday_pay_hours for an approved holiday based on last-3-months avg."""
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=91)
+    clock_outs = db.query(models.ClockEvent).filter(
+        models.ClockEvent.user_id    == h.user_id,
+        models.ClockEvent.event_type == models.ClockEventType.clock_out,
+        models.ClockEvent.shift_minutes != None,
+        models.ClockEvent.timestamp  >= three_months_ago,
+    ).all()
+    if clock_outs:
+        avg_mins = sum(e.shift_minutes for e in clock_outs) / len(clock_outs)
+        h.holiday_pay_hours   = round(h.days * (avg_mins / 60), 2)
+        h.holiday_pay_flagged = True
 
 
 @router.post("/", response_model=HolidayOut, status_code=201)
@@ -68,20 +85,7 @@ def approve(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depend
     if not h: raise HTTPException(404, "Not found")
     org_guard(hr, h.organisation_id)
 
-    # Calculate holiday pay from last 3 months of clock events
-    three_months_ago = datetime.now(timezone.utc) - timedelta(days=91)
-    clock_outs = db.query(models.ClockEvent).filter(
-        models.ClockEvent.user_id    == h.user_id,
-        models.ClockEvent.event_type == models.ClockEventType.clock_out,
-        models.ClockEvent.shift_minutes != None,
-        models.ClockEvent.timestamp  >= three_months_ago,
-    ).all()
-    if clock_outs:
-        avg_shift_mins = sum(e.shift_minutes for e in clock_outs) / len(clock_outs)
-        avg_shift_hours = round(avg_shift_mins / 60, 2)
-        h.holiday_pay_hours   = round(h.days * avg_shift_hours, 2)
-        h.holiday_pay_flagged = True
-
+    _recalc_holiday_pay(h, db)
     h.status         = models.HolidayStatus.approved
     h.reviewed_at    = datetime.now(timezone.utc)
     h.reviewed_by_id = hr.id
@@ -143,6 +147,82 @@ def reject(hol_id: int, db: Session = Depends(get_db), hr: models.User = Depends
             reply_to  = org_reply_to(org) if org else None,
         )
     return {"message": "Rejected"}
+
+
+@router.patch("/{hol_id}/amend")
+def amend(
+    hol_id: int,
+    req:    HolidayAmend,
+    db:     Session = Depends(get_db),
+    user:   models.User = Depends(get_current_user),
+):
+    h = db.query(models.Holiday).filter(models.Holiday.id == hol_id).first()
+    if not h: raise HTTPException(404, "Not found")
+
+    is_hr = user.role in _HR_ROLES
+    if is_hr:
+        org_guard(user, h.organisation_id)
+    else:
+        if h.user_id != user.id:
+            raise HTTPException(403, "You can only amend your own requests")
+        if h.status != models.HolidayStatus.pending:
+            raise HTTPException(400, "Only pending requests can be amended. Contact HR to change an approved holiday.")
+
+    from_date = req.from_date if req.from_date is not None else h.from_date
+    to_date   = req.to_date   if req.to_date   is not None else h.to_date
+
+    if to_date < from_date:
+        raise HTTPException(400, "End date must be after start date")
+
+    if not is_hr:
+        ahead = (from_date - date.today()).days
+        if ahead < 28:
+            raise HTTPException(400,
+                f"Requests must be at least 4 weeks in advance. Your date is {ahead} day(s) away.")
+
+    was_approved = h.status == models.HolidayStatus.approved
+    dates_changed = (from_date != h.from_date or to_date != h.to_date)
+
+    h.from_date = from_date
+    h.to_date   = to_date
+    h.days      = (to_date - from_date).days + 1
+    if req.note is not None:
+        h.note = req.note
+
+    if was_approved and dates_changed:
+        _recalc_holiday_pay(h, db)
+
+    log_action(db, h.organisation_id, user, 'holiday.amend', 'holiday', h.id,
+               str(h.user_id),
+               {"from_date": str(h.from_date), "to_date": str(h.to_date), "days": h.days, "by": user.email})
+    db.commit()
+    db.refresh(h)
+    return h
+
+
+@router.delete("/{hol_id}", status_code=204)
+def delete_holiday(
+    hol_id: int,
+    db:     Session = Depends(get_db),
+    user:   models.User = Depends(get_current_user),
+):
+    h = db.query(models.Holiday).filter(models.Holiday.id == hol_id).first()
+    if not h: raise HTTPException(404, "Not found")
+
+    is_hr = user.role in _HR_ROLES
+    if is_hr:
+        org_guard(user, h.organisation_id)
+    else:
+        if h.user_id != user.id:
+            raise HTTPException(403, "You can only delete your own requests")
+        if h.status != models.HolidayStatus.pending:
+            raise HTTPException(400, "Only pending requests can be deleted. Contact HR to remove an approved holiday.")
+
+    log_action(db, h.organisation_id, user, 'holiday.delete', 'holiday', h.id,
+               str(h.user_id),
+               {"from_date": str(h.from_date), "to_date": str(h.to_date), "status": h.status.value, "by": user.email})
+    db.delete(h)
+    db.commit()
 
 
 @router.get("/all")
