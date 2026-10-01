@@ -204,6 +204,7 @@ class EditUserRequest(BaseModel):
 
 
 class UpdateMyDetailsRequest(BaseModel):
+    email:           Optional[str]  = None
     phone:           Optional[str]  = None
     date_of_birth:   Optional[date] = None
     nationality:     Optional[str]  = None

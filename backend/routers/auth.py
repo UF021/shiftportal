@@ -262,6 +262,7 @@ def get_me(current_user: models.User = Depends(get_current_user)):
 
 
 _DETAIL_FIELD_LABELS = {
+    'email':         'Email Address',
     'phone':         'Phone',
     'date_of_birth': 'Date of Birth',
     'nationality':   'Nationality',
@@ -287,6 +288,18 @@ def update_my_details(
 
     if current_user.role != models.UserRole.staff:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only staff accounts can use this endpoint")
+
+    if req.email is not None:
+        email = req.email.strip().lower()
+        if not email or '@' not in email:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Please enter a valid email address")
+        taken = db.query(models.User).filter(
+            models.User.email == email,
+            models.User.id    != current_user.id,
+        ).first()
+        if taken:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "That email address is already in use")
+        req = req.model_copy(update={'email': email})
 
     changes = {}
     for field, label in _DETAIL_FIELD_LABELS.items():

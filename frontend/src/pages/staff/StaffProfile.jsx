@@ -71,6 +71,7 @@ export default function StaffProfile() {
 
   function startEdit() {
     setForm({
+      email:         user?.email         || '',
       phone:         user?.phone         || '',
       date_of_birth: user?.date_of_birth || '',
       nationality:   user?.nationality   || '',
@@ -115,9 +116,11 @@ export default function StaffProfile() {
   }
 
   async function save() {
+    if (!form.email?.trim() || !form.email.includes('@')) { setErr('Please enter a valid email address.'); return }
     setSaving(true); setErr('')
     try {
       await updateMyDetails({
+        email:         form.email.trim().toLowerCase(),
         phone:         form.phone         || null,
         date_of_birth: form.date_of_birth || null,
         nationality:   form.nationality   || null,
@@ -329,6 +332,7 @@ export default function StaffProfile() {
           <>
             <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', color:'#8aaa8a', marginBottom:8 }}>Personal</div>
             <PF label="Full Name"    value={`${user?.first_name||''} ${user?.last_name||''}`} />
+            <PF label="Email"        value={user?.email} />
             <PF label="Phone"        value={user?.phone} />
             <PF label="Date of Birth" value={fmtDate(user?.date_of_birth)} />
             <PF label="Nationality"  value={user?.nationality} />
@@ -353,6 +357,10 @@ export default function StaffProfile() {
               <div style={{ fontSize:11, fontWeight:700, color:'#8aaa8a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:3 }}>Full Name</div>
               <div style={{ fontSize:14, color:'#4a6a4a' }}>{user?.first_name} {user?.last_name} <span style={{ fontSize:11, color:'#aaa' }}>(contact HR to change name)</span></div>
             </div>
+
+            <FField label="Email Address">
+              <input style={inputStyle} type="email" value={form.email} onChange={set('email')} placeholder="e.g. you@example.com" />
+            </FField>
 
             <FField label="Phone">
               <input style={inputStyle} value={form.phone} onChange={set('phone')} placeholder="e.g. 07700 900000" />
