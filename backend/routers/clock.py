@@ -613,17 +613,22 @@ def manual_shift(
     db:   Session = Depends(get_db),
     hr:   models.User = Depends(require_hr),
 ):
+    is_sa = hr.role == models.UserRole.superadmin
     staff = db.query(models.User).filter(models.User.id == body.user_id).first()
-    if not staff or staff.organisation_id != hr.organisation_id:
+    if not staff or (not is_sa and staff.organisation_id != hr.organisation_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff member not found")
 
-    site = db.query(models.Site).filter(
-        models.Site.id              == body.site_id,
-        models.Site.organisation_id == hr.organisation_id,
-        models.Site.is_active       == True,
-    ).first()
+    site_q = db.query(models.Site).filter(
+        models.Site.id       == body.site_id,
+        models.Site.is_active == True,
+    )
+    if not is_sa:
+        site_q = site_q.filter(models.Site.organisation_id == hr.organisation_id)
+    site = site_q.first()
     if not site:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Site not found")
+
+    org_id = staff.organisation_id if is_sa else hr.organisation_id
 
     in_h, in_m = map(int, body.clock_in_time.split(':'))
     clock_in_dt = _localize_uk(body.date.year, body.date.month, body.date.day, in_h, in_m)
@@ -631,7 +636,7 @@ def manual_shift(
     notes = body.entry_notes if body.entry_notes is not None else ""
 
     in_event = models.ClockEvent(
-        organisation_id = hr.organisation_id,
+        organisation_id = org_id,
         user_id         = body.user_id,
         site_id         = site.id,
         event_type      = models.ClockEventType.clock_in,
@@ -653,7 +658,7 @@ def manual_shift(
         eff_start = _effective_start(clock_in_dt, body.scheduled_start)
         shift_minutes = int((clock_out_dt - eff_start).total_seconds() / 60)
         out_event = models.ClockEvent(
-            organisation_id = hr.organisation_id,
+            organisation_id = org_id,
             user_id         = body.user_id,
             site_id         = site.id,
             event_type      = models.ClockEventType.clock_out,
@@ -665,7 +670,7 @@ def manual_shift(
 
     # Flush so DB assigns IDs before we read them
     db.flush()
-    log_action(db, hr.organisation_id, hr, 'shift.manual_add', 'shift', in_event.id,
+    log_action(db, org_id, hr, 'shift.manual_add', 'shift', in_event.id,
                staff.full_name,
                {"date": body.date.isoformat(), "clock_in": body.clock_in_time,
                 "clock_out": body.clock_out_time, "shift_minutes": shift_minutes})
