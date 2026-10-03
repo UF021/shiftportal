@@ -3,6 +3,28 @@ import { useEffect, useState } from 'react'
 import { getMyHols, requestHol, getMyHolidayStats, amendHol, deleteHol } from '../../api/client'
 import { useBrand } from '../../api/BrandContext'
 
+const STAFF_LEAVE_TYPES = [
+  { value: 'holiday',  label: '🏖 Holiday',  note: '4+ weeks advance notice required' },
+  { value: 'sick',     label: '🤒 Sick Leave', note: 'Can be submitted retrospectively' },
+  { value: 'other',   label: '📋 Other',      note: 'Contact HR for maternity/paternity' },
+]
+
+const LEAVE_LABELS = {
+  holiday:   '🏖 Holiday',
+  maternity: '👶 Maternity',
+  paternity: '👨‍👦 Paternity',
+  sick:      '🤒 Sick',
+  other:     '📋 Other',
+}
+
+const LEAVE_COLORS = {
+  holiday:   { bg:'#e8f5e9', color:'#2e7d32' },
+  maternity: { bg:'#f3e5f5', color:'#6a1b9a' },
+  paternity: { bg:'#e8f5e9', color:'#1b5e20' },
+  sick:      { bg:'#fff3e0', color:'#e65100' },
+  other:     { bg:'#f5f5f5', color:'#424242' },
+}
+
 const POLICY_TEXT = `The holiday year runs from 1 April to 31 March. You are entitled to four weeks of paid holiday per year. Each week of holiday is equivalent to your working week. If you work four days a week, you will be entitled to four days multiplied by four weeks, totaling 16 days holiday a year. The holiday must be accrued before it can be taken. This equates to 2.3 days of paid holiday (or an equivalent) per full month of employment. Holiday pay will be calculated on your average hours worked over the previous 3 months.`
 
 function fmtD(iso) {
@@ -23,7 +45,7 @@ export function StaffHolidays() {
 
   const [data,    setData]   = useState(null)
   const [stats,   setStats]  = useState(null)
-  const [form,    setForm]   = useState({ from_date:'', to_date:'', note:'' })
+  const [form,    setForm]   = useState({ from_date:'', to_date:'', note:'', leave_type:'holiday' })
   const [err,     setErr]    = useState('')
   const [ok,      setOk]     = useState('')
   const [infoOpen, setInfo]  = useState(false)
@@ -74,9 +96,9 @@ export function StaffHolidays() {
     if (!form.from_date || !form.to_date) return setErr('Please select both dates.')
     if (form.to_date < form.from_date)    return setErr('End date must be after start.')
     try {
-      await requestHol({ from_date: form.from_date, to_date: form.to_date, note: form.note })
+      await requestHol({ from_date: form.from_date, to_date: form.to_date, note: form.note, leave_type: form.leave_type })
       setOk('✅ Request submitted. HR will respond within 2 working days.')
-      setForm({ from_date:'', to_date:'', note:'' }); load()
+      setForm({ from_date:'', to_date:'', note:'', leave_type:'holiday' }); load()
     } catch(ex) { setErr(ex.response?.data?.detail || 'Request failed.') }
   }
 
@@ -253,7 +275,24 @@ export function StaffHolidays() {
 
       {/* Request form */}
       <div className="s-card">
-        <div className="s-card-title">➕ Request Holiday</div>
+        <div className="s-card-title">➕ Submit Leave Request</div>
+        <div style={{ marginBottom:14 }}>
+          <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6a8a6a', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>Leave Type</label>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            {STAFF_LEAVE_TYPES.map(t => (
+              <button key={t.value} onClick={() => setForm(f => ({ ...f, leave_type: t.value }))} style={{
+                flex:1, minWidth:90, padding:'10px 8px', borderRadius:10, cursor:'pointer',
+                border: form.leave_type === t.value ? `2px solid ${c}` : '1.5px solid #d0e0d0',
+                background: form.leave_type === t.value ? `${c}18` : '#f8fbf8',
+                color: form.leave_type === t.value ? c : '#6a8a6a',
+                fontFamily:'DM Sans,sans-serif', fontSize:12, fontWeight:700, textAlign:'center', lineHeight:1.5,
+              }}>
+                <div>{t.label}</div>
+                <div style={{ fontSize:10, fontWeight:400, marginTop:2 }}>{t.note}</div>
+              </button>
+            ))}
+          </div>
+        </div>
         {inp('from_date', 'date', 'From Date')}
         {inp('to_date',   'date', 'To Date')}
         <div style={{ marginBottom:14 }}>
@@ -277,7 +316,14 @@ export function StaffHolidays() {
             <div style={{ display:'flex', alignItems:'flex-start', gap:10, flexWrap:'wrap' }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:13, fontWeight:600, color:'#1a2a1a' }}>{fmtD(h.from_date)} → {fmtD(h.to_date)} ({h.days} day{h.days !== 1 ? 's' : ''})</div>
-                {h.note && <div style={{ fontSize:12, color:'#6a8a6a', marginTop:2 }}>{h.note}</div>}
+                <div style={{ marginTop:3, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                  {(() => { const lc = LEAVE_COLORS[h.leave_type || 'holiday']; return (
+                    <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:10, background:lc.bg, color:lc.color }}>
+                      {LEAVE_LABELS[h.leave_type || 'holiday']}
+                    </span>
+                  )})()}
+                  {h.note && <span style={{ fontSize:12, color:'#6a8a6a' }}>{h.note}</span>}
+                </div>
               </div>
               <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
                 {h.holiday_pay_hours > 0 && (

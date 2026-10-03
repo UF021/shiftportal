@@ -7,6 +7,23 @@ function fmtDate(iso) {
   return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+const LEAVE_META = {
+  holiday:   { label:'🏖 Holiday',   color:'#1565c0', bg:'rgba(21,101,192,.12)' },
+  maternity: { label:'👶 Maternity', color:'#6a1b9a', bg:'rgba(106,27,154,.12)' },
+  paternity: { label:'👨‍👦 Paternity',color:'#1b5e20', bg:'rgba(27,94,32,.12)'  },
+  sick:      { label:'🤒 Sick',      color:'#e65100', bg:'rgba(230,81,0,.12)'    },
+  other:     { label:'📋 Other',     color:'#4a4a4a', bg:'rgba(74,74,74,.12)'   },
+}
+
+function LeaveTag({ type }) {
+  const m = LEAVE_META[type || 'holiday'] || LEAVE_META.holiday
+  return (
+    <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, color:m.color, background:m.bg }}>
+      {m.label}
+    </span>
+  )
+}
+
 export default function ManagerHolidays() {
   const { colour } = useBrand()
   const c = colour || '#6abf3f'
@@ -73,7 +90,10 @@ export default function ManagerHolidays() {
           }}>
             {/* Info */}
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{h.user_name}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{h.user_name}</div>
+                <LeaveTag type={h.leave_type} />
+              </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                 {fmtDate(h.from_date)} → {fmtDate(h.to_date)}
                 <span style={{ marginLeft: 8, fontFamily: 'DM Mono,monospace', color: c, fontWeight: 700 }}>

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useBrand } from '../../api/BrandContext'
-import api, { updatePayrollNumber } from '../../api/client'
+import api, { updatePayrollNumber, getPayrollStaffNums } from '../../api/client'
 
 function PayrollNumberInput({ userId, initial }) {
   const [val,    setVal]    = useState(initial || '')
@@ -142,6 +142,19 @@ export default function HRPayroll() {
   const [dlBusy,   setDlBusy]   = useState(false)
   const [dlMenu,   setDlMenu]   = useState(false)
 
+  // Payroll numbers panel
+  const [pnOpen,   setPnOpen]   = useState(false)
+  const [pnStaff,  setPnStaff]  = useState([])
+  const [pnSearch, setPnSearch] = useState('')
+
+  useEffect(() => {
+    getPayrollStaffNums().then(r => setPnStaff(r.data || [])).catch(() => {})
+  }, [])
+
+  const pnFiltered = pnStaff.filter(s =>
+    !pnSearch || s.name.toLowerCase().includes(pnSearch.toLowerCase())
+  )
+
   async function load() {
     if (!from || !to) return
     setLoading(true); setErr(''); setData(null)
@@ -195,10 +208,11 @@ export default function HRPayroll() {
 
   function EmployeeTable({ rows, sectionLabel }) {
     if (!rows.length) return null
-    const sectionHours  = rows.reduce((s, e) => s + e.hours, 0)
-    const sectionGross  = rows.reduce((s, e) => s + e.gross_pay, 0)
-    const sectionBH     = rows.reduce((s, e) => s + (e.bank_holiday_hours || 0), 0)
-    const sectionHolPay = rows.reduce((s, e) => s + (e.holiday_pay_hours  || 0), 0)
+    const sectionHours    = rows.reduce((s, e) => s + e.hours, 0)
+    const sectionGross    = rows.reduce((s, e) => s + e.gross_pay, 0)
+    const sectionBH       = rows.reduce((s, e) => s + (e.bank_holiday_hours  || 0), 0)
+    const sectionHolPay   = rows.reduce((s, e) => s + (e.holiday_pay_hours   || 0), 0)
+    const sectionParental = rows.reduce((s, e) => s + (e.parental_leave_days || 0), 0)
     return (
       <div style={{ marginBottom: 24 }}>
         <div style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--navy)', borderBottom: '1px solid var(--border)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
@@ -221,6 +235,7 @@ export default function HRPayroll() {
                 <TH right>Hours</TH>
                 <TH right>Bank Hol</TH>
                 <TH right>Hol Pay</TH>
+                <TH right>Parental</TH>
                 <TH right>Gross Pay</TH>
                 <TH>Staff ID</TH>
               </tr>
@@ -257,6 +272,7 @@ export default function HRPayroll() {
                     <TD mono right col={c}>{fmtHours(e.hours)}</TD>
                     <TD mono right col={e.bank_holiday_hours > 0 ? '#fcd34d' : 'var(--text-muted)'}>{e.bank_holiday_hours > 0 ? fmtHours(e.bank_holiday_hours) : '—'}</TD>
                     <TD mono right col={e.holiday_pay_hours > 0 ? '#86efac' : 'var(--text-muted)'}>{e.holiday_pay_hours > 0 ? fmtHours(e.holiday_pay_hours) : '—'}</TD>
+                    <TD mono right col={e.parental_leave_days > 0 ? '#c084fc' : 'var(--text-muted)'}>{e.parental_leave_days > 0 ? `${e.parental_leave_days}d` : '—'}</TD>
                     <TD mono right bold col={c}>{e.gross_pay > 0 ? fmtCurrency(e.gross_pay) : '—'}</TD>
                     <TD mono col="var(--text-muted)">{e.staff_id}</TD>
                   </tr>
@@ -266,6 +282,7 @@ export default function HRPayroll() {
                 <TD mono right bold col={c}>{fmtHours(sectionHours)}</TD>
                 <TD mono right bold col="#fcd34d">{sectionBH > 0 ? fmtHours(sectionBH) : '—'}</TD>
                 <TD mono right bold col="#86efac">{sectionHolPay > 0 ? fmtHours(sectionHolPay) : '—'}</TD>
+                <TD mono right bold col="#c084fc">{sectionParental > 0 ? `${sectionParental}d` : '—'}</TD>
                 <TD mono right bold col={c}>{fmtCurrency(sectionGross)}</TD>
                 <td />
               </tr>
@@ -283,6 +300,41 @@ export default function HRPayroll() {
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
           Hours × pay rate per employee · export to CSV for Xero / QuickBooks
         </div>
+      </div>
+
+      {/* Payroll Numbers panel */}
+      <div style={{ background:'var(--navy-mid)', border:'1px solid var(--border)', borderRadius:10, marginBottom:14, overflow:'hidden' }}>
+        <button onClick={() => setPnOpen(v => !v)} style={{
+          width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+          padding:'13px 18px', background:'transparent', border:'none', cursor:'pointer',
+          fontFamily:'DM Sans,sans-serif', color:'var(--text)',
+        }}>
+          <span style={{ fontSize:13, fontWeight:700 }}>📋 Payroll Numbers — {pnStaff.length} staff</span>
+          <span style={{ fontSize:12, color:'var(--text-muted)', marginLeft:8 }}>{pnOpen ? '▲ Hide' : '▼ Manage'}</span>
+        </button>
+        {pnOpen && (
+          <div style={{ borderTop:'1px solid var(--border)', padding:'14px 18px' }}>
+            <input
+              type="text" placeholder="Search by name…" value={pnSearch}
+              onChange={e => setPnSearch(e.target.value)}
+              style={{ width:'100%', padding:'8px 12px', borderRadius:7, border:'1px solid var(--border)', background:'var(--navy)', color:'var(--text)', fontSize:13, fontFamily:'DM Sans,sans-serif', outline:'none', marginBottom:12, boxSizing:'border-box' }}
+            />
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:8 }}>
+              {pnFiltered.map(s => (
+                <div key={s.user_id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:'8px 10px', borderRadius:7, background:'var(--navy)' }}>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</div>
+                    <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:1 }}>
+                      <TypeBadge type={s.staff_type} />
+                    </div>
+                  </div>
+                  <PayrollNumberInput userId={s.user_id} initial={s.payroll_number || ''} />
+                </div>
+              ))}
+            </div>
+            {pnFiltered.length === 0 && <div style={{ fontSize:12, color:'var(--text-muted)', textAlign:'center', padding:16 }}>No staff match</div>}
+          </div>
+        )}
       </div>
 
       {/* Period selector */}
@@ -432,6 +484,14 @@ export default function HRPayroll() {
                         {fmtHours(data.employees.reduce((s, e) => s + (e.holiday_pay_hours || 0), 0))}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Holiday Pay</div>
+                    </div>
+                  )}
+                  {data.employees.some(e => (e.parental_leave_days || 0) > 0) && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'DM Mono,monospace', color: '#c084fc' }}>
+                        {data.employees.reduce((s, e) => s + (e.parental_leave_days || 0), 0)}d
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Parental Leave</div>
                     </div>
                   )}
                   <div style={{ textAlign: 'right' }}>
