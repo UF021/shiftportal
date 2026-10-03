@@ -301,9 +301,19 @@ class HolidayOut(BaseModel):
 
 
 class HolidayAmend(BaseModel):
-    from_date: Optional[date] = None
-    to_date:   Optional[date] = None
-    note:      Optional[str]  = None
+    from_date:  Optional[date] = None
+    to_date:    Optional[date] = None
+    note:       Optional[str]  = None
+    leave_type: Optional[str]  = None
+
+
+class HRLeaveCreate(BaseModel):
+    user_id:    int
+    from_date:  date
+    to_date:    date
+    note:       Optional[str] = None
+    leave_type: Optional[str] = "holiday"
+    status:     Optional[str] = "approved"
 
 
 class HolidaySummary(BaseModel):

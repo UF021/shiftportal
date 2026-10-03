@@ -79,6 +79,7 @@ export const rejectHol    = id         => api.patch(`/holidays/${id}/reject`)
 export const amendHol     = (id, d)    => api.patch(`/holidays/${id}/amend`, d)
 export const deleteHol    = id         => api.delete(`/holidays/${id}`)
 export const getAllHols    = p          => api.get('/holidays/all', { params: p })
+export const hrCreateLeave = d         => api.post('/holidays/hr-create', d)
 
 // Org / HR
 export const getMyOrg     = ()  => api.get('/orgs/me')

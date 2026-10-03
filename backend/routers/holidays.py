@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime, timezone, timedelta
 
 from database import get_db
-from schemas import HolidayCreate, HolidayAmend, HolidayOut, HolidaySummary
+from schemas import HolidayCreate, HolidayAmend, HolidayOut, HolidaySummary, HRLeaveCreate
 from auth_utils import get_current_user, require_hr, org_guard
 from audit_utils import log_action
 from email_utils import send_email, org_sender, org_reply_to
@@ -18,8 +18,15 @@ ALLOWANCE = 20
 _HR_ROLES = (models.UserRole.hr, models.UserRole.manager, models.UserRole.superadmin)
 
 
+_PARENTAL_TYPES = {models.LeaveType.maternity, models.LeaveType.paternity}
+
+
 def _recalc_holiday_pay(h: models.Holiday, db: Session):
-    """Recalculate holiday_pay_hours for an approved holiday based on last-3-months avg."""
+    """Recalculate holiday_pay_hours for an approved holiday (not for parental/sick leave)."""
+    leave = getattr(h, 'leave_type', models.LeaveType.holiday)
+    if leave in _PARENTAL_TYPES or leave == models.LeaveType.sick:
+        h.holiday_pay_hours = None
+        return
     three_months_ago = datetime.now(timezone.utc) - timedelta(days=91)
     clock_outs = db.query(models.ClockEvent).filter(
         models.ClockEvent.user_id    == h.user_id,
@@ -41,13 +48,15 @@ def request(
 ):
     if req.to_date < req.from_date:
         raise HTTPException(400, "End date must be after start date")
-    ahead = (req.from_date - date.today()).days
-    if ahead < 28:
-        raise HTTPException(
-            400,
-            f"Requests must be submitted at least 4 weeks in advance. "
-            f"Your selected date is {ahead} day(s) away."
-        )
+    leave_type = models.LeaveType(req.leave_type) if req.leave_type else models.LeaveType.holiday
+    if leave_type == models.LeaveType.holiday:
+        ahead = (req.from_date - date.today()).days
+        if ahead < 28:
+            raise HTTPException(
+                400,
+                f"Requests must be submitted at least 4 weeks in advance. "
+                f"Your selected date is {ahead} day(s) away."
+            )
     days = (req.to_date - req.from_date).days + 1
     h = models.Holiday(
         organisation_id = user.organisation_id,
@@ -56,6 +65,7 @@ def request(
         to_date         = req.to_date,
         days            = days,
         note            = req.note,
+        leave_type      = leave_type,
         status          = models.HolidayStatus.pending,
     )
     db.add(h); db.commit(); db.refresh(h)
@@ -188,6 +198,8 @@ def amend(
     h.days      = (to_date - from_date).days + 1
     if req.note is not None:
         h.note = req.note
+    if is_hr and hasattr(req, 'leave_type') and req.leave_type is not None:
+        h.leave_type = models.LeaveType(req.leave_type)
 
     if was_approved and dates_changed:
         _recalc_holiday_pay(h, db)
@@ -223,6 +235,46 @@ def delete_holiday(
                {"from_date": str(h.from_date), "to_date": str(h.to_date), "status": h.status.value, "by": user.email})
     db.delete(h)
     db.commit()
+
+
+@router.post("/hr-create", response_model=HolidayOut, status_code=201)
+def hr_create_leave(
+    req: HRLeaveCreate,
+    db:  Session = Depends(get_db),
+    hr:  models.User = Depends(require_hr),
+):
+    """HR creates a leave record on behalf of any staff member (no 4-week restriction)."""
+    if req.to_date < req.from_date:
+        raise HTTPException(400, "End date must be after start date")
+    staff = db.query(models.User).filter(
+        models.User.id              == req.user_id,
+        models.User.organisation_id == hr.organisation_id,
+    ).first()
+    if not staff:
+        raise HTTPException(404, "Staff member not found")
+    days       = (req.to_date - req.from_date).days + 1
+    leave_type = models.LeaveType(req.leave_type) if req.leave_type else models.LeaveType.holiday
+    status     = models.HolidayStatus(req.status) if req.status else models.HolidayStatus.approved
+    h = models.Holiday(
+        organisation_id = hr.organisation_id,
+        user_id         = req.user_id,
+        from_date       = req.from_date,
+        to_date         = req.to_date,
+        days            = days,
+        note            = req.note,
+        leave_type      = leave_type,
+        status          = status,
+        reviewed_at     = datetime.now(timezone.utc) if status == models.HolidayStatus.approved else None,
+        reviewed_by_id  = hr.id if status == models.HolidayStatus.approved else None,
+    )
+    if status == models.HolidayStatus.approved:
+        _recalc_holiday_pay(h, db)
+    db.add(h); db.commit(); db.refresh(h)
+    log_action(db, hr.organisation_id, hr, 'holiday.hr_create', 'holiday', h.id,
+               staff.full_name,
+               {"leave_type": leave_type.value, "from_date": str(req.from_date),
+                "to_date": str(req.to_date), "days": days, "status": status.value})
+    return h
 
 
 @router.get("/all")
