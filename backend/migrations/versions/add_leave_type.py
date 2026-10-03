@@ -16,18 +16,36 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE leavetype AS ENUM ('holiday', 'maternity', 'paternity', 'sick', 'other')")
-    op.add_column(
-        'holidays',
-        sa.Column(
-            'leave_type',
-            sa.Enum('holiday', 'maternity', 'paternity', 'sick', 'other', name='leavetype'),
-            nullable=False,
-            server_default='holiday',
-        )
-    )
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'leavetype') THEN
+                CREATE TYPE leavetype AS ENUM ('holiday', 'maternity', 'paternity', 'sick', 'other');
+            END IF;
+        END $$;
+    """)
+    # skip if column already exists (idempotent re-run)
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='holidays' AND column_name='leave_type'
+            ) THEN
+                ALTER TABLE holidays
+                    ADD COLUMN leave_type leavetype NOT NULL DEFAULT 'holiday';
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:
-    op.drop_column('holidays', 'leave_type')
-    op.execute("DROP TYPE leavetype")
+    op.execute("""
+        DO $$ BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='holidays' AND column_name='leave_type'
+            ) THEN
+                ALTER TABLE holidays DROP COLUMN leave_type;
+            END IF;
+        END $$;
+    """)
+    op.execute("DROP TYPE IF EXISTS leavetype")
