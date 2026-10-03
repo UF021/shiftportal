@@ -49,6 +49,14 @@ class HolidayStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class LeaveType(str, enum.Enum):
+    holiday    = "holiday"
+    maternity  = "maternity"
+    paternity  = "paternity"
+    sick       = "sick"
+    other      = "other"
+
+
 class SubscriptionPlan(str, enum.Enum):
     trial      = "trial"       # 30-day free trial — up to 10 staff, 1 site
     starter    = "starter"     # £149/mo — up to 50 staff, 3 sites
@@ -347,6 +355,7 @@ class Holiday(Base):
     note            = Column(Text, nullable=True)
     status          = Column(SAEnum(HolidayStatus), default=HolidayStatus.pending)
 
+    leave_type          = Column(SAEnum(LeaveType), default=LeaveType.holiday, nullable=False, server_default="holiday")
     holiday_pay_hours   = Column(Float,   nullable=True)
     holiday_pay_flagged = Column(Boolean, default=False)
 

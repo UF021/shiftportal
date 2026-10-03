@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from auth_utils import require_hr
+from auth_utils import require_hr, org_guard
 from bank_holidays import is_bank_holiday
 import models
 
@@ -71,25 +71,31 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
         if is_bank_holiday(date_str):
             user_bh_mins[uid] += co.shift_minutes
 
-    # Holiday pay from approved Holiday records (prorated for days within this period)
+    # Holiday pay and parental leave from approved leave records
     approved_hols = (
         db.query(models.Holiday)
         .filter(
             models.Holiday.organisation_id == org_id,
             models.Holiday.status          == models.HolidayStatus.approved,
-            models.Holiday.holiday_pay_hours > 0,
             models.Holiday.from_date       <= to_date,
             models.Holiday.to_date         >= from_date,
         )
         .all()
     )
-    user_hol_hours = defaultdict(float)
+    user_hol_hours    = defaultdict(float)
+    user_parental_days = defaultdict(int)
     for h in approved_hols:
         overlap_start = max(h.from_date, from_date)
         overlap_end   = min(h.to_date,   to_date)
         overlap_days  = (overlap_end - overlap_start).days + 1
-        prorate       = overlap_days / h.days if h.days else 0
-        user_hol_hours[h.user_id] += h.holiday_pay_hours * prorate
+
+        leave_type = getattr(h, 'leave_type', None) or 'holiday'
+        if leave_type in ('maternity', 'paternity'):
+            user_parental_days[h.user_id] += overlap_days
+        elif h.holiday_pay_hours and h.holiday_pay_hours > 0:
+            prorate = overlap_days / h.days if h.days else 0
+            user_hol_hours[h.user_id] += h.holiday_pay_hours * prorate
+
         if h.user_id not in user_obj:
             u2 = db.query(models.User).filter(models.User.id == h.user_id).first()
             if u2 and not u2.is_archived and not u2.is_blocked and not u2.is_erased:
@@ -103,8 +109,9 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
         mins      = user_mins[uid]
         hours     = round(mins / 60, 2)
         bh_hours  = round(user_bh_mins[uid] / 60, 2)
-        hol_hours = round(user_hol_hours[uid], 2)
-        rate      = u.pay_rate or 0.0
+        hol_hours      = round(user_hol_hours[uid], 2)
+        parental_days  = user_parental_days[uid]
+        rate           = u.pay_rate or 0.0
         gross     = round((hours + hol_hours) * rate, 2)
 
         addr_parts = [p for p in [
@@ -117,13 +124,13 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
             and from_date <= u.employment_start_date <= to_date
         )
 
-        # Skip staff with no reported hours and no holiday pay this period
-        if hours == 0 and hol_hours == 0:
+        # Skip staff with no reported hours, no holiday pay, and no parental leave this period
+        if hours == 0 and hol_hours == 0 and parental_days == 0:
             continue
 
         employees.append({
             "user_id":              uid,
-            "payroll_number":       u.payroll_number or "",
+            "payroll_number":       u.payroll_number or "?",
             "name":                 f"{u.first_name or ''} {u.last_name or ''}".strip(),
             "email":                u.email,
             "staff_id":             u.staff_id or "—",
@@ -140,6 +147,7 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
             "hours":                hours,
             "bank_holiday_hours":   bh_hours,
             "holiday_pay_hours":    hol_hours,
+            "parental_leave_days":  parental_days,
             "gross_pay":            gross,
         })
 
@@ -212,6 +220,7 @@ def payroll_export_csv(
         "Address", "NI Number", "Date of Birth", "Phone",
         "Employment Start", "New This Period?",
         "Shifts", "Hours Worked", "Bank Holiday Hours", "Holiday Pay Hours",
+        "Parental Leave (Days)",
         "Pay Rate (£/hr)", "Gross Pay (£)", "Staff ID",
     ])
 
@@ -231,6 +240,7 @@ def payroll_export_csv(
             f"{e['hours']:.2f}",
             f"{e['bank_holiday_hours']:.2f}",
             f"{e['holiday_pay_hours']:.2f}",
+            e["parental_leave_days"] if e["parental_leave_days"] else "",
             f"{e['pay_rate']:.2f}",
             f"{e['gross_pay']:.2f}",
             e["staff_id"],
@@ -244,6 +254,7 @@ def payroll_export_csv(
         f"{sum(e['hours'] for e in employees):.2f}",
         f"{sum(e['bank_holiday_hours'] for e in employees):.2f}",
         f"{sum(e['holiday_pay_hours'] for e in employees):.2f}",
+        sum(e["parental_leave_days"] for e in employees) or "",
         "",
         f"{sum(e['gross_pay'] for e in employees):.2f}",
         "",
@@ -294,10 +305,11 @@ def update_payroll_number(
     db:             Session = Depends(get_db),
     hr:             models.User = Depends(require_hr),
 ):
-    user = db.query(models.User).filter(
-        models.User.id              == user_id,
-        models.User.organisation_id == hr.organisation_id,
-    ).first()
+    is_sa = hr.role == models.UserRole.superadmin
+    q = db.query(models.User).filter(models.User.id == user_id)
+    if not is_sa:
+        q = q.filter(models.User.organisation_id == hr.organisation_id)
+    user = q.first()
     if not user:
         raise HTTPException(404, "User not found")
     user.payroll_number = payroll_number.strip() or None

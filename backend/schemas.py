@@ -278,9 +278,10 @@ class TimelogSummary(BaseModel):
 
 # ── Holiday ───────────────────────────────────────────────────────────────────
 class HolidayCreate(BaseModel):
-    from_date: date
-    to_date:   date
-    note:      Optional[str] = None
+    from_date:  date
+    to_date:    date
+    note:       Optional[str] = None
+    leave_type: Optional[str] = "holiday"
 
 
 class HolidayOut(BaseModel):
@@ -289,6 +290,7 @@ class HolidayOut(BaseModel):
     to_date:              date
     days:                 int
     note:                 Optional[str]
+    leave_type:           Optional[str] = "holiday"
     status:               str
     submitted_at:         Optional[datetime]
     reviewed_at:          Optional[datetime]
