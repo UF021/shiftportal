@@ -431,6 +431,7 @@ def all_events(
     from collections import defaultdict
     from sqlalchemy.orm import joinedload
 
+    is_sa = hr.role == models.UserRole.superadmin
     q = (
         db.query(models.ClockEvent)
         .options(
@@ -438,10 +439,11 @@ def all_events(
             joinedload(models.ClockEvent.site),
         )
         .filter(
-            models.ClockEvent.organisation_id == hr.organisation_id,
-            models.ClockEvent.event_type      == models.ClockEventType.clock_in,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
         )
     )
+    if not is_sa:
+        q = q.filter(models.ClockEvent.organisation_id == hr.organisation_id)
     if staff_id:
         q = q.filter(models.ClockEvent.user_id == staff_id)
     if site_id:
@@ -459,18 +461,18 @@ def all_events(
     user_ids = list({ci.user_id for ci in clock_ins})
     min_ts   = min(ci.timestamp for ci in clock_ins)
 
-    clock_outs_raw = (
+    outs_q = (
         db.query(models.ClockEvent)
         .options(joinedload(models.ClockEvent.site))
         .filter(
-            models.ClockEvent.organisation_id == hr.organisation_id,
-            models.ClockEvent.event_type      == models.ClockEventType.clock_out,
+            models.ClockEvent.event_type == models.ClockEventType.clock_out,
             models.ClockEvent.user_id.in_(user_ids),
-            models.ClockEvent.timestamp       >= min_ts,
+            models.ClockEvent.timestamp  >= min_ts,
         )
-        .order_by(models.ClockEvent.timestamp.asc())
-        .all()
     )
+    if not is_sa:
+        outs_q = outs_q.filter(models.ClockEvent.organisation_id == hr.organisation_id)
+    clock_outs_raw = outs_q.order_by(models.ClockEvent.timestamp.asc()).all()
 
     outs_by_user: dict[int, list] = defaultdict(list)
     for co in clock_outs_raw:
@@ -632,6 +634,17 @@ def manual_shift(
 
     in_h, in_m = map(int, body.clock_in_time.split(':'))
     clock_in_dt = _localize_uk(body.date.year, body.date.month, body.date.day, in_h, in_m)
+
+    # Reject exact duplicate: same user, site, and clock-in minute already exists
+    existing = db.query(models.ClockEvent).filter(
+        models.ClockEvent.user_id    == body.user_id,
+        models.ClockEvent.site_id    == body.site_id,
+        models.ClockEvent.event_type == models.ClockEventType.clock_in,
+        models.ClockEvent.timestamp  == clock_in_dt,
+    ).first()
+    if existing:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            f"A manual shift already exists for this staff member at this time (id={existing.id})")
     is_late, minutes_late = _calc_lateness(body.scheduled_start, clock_in_dt)
     notes = body.entry_notes if body.entry_notes is not None else ""
 
@@ -855,11 +868,14 @@ def delete_shift(
     db:       Session     = Depends(get_db),
     hr:       models.User = Depends(require_hr),
 ):
-    ci = db.query(models.ClockEvent).filter(
-        models.ClockEvent.id              == event_id,
-        models.ClockEvent.organisation_id == hr.organisation_id,
-        models.ClockEvent.event_type      == models.ClockEventType.clock_in,
-    ).first()
+    is_sa = hr.role == models.UserRole.superadmin
+    q = db.query(models.ClockEvent).filter(
+        models.ClockEvent.id         == event_id,
+        models.ClockEvent.event_type == models.ClockEventType.clock_in,
+    )
+    if not is_sa:
+        q = q.filter(models.ClockEvent.organisation_id == hr.organisation_id)
+    ci = q.first()
     if not ci:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Shift not found")
 
@@ -878,7 +894,8 @@ def delete_shift(
     shift_date  = ci.timestamp.date().isoformat() if ci.timestamp else None
     if co:
         db.delete(co)
-    log_action(db, hr.organisation_id, hr, 'shift.delete', 'shift', event_id,
+    org_id = ci.organisation_id if is_sa else hr.organisation_id
+    log_action(db, org_id, hr, 'shift.delete', 'shift', event_id,
                staff_user.full_name if staff_user else 'Unknown',
                {"date": shift_date})
     db.delete(ci)
@@ -894,13 +911,16 @@ def bulk_delete_shifts(
     db:   Session     = Depends(get_db),
     hr:   models.User = Depends(require_hr),
 ):
+    is_sa = hr.role == models.UserRole.superadmin
     deleted = 0
     for eid in body.event_ids:
-        ci = db.query(models.ClockEvent).filter(
-            models.ClockEvent.id              == eid,
-            models.ClockEvent.organisation_id == hr.organisation_id,
-            models.ClockEvent.event_type      == models.ClockEventType.clock_in,
-        ).first()
+        q = db.query(models.ClockEvent).filter(
+            models.ClockEvent.id         == eid,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+        )
+        if not is_sa:
+            q = q.filter(models.ClockEvent.organisation_id == hr.organisation_id)
+        ci = q.first()
         if not ci:
             continue
         co = (
@@ -919,6 +939,81 @@ def bulk_delete_shifts(
         deleted += 1
     db.commit()
     return {"message": f"{deleted} shifts deleted", "deleted": deleted}
+
+
+# ── Superadmin: purge duplicate clock-ins for a user on a given date ─────────
+
+@router.get("/admin/list-user-events")
+def list_user_events(
+    user_id: int,
+    db:      Session     = Depends(get_db),
+    sa:      models.User = Depends(require_hr),
+):
+    if sa.role != models.UserRole.superadmin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Superadmin only")
+    events = (
+        db.query(models.ClockEvent)
+        .filter(models.ClockEvent.user_id == user_id)
+        .order_by(models.ClockEvent.id.asc())
+        .all()
+    )
+    return [{"id": e.id, "type": e.event_type.value, "ts": e.timestamp.isoformat() if e.timestamp else None, "org": e.organisation_id} for e in events]
+
+
+@router.delete("/admin/purge-duplicates")
+def purge_duplicate_shifts(
+    user_id: int,
+    date:    date,
+    db:      Session     = Depends(get_db),
+    sa:      models.User = Depends(require_hr),
+):
+    if sa.role != models.UserRole.superadmin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Superadmin only")
+
+    day_start = datetime(date.year, date.month, date.day, 0,  0,  0, tzinfo=timezone.utc)
+    day_end   = datetime(date.year, date.month, date.day, 23, 59, 59, tzinfo=timezone.utc)
+
+    clock_ins = (
+        db.query(models.ClockEvent)
+        .filter(
+            models.ClockEvent.user_id    == user_id,
+            models.ClockEvent.event_type == models.ClockEventType.clock_in,
+            models.ClockEvent.timestamp  >= day_start,
+            models.ClockEvent.timestamp  <= day_end,
+        )
+        .order_by(models.ClockEvent.id.asc())
+        .all()
+    )
+
+    if not clock_ins:
+        return {"message": "No clock-in events found", "kept": None, "deleted": 0}
+
+    keep = clock_ins[0]
+    to_delete = clock_ins[1:]
+
+    deleted = 0
+    for ci in to_delete:
+        co = (
+            db.query(models.ClockEvent)
+            .filter(
+                models.ClockEvent.user_id    == ci.user_id,
+                models.ClockEvent.event_type == models.ClockEventType.clock_out,
+                models.ClockEvent.timestamp  >  ci.timestamp,
+            )
+            .order_by(models.ClockEvent.timestamp.asc())
+            .first()
+        )
+        if co:
+            db.delete(co)
+        db.delete(ci)
+        deleted += 1
+
+    db.commit()
+    return {
+        "message": f"Purged {deleted} duplicate shifts",
+        "kept_clock_in_id": keep.id,
+        "deleted": deleted,
+    }
 
 
 # ── Admin: recalculate all stored shift_minutes ───────────────────────────────

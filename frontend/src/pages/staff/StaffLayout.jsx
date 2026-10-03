@@ -292,6 +292,34 @@ function StaffLayoutInner() {
 
       {/* Content */}
       <div style={{ maxWidth:680, margin:'0 auto', padding:'20px 16px calc(84px + env(safe-area-inset-bottom))' }}>
+        {/* Suspended account banner */}
+        {user?.is_blocked && (
+          <div style={{
+            background:'#fde8e8', border:'2px solid #e05555', borderRadius:12,
+            padding:'16px 20px', marginBottom:20,
+            display:'flex', gap:14, alignItems:'flex-start',
+          }}>
+            <span style={{ fontSize:26, flexShrink:0 }}>⛔</span>
+            <div>
+              <div style={{ fontWeight:800, fontSize:15, color:'#a02020', marginBottom:4 }}>
+                Account Suspended — Limited Access
+              </div>
+              <div style={{ fontSize:13, color:'#7a2020', lineHeight:1.6 }}>
+                Your account has been suspended. You can still log in to complete overdue training and confirm outstanding documents, but you <strong>cannot clock in</strong> until your account is reinstated by HR.
+              </div>
+              <div style={{ marginTop:10, display:'flex', gap:8, flexWrap:'wrap' }}>
+                <button onClick={() => nav('/staff/training')} style={{
+                  padding:'8px 14px', borderRadius:8, border:'none',
+                  background:'#e65100', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer',
+                }}>🎓 Go to Training</button>
+                <button onClick={() => nav('/staff/documents')} style={{
+                  padding:'8px 14px', borderRadius:8, border:'none',
+                  background:'#b45000', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer',
+                }}>📋 Go to Documents</button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* No-incident alert — shown at top of every page until dismissed */}
         {showIncidentAlert && (
           <NoIncidentAlert onDismiss={dismissIncidentAlert} nav={nav} />

@@ -1,6 +1,6 @@
 // HRTimelogs.jsx
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getAllClockEvents, getAllStaff, getArchivedStaff, getAllHols, getMySites,
+import { getAllClockEvents, getAllStaff, getAllHols, getMySites,
          editShift, deleteShift, bulkDeleteShifts, recalculateShifts } from '../../api/client'
 import { fmtDate } from '../../api/utils'
 
@@ -258,11 +258,11 @@ export function HRTimelogs() {
   }
 
   useEffect(() => {
-    Promise.all([getAllStaff().catch(() => ({ data: [] })), getArchivedStaff().catch(() => ({ data: [] }))])
-      .then(([active, archived]) => {
-        const combined = [...(active.data || []), ...(archived.data || [])]
-        combined.sort((a, b) => a.full_name.localeCompare(b.full_name))
-        setStaff(combined)
+    getAllStaff().catch(() => ({ data: [] }))
+      .then(r => {
+        const active = (r.data || []).filter(s => !s.is_archived && !s.is_blocked)
+        active.sort((a, b) => a.full_name.localeCompare(b.full_name))
+        setStaff(active)
       })
     getAllHols({ status_filter: 'approved' }).then(r => setHols(r.data || [])).catch(() => {})
     getMySites().then(r => setSites(r.data || [])).catch(() => {})

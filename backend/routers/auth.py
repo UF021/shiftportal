@@ -43,12 +43,6 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
             "Your account is pending HR approval. You will be notified by email once activated."
         )
 
-    if user.is_blocked:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "Your account access has been suspended. Please contact HR."
-        )
-
     # Create training enrollment on first login (clock starts now)
     if user.role.value == 'staff':
         existing_enrol = db.query(models.TrainingEnrollment).filter(
@@ -71,6 +65,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         org_id       = user.organisation_id,
         name         = user.full_name,
         org_slug     = org.slug if org else None,
+        is_blocked   = bool(user.is_blocked),
     )
 
 

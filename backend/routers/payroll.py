@@ -50,6 +50,7 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
             models.ClockEvent.timestamp       >= from_dt,
             models.ClockEvent.timestamp       <= to_dt,
             models.User.is_archived           == False,
+            models.User.is_blocked            == False,
             models.User.is_erased             == False,
         )
         .all()
@@ -91,7 +92,7 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
         user_hol_hours[h.user_id] += h.holiday_pay_hours * prorate
         if h.user_id not in user_obj:
             u2 = db.query(models.User).filter(models.User.id == h.user_id).first()
-            if u2 and not u2.is_archived and not u2.is_erased:
+            if u2 and not u2.is_archived and not u2.is_blocked and not u2.is_erased:
                 user_obj[h.user_id] = u2
 
     employees = []
@@ -115,6 +116,10 @@ def _calc(from_date: date, to_date: date, org_id: int, db: Session) -> dict:
             u.employment_start_date
             and from_date <= u.employment_start_date <= to_date
         )
+
+        # Skip staff with no reported hours and no holiday pay this period
+        if hours == 0 and hol_hours == 0:
+            continue
 
         employees.append({
             "user_id":              uid,

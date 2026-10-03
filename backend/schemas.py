@@ -16,6 +16,7 @@ class TokenOut(BaseModel):
     org_id:       Optional[int]
     name:         str
     org_slug:     Optional[str]
+    is_blocked:   bool = False
 
 
 # ── Organisation ──────────────────────────────────────────────────────────────
