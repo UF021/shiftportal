@@ -354,3 +354,24 @@ def list_clock_failures(
         }
         for r in rows
     ]
+
+
+@router.patch("/payroll-numbers/bulk")
+def bulk_set_payroll_numbers(
+    assignments: list[dict],   # [{"user_id": int, "payroll_number": str}, ...]
+    db: Session = Depends(get_db),
+    _:  models.User = Depends(require_superadmin),
+):
+    """Bulk-assign payroll numbers by user_id. Superadmin only."""
+    results = []
+    for a in assignments:
+        uid = a.get("user_id")
+        pn  = str(a.get("payroll_number", "")).strip()
+        u   = db.query(models.User).filter(models.User.id == uid).first()
+        if u:
+            u.payroll_number = pn or None
+            results.append({"user_id": uid, "name": u.full_name, "payroll_number": pn, "ok": True})
+        else:
+            results.append({"user_id": uid, "ok": False, "error": "not found"})
+    db.commit()
+    return results
